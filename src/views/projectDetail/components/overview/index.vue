@@ -63,10 +63,23 @@
         </div>
         <div class="infoGrid">
           <div class="infoItem">
+            <label class="infoLabel">项目类型</label>
+            <div class="infoRow">
+              <span class="infoValue" v-if="!globalSettingEdit">{{ project?.projectType || "无类型" }}</span>
+              <t-select v-else v-model="projectEditData.projectType" placeholder="选择项目类型">
+                <t-option key="基于小说原文" label="基于小说原文" value="基于小说原文" />
+                <t-option key="基于剧本" label="基于剧本" value="基于剧本" />
+              </t-select>
+            </div>
+          </div>
+          <div class="infoItem">
             <label class="infoLabel">影片比例</label>
             <div class="infoRow">
               <span class="infoValue" v-if="!globalSettingEdit">{{ project?.videoRatio || "16:9" }}</span>
-              <a-select style="width: 100%" v-else v-model:value="projectEditData.videoRatio" :options="videoRatioOptions" class="infoValue" />
+              <t-select v-else v-model="projectEditData.videoRatio" placeholder="选择影片比例">
+                <t-option key="16:9" label="16:9" value="16:9" />
+                <t-option key="4:3" label="9:16" value="9:16" />
+              </t-select>
             </div>
           </div>
           <div class="infoItem">
@@ -141,18 +154,16 @@ function handleGlobalSettingEdit() {
     videoRatio: project.value?.videoRatio ?? "16:9",
     artStyle: project.value?.artStyle ?? "动漫",
     type: project.value?.type ?? "",
+    projectType: project.value?.projectType ?? "",
   };
   globalSettingEdit.value = true;
 }
-const projectEditData = ref<{ videoRatio: string; artStyle: string; type: string }>({
+const projectEditData = ref<{ videoRatio: string; artStyle: string; type: string; projectType: string }>({
   videoRatio: project.value?.videoRatio ?? "16:9",
   artStyle: project.value?.artStyle ?? "动漫",
   type: project.value?.type ?? "",
+  projectType: project.value?.projectType ?? "",
 });
-const videoRatioOptions = [
-  { label: "16:9", value: "16:9" },
-  { label: "9:16", value: "9:16" },
-];
 onMounted(() => {
   getStats();
 });
@@ -226,6 +237,7 @@ function updateProject() {
       type: projectEditData.value.type,
       artStyle: projectEditData.value.artStyle,
       videoRatio: projectEditData.value.videoRatio,
+      projectType: projectEditData.value.projectType,
     })
     .then(async () => {
       await store().setProjectById(projectId.value);

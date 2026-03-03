@@ -28,6 +28,7 @@ interface Project {
   userId?: number | null;
   createTime?: number;
   updatedAt?: number;
+  projectType: string | null;
 }
 interface GlobalSetting {
   aspectRatio: string; // 影片比例，例如 "16:9"
