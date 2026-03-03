@@ -1,18 +1,23 @@
 <template>
-  <el-dialog v-model="modelShow" :title="props.state" top="1vh" :footer="null" width="70vw" @open="getData">
+  <t-dialog v-model:visible="modelShow" :header="props.state" width="70vw" top="1vh">
     <div class="addModelContainer">
       <div class="model-cards-container">
-        <a-tabs v-model:activeKey="activeTab" class="model-tabs" @change="getData">
-          <a-tab-pane v-for="tab in useTabList" :key="tab.key" :tab="tab.tab">
+        <t-tabs v-model="activeTab" class="model-tabs" @change="getData">
+          <t-tab-panel v-for="tab in useTabList" :key="tab.key" :value="tab.key" :label="tab.tab">
             <div class="filter-section">
               <div class="search-wrapper">
-                <a-input-search v-model:value="searchKeyword" placeholder="搜索模型名称或描述..." allow-clear size="large" class="search-input">
-                  <template #prefix>
+                <t-input
+                  placeholder="搜索模型名称或描述..."
+                  v-model="searchKeyword"
+                  clearable
+                  size="large"
+                  class="search-input"
+                  @change="getData">
+                  <template #suffix-icon>
                     <SearchOutlined />
                   </template>
-                </a-input-search>
+                </t-input>
               </div>
-
               <div class="manufacturer-filter">
                 <div class="filter-header">
                   <span class="filter-label">
@@ -44,7 +49,6 @@
             </div>
 
             <a-divider style="margin: 16px 0" />
-
             <div class="cards-grid">
               <a-empty v-if="getFilteredModels(tab.key).length === 0" description="未找到匹配的模型" :image="Empty.PRESENTED_IMAGE_SIMPLE" />
               <template v-else>
@@ -75,8 +79,8 @@
                 </div>
               </template>
             </div>
-          </a-tab-pane>
-        </a-tabs>
+          </t-tab-panel>
+        </t-tabs>
       </div>
     </div>
     <addModelDialog
@@ -88,7 +92,7 @@
       :defaultPlaceHolder="getDefaultBaseUrlPlaceholder"
       :manufacturerNames="manufacturerNames"
       @fetchModelList="sure" />
-  </el-dialog>
+  </t-dialog>
 </template>
 
 <script setup lang="ts">
@@ -117,7 +121,7 @@ const isCustomModel = ref<boolean>(false);
 const searchKeyword = ref<string>("");
 // 选中的厂商列表
 const selectedManufacturers = ref<string[]>([]);
-// tab 列表配置，用于统一渲染三个类型的页签
+// tab 列表配置,用于统一渲染三个类型的页签
 const tabList = [
   { key: "text", tab: "文本", icon: "i-text", customDesc: "使用自定义文本模型", customType: "text" },
   { key: "image", tab: "图像", icon: "i-picture", customDesc: "使用自定义图像模型", customType: "image" },
@@ -308,64 +312,7 @@ interface RowData {
 }
 
 //文本模型预设
-const textModelPresets = ref<Record<string, { label: string; value: string }[]>>({
-  // deepSeek: [
-  //   { label: "deepseek-chat", value: "deepseek-chat" },
-  //   { label: "deepseek-reasoner", value: "deepseek-reasoner" },
-  // ],
-  // volcengine: [
-  //   { label: "doubao-lite-4-chat", value: "doubao-lite-4-chat" },
-  //   { label: "doubao-pro-4-chat", value: "doubao-pro-4-chat" },
-  //   { label: "doubao-seed-1-8-251228", value: "doubao-seed-1-8-251228" },
-  //   { label: "doubao-seed-1-6-251015", value: "doubao-seed-1-6-251015" },
-  //   { label: "doubao-seed-2-0-pro-260215", value: "doubao-seed-2-0-pro-260215" },
-  // ],
-  // zhipu: [
-  //   { label: "glm-4.7", value: "glm-4.7" },
-  //   { label: "glm-4.7-flashx", value: "glm-4.7-flashx" },
-  //   { label: "glm-4.6", value: "glm-4.6" },
-  //   { label: "glm-4.5-air", value: "glm-4.5-air" },
-  //   { label: "glm-4.5-airx", value: "glm-4.5-airx" },
-  //   { label: "glm-4-long", value: "glm-4-long" },
-  //   { label: "glm-4.7-flash", value: "glm-4.7-flash" },
-  //   { label: "glm-4.5-flash", value: "glm-4.5-flash" },
-  //   { label: "glm-4.6v", value: "glm-4.6v" },
-  // ],
-  // qwen: [
-  //   { label: "qwen-vl-max", value: "qwen-vl-max" },
-  //   { label: "qwen-plus-latest", value: "qwen-plus-latest" },
-  //   { label: "qwen-max", value: "qwen-max" },
-  //   { label: "qwen2.5-72b-instruct", value: "qwen2.5-72b-instruct" },
-  //   { label: "qwen2.5-14b-instruct-1m", value: "qwen2.5-14b-instruct-1m" },
-  //   { label: "qwen2.5-vl-72b-instruct", value: "qwen2.5-vl-72b-instruct" },
-  // ],
-  // openai: [
-  //   { label: "gpt-4o", value: "gpt-4o" },
-  //   { label: "gpt-4o-mini", value: "gpt-4o-mini" },
-  //   { label: "gpt-4.1", value: "gpt-4.1" },
-  //   { label: "gpt-5.1", value: "gpt-5.1" },
-  //   { label: "gpt-5.2", value: "gpt-5.2" },
-  // ],
-  // gemini: [
-  //   { label: "gemini-2.0-flash", value: "gemini-2.0-flash" },
-  //   { label: "gemini-2.0-flash-lite", value: "gemini-2.0-flash-lite" },
-  //   { label: "gemini-1.5-pro", value: "gemini-1.5-pro" },
-  //   { label: "gemini-1.5-flash", value: "gemini-1.5-flash" },
-  //   { label: "gemini-2.5-pro", value: "gemini-2.5-pro" },
-  //   { label: "gemini-2.5-flash", value: "gemini-2.5-flash" },
-  // ],
-  // anthropic: [
-  //   { label: "claude-opus-4-5", value: "claude-opus-4-5" },
-  //   { label: "claude-haiku-4-5", value: "claude-haiku-4-5" },
-  //   { label: "claude-sonnet-4-5", value: "claude-sonnet-4-5" },
-  //   { label: "claude-opus-4-1", value: "claude-opus-4-1" },
-  //   { label: "claude-opus-4-0", value: "claude-opus-4-0" },
-  //   { label: "claude-sonnet-4-0", value: "claude-sonnet-4-0" },
-  //   { label: "claude-3-7-sonnet-latest", value: "claude-3-7-sonnet-latest" },
-  //   { label: "claude-3-5-haiku-latest", value: "claude-3-5-haiku-latest" },
-  // ],
-  // modelScope: [{ label: "自定义模型", value: "自定义模型" }],
-});
+const textModelPresets = ref<Record<string, { label: string; value: string }[]>>({});
 
 // 生成文本模型卡片列表
 const textModels = computed<ModelCard[]>(() => {
@@ -386,7 +333,7 @@ const textModels = computed<ModelCard[]>(() => {
   return models;
 });
 
-// 获取可用的厂商列表（根据当前标签页）
+// 获取可用的厂商列表(根据当前标签页)
 const availableManufacturers = computed(() => {
   const manufacturers = new Set<string>();
 
@@ -455,31 +402,19 @@ function clearFilters() {
   searchKeyword.value = "";
 }
 
-// 监听标签页切换，清空筛选条件
+// 监听标签页切换,清空筛选条件
 watch(activeTab, () => {
   clearFilters();
 });
+watch(
+  () => modelShow.value,
+  (newVal) => {
+    getData();
+  },
+  { immediate: true },
+);
 //图片模型预设
-const imageModelPresets = ref<Record<string, { label: string; value: string }[]>>({
-  // volcengine: [{ label: "doubao-seedream-4-5-251128", value: "doubao-seedream-4-5-251128" }],
-  // kling: [
-  //   { label: "kling-v1", value: "kling-v1" },
-  //   { label: "kling-v1-5", value: "kling-v1-5" },
-  //   { label: "kling-v2", value: "kling-v2" },
-  //   { label: "kling-v2-new", value: "kling-v2-new" },
-  //   { label: "kling-v2-1", value: "kling-v2-1" },
-  // ],
-  // gemini: [
-  //   { label: "gemini-2.5-flash-image", value: "gemini-2.5-flash-image" },
-  //   { label: "gemini-3-pro-image-preview", value: "gemini-3-pro-image-preview" },
-  // ],
-  // vidu: [{ label: "viduq2", value: "viduq2" }],
-  // runninghub: [{ label: "nanobanana", value: "nanobanana" }],
-  // modelScope: [{ label: "自定义模型", value: "自定义模型" }],
-  // apimart: [
-  //   { label: "nanobanana", value: "nanobanana" },
-  // ],
-});
+const imageModelPresets = ref<Record<string, { label: string; value: string }[]>>({});
 
 // 生成图像模型卡片列表
 const imageModels = computed<ModelCard[]>(() => {
@@ -505,56 +440,7 @@ const filteredImageModels = computed<ModelCard[]>(() => {
   return filterModels(imageModels.value);
 });
 //视频模型预设
-const videoModelPresets = ref<Record<string, { label: string; value: string }[]>>({
-  // volcengine: [
-  //   { label: "doubao-seedance-1-0-pro-fast-251015", value: "doubao-seedance-1-0-pro-fast-251015" },
-  //   { label: "doubao-seedance-1-5-pro-251215", value: "doubao-seedance-1-5-pro-251215" },
-  //   { label: "doubao-seedance-1-0-pro-250528", value: "doubao-seedance-1-0-pro-250528" },
-  //   { label: "doubao-seedance-1-0-lite-i2v-250428", value: "doubao-seedance-1-0-lite-i2v-250428" },
-  //   { label: "doubao-seedance-1-0-lite-t2v-250428", value: "doubao-seedance-1-0-lite-t2v-250428" },
-  // ],
-  // runninghub: [
-  //   { label: "sora-2", value: "sora-2" },
-  //   { label: "sora-2-pro", value: "sora-2-pro" },
-  // ],
-  // kling: [
-  //   { label: "kling-v1(STD)", value: "kling-v1(STD)" },
-  //   { label: "kling-v1(PRO)", value: "kling-v1(PRO)" },
-  //   { label: "kling-v1-6(PRO)", value: "kling-v1-6(PRO)" },
-  // ],
-  // gemini: [
-  //   { label: "veo-3.1-generate-preview", value: "veo-3.1-generate-preview" },
-  //   { label: "veo-3.1-fast-generate-preview", value: "veo-3.1-fast-generate-preview" },
-  //   { label: "veo-3.0-generate-preview", value: "veo-3.0-generate-preview" },
-  //   { label: "veo-3.0-fast-generate-preview", value: "veo-3.0-fast-generate-preview" },
-  //   { label: "veo-2.0-generate-001", value: "veo-2.0-generate-001" },
-  // ],
-  // wan: [
-  //   { label: "wan2.6-i2v-flash", value: "wan2.6-i2v-flash" },
-  //   { label: "wan2.6-i2v", value: "wan2.6-i2v" },
-  //   { label: "wan2.5-i2v-preview", value: "wan2.5-i2v-preview" },
-  //   { label: "wan2.2-i2v-flash", value: "wan2.2-i2v-flash" },
-  //   { label: "wan2.2-i2v-plus", value: "wan2.2-i2v-plus" },
-  //   { label: "wanx2.1-i2v-plus", value: "wanx2.1-i2v-plus" },
-  //   { label: "wanx2.1-i2v-turbo", value: "wanx2.1-i2v-turbo" },
-  //   { label: "wanx2.1-kf2v-plus", value: "wanx2.1-kf2v-plus" },
-  //   { label: "wan2.2-kf2v-flash", value: "wan2.2-kf2v-flash" },
-  //   { label: "wan2.6-t2v", value: "wan2.6-t2v" },
-  //   { label: "wan2.5-t2v-preview", value: "wan2.5-t2v-preview" },
-  //   { label: "wan2.2-t2v-plus", value: "wan2.2-t2v-plus" },
-  //   { label: "wanx2.1-t2v-turbo", value: "wanx2.1-t2v-turbo" },
-  //   { label: "wanx2.1-t2v-plus", value: "wanx2.1-t2v-plus" },
-  // ],
-  // vidu: [
-  //   { label: "viduq3-pro", value: "viduq3-pro" },
-  //   { label: "viduq2-pro-fast", value: "viduq2-pro-fast" },
-  //   { label: "viduq2-pro", value: "viduq2-pro" },
-  //   { label: "viduq2-turbo", value: "viduq2-turbo" },
-  //   { label: "viduq1", value: "viduq1" },
-  //   { label: "viduq1-classic", value: "viduq1-classic" },
-  //   { label: "vidu2.0", value: "vidu2.0" },
-  // ],
-});
+const videoModelPresets = ref<Record<string, { label: string; value: string }[]>>({});
 
 // 生成视频模型卡片列表
 const videoModels = computed<ModelCard[]>(() => {
@@ -620,7 +506,7 @@ function selectCustomModel(type: string) {
   showConfigModal.value = true;
 }
 
-// 获取当前模型类型对应的大类（text/image/video）
+// 获取当前模型类型对应的大类(text/image/video)
 function getModelTypeCategory(modelType: string): string {
   return modelType;
 }
@@ -675,7 +561,7 @@ function getData() {
 }
 
 .model-tabs {
-  :deep(.ant-tabs-nav) {
+  :deep(.t-tabs__nav) {
     margin-bottom: 24px;
   }
 }
@@ -699,7 +585,6 @@ function getData() {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 
   &:hover {
-    border-color: #d9d9d9;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
     transform: translateY(-4px);
   }
@@ -821,7 +706,7 @@ function getData() {
   .search-input {
     max-width: 500px;
 
-    :deep(.ant-input-affix-wrapper) {
+    :deep(.t-input__wrap) {
       border-radius: 6px;
       border: 1px solid #f0f0f0;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -837,18 +722,16 @@ function getData() {
       }
     }
 
-    :deep(.ant-input) {
+    :deep(.t-input) {
       font-size: 14px;
     }
   }
 }
 
 .manufacturer-filter {
-  background: #fafafa;
   border-radius: 6px;
   padding: 16px;
-  border: 1px solid #f0f0f0;
-
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   .filter-header {
     display: flex;
     justify-content: space-between;
@@ -858,11 +741,10 @@ function getData() {
     .filter-label {
       font-size: 14px;
       font-weight: 500;
-      color: #262626;
+      color: #636464;
       display: flex;
       align-items: center;
       gap: 6px;
-
       :deep(.anticon) {
         color: #1890ff;
       }

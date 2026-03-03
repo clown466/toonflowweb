@@ -37,7 +37,7 @@
 <script setup lang="ts">
 const menuList = [
   { path: "/project", label: "我的项目", icon: "folder-open" },
-  // { path: "/taskList", label: "任务列表", icon: "task" },
+  // { path: "/taskList", label: "任务中心", icon: "list-numbered" },
 ];
 
 const collapsIcon = computed(() => (collapsed.value ? "chevron-right" : "chevron-left"));

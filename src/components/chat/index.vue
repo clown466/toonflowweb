@@ -63,7 +63,6 @@ import throttle from "@/utils/throttle";
 import chatMessage from "./chatMessage.vue";
 import { message as antMessage } from "ant-design-vue";
 import "./type.d.ts";
-
 const msgInput = ref<HTMLTextAreaElement | null>(null);
 const message = defineModel<ChatMessage[]>({ default: [] });
 
@@ -158,7 +157,6 @@ async function sendMsg() {
     antMessage.warning({ content: "请输入内容", duration: 1 });
     return;
   }
-
   const msg = inputMsg.value;
   inputMsg.value = "";
   await props.sendApi(msg);

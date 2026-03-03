@@ -203,6 +203,7 @@ const generateIntervals = ref<Record<number, ReturnType<typeof setInterval>>>({}
 const currentImage = ref<Element>();
 const textareaRefs = ref<Record<number, HTMLTextAreaElement | null>>({});
 const batchGenerateScript = ref<Script | null>(null);
+const isRefreshing = ref(false);
 
 const currentScript = computed(() => scripts.value?.find((s) => s.id === selectSet.value));
 const generateData = computed(() => batchGenerateScript.value?.element ?? []);
@@ -284,6 +285,7 @@ async function handleGenerate() {
   try {
     await axios.post("/script/generateScriptApi", { outlineId, scriptId: id });
     message.success("生成剧本成功");
+    isRefreshing.value = true;
     emit("getScriptData");
   } catch (err: any) {
     message.error(err.message || "生成剧本失败");
@@ -322,6 +324,10 @@ async function openBatchGenerate(item: Script) {
 }
 
 function handleTabChange(activeKey: number | string) {
+  if (isRefreshing.value) {
+    isRefreshing.value = false;
+    return;
+  }
   emit("change", Number(activeKey));
 }
 
@@ -355,10 +361,17 @@ watch(
   scripts,
   async (data) => {
     if (data?.length) {
-      selectSet.value = data[0].id;
+      if (!selectSet.value || !data.find((s) => s.id === selectSet.value)) {
+        selectSet.value = data[0].id;
+        await nextTick();
+        emit("change", data[0].id);
+      }
       await nextTick();
-      handleTabChange(selectSet.value);
-      // 重新调整所有textarea高度
+      if (!isRefreshing.value) {
+        handleTabChange(selectSet.value);
+      } else {
+        isRefreshing.value = false;
+      }
       Object.entries(textareaRefs.value).forEach(([id, textarea]) => {
         if (textarea) {
           adjustTextareaHeight(textarea);

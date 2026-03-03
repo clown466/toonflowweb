@@ -16,16 +16,22 @@
         </div>
       </div>
       <!-- sub nav -->
-      <div class="nav">
-        <button
-          v-for="item in subNavItems"
-          :key="item.id"
-          class="navBtn"
-          :class="{ navActive: item.id === currentSubView }"
-          @click="setCurrent(item.id)">
-          <component :is="item.icon" :size="18" />
-          <span class="navLabel">{{ item.label }}</span>
-        </button>
+      <div class="jb ac">
+        <div class="nav">
+          <button
+            v-for="item in subNavItems"
+            :key="item.id"
+            class="navBtn"
+            :class="{ navActive: item.id === currentSubView }"
+            @click="setCurrent(item.id)">
+            <component :is="item.icon" :size="18" />
+            <span class="navLabel">{{ item.label }}</span>
+          </button>
+        </div>
+        <div class="ac" style="margin-left: 20px; cursor: pointer" @click="taskFn">
+          <t-icon name="tips-double-filled" />
+          <span style="margin-left: 5px;">任务中心</span>
+        </div>
       </div>
     </div>
     <!-- main -->
@@ -36,6 +42,7 @@
       <assetsManager v-if="currentSubView === 'assets'" />
       <scriptManager v-if="currentSubView === 'script'" />
     </div>
+    <myTask v-model="visible" />
   </div>
 </template>
 
@@ -47,6 +54,7 @@ import originalText from "./components/originalText/index.vue";
 import outlineManager from "./components/outlineManager/index.vue";
 import assetsManager from "./components/assetsManager/index.vue";
 import scriptManager from "./components/scriptManager/index.vue";
+import myTask from "./components/myTask/index.vue";
 
 const { project } = storeToRefs(store());
 
@@ -77,6 +85,10 @@ function setCurrent(key: SubView) {
 
 function onBack() {
   router.push("/project");
+}
+const visible = ref<boolean>(false);
+function taskFn() {
+  visible.value = true;
 }
 </script>
 
