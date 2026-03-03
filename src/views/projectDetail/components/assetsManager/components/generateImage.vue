@@ -250,7 +250,7 @@ function handleSelect(item: ImageState, index: number) {
 function setPreviewVisible(value: boolean) {
   previewVisible.value = value;
 }
-let timer: number = -1;
+let timer: NodeJS.Timeout | number = -1;
 // 获取图片列表
 const assetsId = ref();
 async function fetchImages(id: number) {
@@ -354,7 +354,7 @@ async function generatePrompt() {
   const { id, name, intro, type } = formData.value;
   promptLoading.value = true;
   try {
-    const { data } = await axios.post("/assets/polishPrompt", {
+    const { data } = await axios.post("/assets/polishAssetsPrompt", {
       projectId: projectId.value,
       assetsId: id,
       type: TYPE_MAP[type ?? "道具"] ?? "props",

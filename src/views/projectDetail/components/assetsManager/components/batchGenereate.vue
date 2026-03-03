@@ -267,7 +267,7 @@ async function handleBatchGeneratePrompt() {
 async function generatePrompt(data: GenerateItem) {
   rowPromptLoading.value[data.id] = true;
   try {
-    const res = await axios.post("/assets/polishPrompt", {
+    const res = await axios.post("/assets/polishAssetsPrompt", {
       projectId: projectId.value,
       assetsId: data.id,
       type: typeMap[data.type] ?? "props",

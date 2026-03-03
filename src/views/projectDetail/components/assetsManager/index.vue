@@ -298,7 +298,7 @@ async function changeFilter(type: FilterType) {
 
   try {
     if (type === "storyboard") {
-      scriptList.value = await fetchStoryboardList();
+      scriptList.value = await fetchScriptList();
       if (scriptList.value.length) {
         currentScriptId.value = scriptList.value[0].id;
         await fetchStoryboardDetail(currentScriptId.value);
@@ -318,8 +318,8 @@ async function fetchAssets(type: string) {
   projectElements.value = res.data;
 }
 
-async function fetchStoryboardList() {
-  const res = await axios.post("/assets/getStoryboard", { projectId: projectId.value });
+async function fetchScriptList() {
+  const res = await axios.post("/assets/getScriptList", { projectId: projectId.value });
   return res.data;
 }
 
@@ -410,7 +410,7 @@ async function handleBatchGeneratePrompt() {
   batchPromptLoading.value = true;
   await processBatch(selectModal.value, async (item) => {
     try {
-      const res = await axios.post("/assets/polishPrompt", {
+      const res = await axios.post("/assets/polishAssetsPrompt", {
         projectId: projectId.value,
         assetsId: item.id,
         type: typeMap[item.type] ?? "props",

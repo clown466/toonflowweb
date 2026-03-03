@@ -228,15 +228,14 @@ async function handleDownload() {
 
   try {
     const zip = new JSZip();
-
+    const reveserVideo = [...selectedVideos].reverse();
     // 下载所有视频并添加到压缩包
-    for (let i = 0; i < selectedVideos.length; i++) {
-      const video = selectedVideos[i];
-      const videoIndex = videoData.value.findIndex((v) => v.id === video.id) + 1;
-      const filename = `视频_${videoIndex}.mp4`;
+    for (let i = 0; i < reveserVideo.length; i++) {
+      const video = reveserVideo[i];
+      const filename = `视频_${i + 1}.mp4`;
 
       message.loading({
-        content: `正在处理 ${i + 1}/${selectedVideos.length}: ${filename}`,
+        content: `正在处理 ${i + 1}/${reveserVideo.length}: ${filename}`,
         key: loadingKey,
         duration: 0,
       });

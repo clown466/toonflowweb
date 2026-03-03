@@ -110,35 +110,33 @@
             <vxe-column title="操作" align="center" width="240" fixed="right">
               <template #default="{ row }">
                 <div class="action-buttons">
-                  <a-tooltip title="测试连接">
-                    <a-button type="primary" size="small" :loading="row.load" @click="testAi(row)" class="action-btn test-btn">
-                      <template #icon v-if="!row.load">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                          <path
-                            d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                        </svg>
-                      </template>
-                      测试
-                    </a-button>
-                  </a-tooltip>
-                  <a-tooltip title="编辑模型">
-                    <a-button size="small" @click="editModelBtn(row)" class="action-btn edit-btn">
-                      <template #icon>
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                          <path
-                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
-                        </svg>
-                      </template>
-                      编辑
-                    </a-button>
-                  </a-tooltip>
-                  <a-popconfirm
+                  <a-button type="primary" size="small" :loading="row.load" @click="testAi(row)" class="action-btn test-btn">
+                    <template #icon v-if="!row.load">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path
+                          d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                      </svg>
+                    </template>
+                    测试
+                  </a-button>
+                  <a-button size="small" @click="editModelBtn(row)" class="action-btn edit-btn">
+                    <template #icon>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path
+                          d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                      </svg>
+                    </template>
+                    编辑
+                  </a-button>
+                  <el-popconfirm
                     title="确定要删除此模型吗？"
                     style="z-index: 99999999999999999999"
                     ok-text="确定"
                     cancel-text="取消"
+                    placement="top"
+                    :width="200"
                     @confirm="delModelBtn(row)">
-                    <a-tooltip title="删除模型">
+                    <template #reference>
                       <a-button danger size="small" class="action-btn delete-btn">
                         <template #icon>
                           <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -147,8 +145,8 @@
                         </template>
                         删除
                       </a-button>
-                    </a-tooltip>
-                  </a-popconfirm>
+                    </template>
+                  </el-popconfirm>
                 </div>
               </template>
             </vxe-column>

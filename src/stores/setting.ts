@@ -5,7 +5,7 @@ export default defineStore(
     const wsBaseUrl = ref<string>("ws://localhost:60000");
 
     const otherSetting = ref({
-      axiosTimeOut: 60000 * 10 * 100,
+      axiosTimeOut: 60 * 10 * 1000,
       assetsBatchGenereateSize: 5,
     });
 

@@ -326,7 +326,7 @@ async function doMerge(): Promise<void> {
     filePathMap[`@图${idx + 2}`] = item.id;
   });
   try {
-    const res = await axios.post("/storyboard/generateStoryboardApi", {
+    const res = await axios.post("/storyboard/storyboardImageEdit", {
       filePath: filePathMap,
       prompt: mockStoryboard.value.editPrompt,
       projectId: projectId.value,

@@ -199,7 +199,7 @@ const fetchAssets = async (type: string) => {
 };
 
 const fetchScriptList = async () => {
-  const { data } = await axios.post("/assets/getStoryboard", { projectId: projectId.value });
+  const { data } = await axios.post("/assets/getScriptList", { projectId: projectId.value });
   return data;
 };
 
@@ -297,7 +297,7 @@ const handleBatchGeneratePrompt = async () => {
   batchGeneratePromptLoading.value = true;
   try {
     await batchProcess(selectModal.value, 5, async (item) => {
-      const { data } = await axios.post("/assets/polishPrompt", {
+      const { data } = await axios.post("/assets/polishAssetsPrompt", {
         projectId: projectId.value,
         assetsId: item.id,
         type: TYPE_MAP[item.type] ?? "props",

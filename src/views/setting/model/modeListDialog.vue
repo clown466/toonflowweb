@@ -144,7 +144,7 @@ const websites = ref<Record<string, string>>({
   anthropic: "",
   runninghub: "https://www.runninghub.cn/enterprise-api/consumerApi",
   gemini: "https://ai.google.dev/gemini-api/docs/api-key?hl=zh-cn",
-  grsai:"https://grsai.ai/zh/dashboard/api-keys"
+  grsai:"https://tf.grsai.ai/zh/dashboard/api-keys"
 });
 
 const currentWebsite = computed(() => {

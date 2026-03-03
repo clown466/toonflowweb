@@ -21,7 +21,7 @@ import { computed } from "vue";
 const axiosTimeOutInSeconds = computed({
   get: () => {
     const ms = otherSetting.value.axiosTimeOut;
-    if (ms == null || isNaN(ms)) return 60; // 默认60秒
+    if (ms == null || isNaN(ms)) return 600; // 默认600秒
     return Math.floor(ms / 1000);
   },
   set: (val: number | null | undefined) => {
