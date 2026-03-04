@@ -27,10 +27,10 @@ const router = createRouter({
         //   path: "/projectDetail",
         //   component: () => import("@/views/projectDetail/index.vue"),
         // },
-        // {
-        //   path: "/setting",
-        //   component: () => import("@/views/setting/index.vue"),
-        // },
+        {
+          path: "/setting",
+          component: () => import("@/views/setting/index.vue"),
+        },
         // {
         //   path: "/taskList",
         //   component: () => import("@/views/taskList/index.vue"),
