@@ -27,17 +27,13 @@
           <t-empty />
         </div>
         <div v-else class="scriptsList f w">
-          <div
-            class="scriptItem"
-            v-for="(item, index) in scripts"
-            :key="index"
-            @click="
-              selectedScript = {
-                ...item,
-              };
-              detailsShow = true;
-            ">
-            <t-card :title="item.title" :bordered="false" hover-shadow :style="{ width: '400px' }">
+          <div class="scriptItem" v-for="(item, index) in scripts" :key="index" @click="
+            selectedScript = {
+              ...item,
+            };
+          detailsShow = true;
+          ">
+            <t-card :title="item.name" :bordered="false" hover-shadow :style="{ width: '400px' }">
               <template #avatar>
                 <t-image :src="image" fit="fill" :style="{ width: '60px', height: '60px', borderRadius: '20%' }" />
               </template>
@@ -47,54 +43,31 @@
         </div>
       </div>
     </div>
-    <Details v-model="detailsShow" :item="selectedScript" />
-    <AddScript v-model="addScriptShow" />
+    <Details v-model="detailsShow" :item="selectedScript" @searchScripts="searchScripts"/>
+    <AddScript v-model="addScriptShow" @searchScripts="searchScripts"/>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue";
+import store from "@/stores";
 import image from "@/assets/providers/script.png";
 import Details from "./components/details.vue";
 import AddScript from "./components/addScript.vue";
+import axios from "@/utils/axios";
 
 interface Script {
   id: number;
-  title: string;
+  name: string;
   content: string;
 }
 const selectedScript = ref<Script>({
   id: 0,
-  title: "",
+  name: "",
   content: "",
 });
 // 模拟剧本数据
 const scripts = ref<Script[]>([
-  {
-    id: 1,
-    title: "剧本1",
-    content: "这是剧本1撒大大爱仕达爱仕达爱仕达爱仕达爱仕达爱仕达爱仕达爱仕达爱仕达的内容",
-  },
-  {
-    id: 2,
-    title: "剧本2",
-    content: "这是剧本2的内容",
-  },
-  {
-    id: 2,
-    title: "剧本2",
-    content: "这是剧本2的内容",
-  },
-  {
-    id: 2,
-    title: "剧本2",
-    content: "这是剧本2的内容",
-  },
-  {
-    id: 2,
-    title: "剧本2",
-    content: "这是剧本2的内容",
-  },
 ]);
 const searchQuery = ref("");
 const detailsShow = ref(false);
@@ -107,9 +80,16 @@ function handleAddScript() {
 function onChange() {
   searchScripts();
 }
+onMounted(searchScripts);
+const { projectId } = storeToRefs(store());
 //搜索剧本
-function searchScripts() {
-  console.log("执行搜索，查询:", searchQuery.value);
+async function searchScripts() {
+  try {
+    const res = await axios.post("/script/getScrptApi", { projectId: projectId.value, name: searchQuery.value });
+    scripts.value = res.data;
+  } catch (error) {
+    console.error("搜索剧本失败:", error);
+  }
 }
 </script>
 
@@ -121,24 +101,30 @@ function searchScripts() {
       font-weight: 600;
       margin-bottom: 8px;
     }
+
     .smSub {
       color: #a19f9f;
       font-size: 15px;
     }
   }
+
   .scriptData {
     .searchInput {
       width: 500px;
     }
   }
+
   .content {
     margin-top: 20px;
+
     .noneScripts {
       width: 100%;
       height: 400px;
     }
+
     .scriptsList {
       gap: 20px;
+
       .scriptItem {
         cursor: pointer;
         span {

@@ -1,15 +1,7 @@
 <template>
   <div class="addScript">
-    <t-dialog
-      :visible.sync="addScriptShow"
-      width="60vw"
-      top="1vh"
-      :closable="false"
-      :maskClosable="false"
-      wrapClassName="no-header-margin"
-      dialogClass="custom-modal"
-      :close-btn="false"
-      @close-btn-click="handleCancel">
+    <t-dialog :visible.sync="addScriptShow" width="60vw" top="1vh" :closable="false" :maskClosable="false"
+      wrapClassName="no-header-margin" dialogClass="custom-modal" :close-btn="false" @close-btn-click="handleCancel">
       <template #header>
         <div class="titHeader">
           <div class="titleWrapper">
@@ -27,14 +19,8 @@
         </div>
         <div class="upload">
           <div class="upload-area" @click="triggerUpload" @dragover.prevent @drop.prevent="handleDrop">
-            <t-upload
-              ref="uploadRef"
-              v-model="fileList"
-              theme="file"
-              :multiple="false"
-              :max="1"
-              :before-upload="handleBeforeUpload"
-              style="display: none" />
+            <t-upload ref="uploadRef" v-model="fileList" theme="file" :multiple="false" :max="1"
+              :before-upload="handleBeforeUpload" style="display: none" />
             <div class="dragIcon">
               <i-upload-one theme="outline" size="32" fill="var(--td-brand-color)" />
             </div>
@@ -43,13 +29,8 @@
           </div>
         </div>
         <div class="content">
-          <textarea
-            v-model="scriptData"
-            class="notebook-textarea"
-            placeholder="请上传剧本内容..."
-            spellcheck="false"
-            @input="handleInput"
-            :ref="setTextareaRef"></textarea>
+          <textarea v-model="scriptData" class="notebook-textarea" placeholder="请上传剧本内容..." spellcheck="false"
+            @input="handleInput" :ref="setTextareaRef"></textarea>
         </div>
       </div>
       <template #footer>
@@ -63,12 +44,15 @@
 </template>
 
 <script setup lang="ts">
+import store from "@/stores";
 import { ref, watch, nextTick } from "vue";
 import { ElLoading } from "element-plus";
 import mammoth from "mammoth";
 import image from "@/assets/providers/script.png";
 import { MessagePlugin } from "tdesign-vue-next";
 import type { UploadFile } from "tdesign-vue-next";
+import axios from "@/utils/axios";
+import { f } from "vue-router/dist/router-CWoNjPRp.mjs";
 
 const addScriptShow = defineModel<boolean>({
   default: false,
@@ -200,7 +184,9 @@ watch(addScriptShow, (newVal) => {
     });
   }
 });
-function handleConfirm(): void {
+const { projectId } = storeToRefs(store());
+const emit = defineEmits(["searchScripts"]);
+async function handleConfirm(): Promise<void> {
   if (!scriptData.value.trim()) {
     MessagePlugin.warning("请上传或输入剧本内容");
     return;
@@ -209,15 +195,23 @@ function handleConfirm(): void {
     MessagePlugin.warning("请输入剧本名称");
     return;
   }
-  console.log("%c Line:27 🥃 scriptName", "background:#f5ce50", scriptName.value);
-  console.log("%c Line:28 🥂 scriptData.value", "background:#f5ce50", scriptData.value);
-  handleCancel();
+  try {
+    await axios.post("/script/addScript", { name: scriptName.value, content: scriptData.value, projectId: projectId.value });
+    MessagePlugin.success("剧本添加成功");
+  } catch (error) {
+    console.error("添加剧本失败:", error);
+    MessagePlugin.error("添加剧本失败，请稍后再试");
+  } finally {
+    close();
+    emit("searchScripts");
+  }
 }
 const scriptName = ref<string>("");
 </script>
 
 <style lang="scss" scoped>
 $line-height: 28px;
+
 .addScript {
   .titHeader {
     display: flex;
@@ -231,11 +225,13 @@ $line-height: 28px;
       display: flex;
       align-items: center;
       gap: 12px;
+
       .titleIcon {
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
+
         .icon {
           color: var(--td-text-color-anti);
         }
@@ -255,18 +251,21 @@ $line-height: 28px;
       border-radius: 8px;
       transition: all 0.2s;
       color: var(--td-text-color-secondary);
+
       &:hover {
         background: var(--td-bg-color-component-hover);
         color: var(--td-text-color-primary);
       }
     }
   }
+
   .data {
     .upload {
       width: 100%;
       height: 200px;
       margin-top: 10px;
       background: var(--td-bg-color-container);
+
       .upload-area {
         padding: 42px 20px;
         background-color: var(--td-bg-color-secondarycontainer);
@@ -298,12 +297,14 @@ $line-height: 28px;
         }
       }
     }
+
     .content {
       margin-top: 20px;
       width: 100%;
       height: 400px;
       overflow: auto;
       background: var(--td-bg-color-container);
+
       .notebook-textarea {
         flex: 1;
         padding: 12px 16px;
@@ -318,12 +319,10 @@ $line-height: 28px;
         background: transparent;
         color: var(--td-text-color-primary);
         font-family: "KaiTi", "STKaiti", "PingFang SC", sans-serif;
-        background-image: repeating-linear-gradient(
-          transparent,
-          transparent calc($line-height - 1px),
-          var(--td-component-border) calc($line-height - 1px),
-          var(--td-component-border) $line-height
-        );
+        background-image: repeating-linear-gradient(transparent,
+            transparent calc($line-height - 1px),
+            var(--td-component-border) calc($line-height - 1px),
+            var(--td-component-border) $line-height );
         background-position: 0 12px;
 
         &::placeholder {
@@ -332,6 +331,7 @@ $line-height: 28px;
       }
     }
   }
+
   .dialog-footer {
     display: flex;
     justify-content: flex-end;
