@@ -202,9 +202,7 @@ onMounted(searchScripts);
       justify-content: space-between;
       align-items: center;
       padding: 24px 32px;
-      background: linear-gradient(135deg, var(--td-brand-color) 0%, var(--td-brand-color-active) 100%);
       border-radius: 20px;
-      color: var(--td-text-color-anti);
       
       .titleSection {
         display: flex;
@@ -270,7 +268,6 @@ onMounted(searchScripts);
     .searchWrapper {
       flex: 1;
       max-width: 500px;
-
       .searchInput {
         :deep(.t-input) {
           border-radius: 12px;

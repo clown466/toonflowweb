@@ -13,12 +13,9 @@
       <template #header>
         <div class="titHeader">
           <div class="titleWrapper">
-            <div class="titleIcon">
-              <t-image :src="image" fit="fill" :style="{ width: '50px', height: '50px', borderRadius: '20%' }" />
-            </div>
             <span class="title">新增剧本</span>
           </div>
-          <i-close class="closeBtn" theme="outline" size="20" @click="close" />
+          <i-close theme="outline" size="18" @click="close" />
         </div>
       </template>
       <div class="data">
@@ -63,15 +60,15 @@
 </template>
 
 <script setup lang="ts">
-import store from "@/stores";
 import { ref, watch, nextTick } from "vue";
 import { ElLoading } from "element-plus";
 import mammoth from "mammoth";
-import image from "@/assets/providers/script.png";
 import { MessagePlugin } from "tdesign-vue-next";
 import type { UploadFile } from "tdesign-vue-next";
 import axios from "@/utils/axios";
-import { f } from "vue-router/dist/router-CWoNjPRp.mjs";
+import projectStore from "@/stores/project";
+
+const { project } = storeToRefs(projectStore());
 
 const addScriptShow = defineModel<boolean>({
   default: false,
@@ -203,7 +200,6 @@ watch(addScriptShow, (newVal) => {
     });
   }
 });
-const { projectId } = storeToRefs(store());
 const emit = defineEmits(["searchScripts"]);
 async function handleConfirm(): Promise<void> {
   if (!scriptData.value.trim()) {
@@ -215,7 +211,7 @@ async function handleConfirm(): Promise<void> {
     return;
   }
   try {
-    await axios.post("/script/addScript", { name: scriptName.value, content: scriptData.value, projectId: projectId.value });
+    await axios.post("/script/addScript", { name: scriptName.value, content: scriptData.value, projectId: project.value?.id });
     MessagePlugin.success("剧本添加成功");
   } catch (error) {
     console.error("添加剧本失败:", error);
@@ -236,7 +232,6 @@ $line-height: 28px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--td-bg-color-container);
     height: 64px;
     width: 100%;
 
@@ -244,35 +239,9 @@ $line-height: 28px;
       display: flex;
       align-items: center;
       gap: 12px;
-
-      .titleIcon {
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        .icon {
-          color: var(--td-text-color-anti);
-        }
-      }
-
       .title {
         font-weight: 600;
         font-size: 18px;
-        color: var(--td-text-color-primary);
-      }
-    }
-
-    .closeBtn {
-      cursor: pointer;
-      margin-right: 24px;
-      padding: 6px;
-      border-radius: 8px;
-      transition: all 0.2s;
-      color: var(--td-text-color-secondary);
-      &:hover {
-        background: var(--td-bg-color-component-hover);
-        color: var(--td-text-color-primary);
       }
     }
   }
@@ -282,17 +251,13 @@ $line-height: 28px;
       width: 100%;
       height: 200px;
       margin-top: 10px;
-      background: var(--td-bg-color-container);
-
       .upload-area {
         padding: 42px 20px;
-        background-color: var(--td-bg-color-secondarycontainer);
         border: 2px dashed var(--td-component-border);
         border-radius: 8px;
         text-align: center;
         cursor: pointer;
         transition: all 0.2s;
-
         &:hover {
           background-color: var(--td-bg-color-secondarycontainer-hover);
           border-color: var(--td-brand-color);
@@ -303,13 +268,11 @@ $line-height: 28px;
         }
 
         .upload-text {
-          color: var(--td-text-color-primary);
           font-size: 14px;
           margin: 0 0 8px;
         }
 
         .upload-hint {
-          color: var(--td-text-color-placeholder);
           font-size: 12px;
           margin: 0;
         }

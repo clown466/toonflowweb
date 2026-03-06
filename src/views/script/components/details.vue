@@ -1,14 +1,29 @@
 <template>
   <div class="details">
-    <t-dialog :visible.sync="detailsShow" width="60vw" top="1vh" :closable="false" :maskClosable="false"
-      wrapClassName="no-header-margin" dialogClass="custom-modal" :close-btn="false" @confirm="onConfirm"
-      :afterClose="handleClose" @cancel="closeModal">
-      <!-- 标题栏 -->
+    <t-dialog
+      :visible.sync="detailsShow"
+      width="60vw"
+      top="1vh"
+      :closable="false"
+      :maskClosable="false"
+      wrapClassName="no-header-margin"
+      dialogClass="custom-modal"
+      :close-btn="false"
+      @confirm="onConfirm"
+      :afterClose="handleClose"
+      @cancel="closeModal">
       <template #header>
         <a-flex justify="space-between" align="center" class="modal-header">
           <a-flex align="center" gap="8">
-            <a-input v-if="isEditingTitle" v-model:value="editableTitle" class="title-input" @pressEnter="saveTitle"
-              @blur="saveTitle" :maxlength="50" placeholder="请输入标题" ref="titleInputRef" />
+            <a-input
+              v-if="isEditingTitle"
+              v-model:value="editableTitle"
+              class="title-input"
+              @pressEnter="saveTitle"
+              @blur="saveTitle"
+              :maxlength="50"
+              placeholder="请输入标题"
+              ref="titleInputRef" />
             <a-typography-title v-else :level="4" style="margin: 0">
               {{ props.item.name || "剧本详情" }}
             </a-typography-title>
@@ -19,23 +34,24 @@
               </template>
             </a-button>
           </a-flex>
-          <a-button type="text" @click="closeModal">
-            <template #icon>
-              <i-close theme="outline" size="18" />
-            </template>
-          </a-button>
+          <i-close theme="outline" size="18" @click="closeModal" />
         </a-flex>
       </template>
       <div class="data">
-        <textarea v-model="props.item.content" class="notebook-textarea" placeholder="请输入剧本内容..." spellcheck="false"
-          @input="handleInput" :ref="setTextareaRef"></textarea>
+        <textarea
+          v-model="props.item.content"
+          class="notebook-textarea"
+          placeholder="请输入剧本内容..."
+          spellcheck="false"
+          @input="handleInput"
+          :ref="setTextareaRef"></textarea>
       </div>
     </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import axios from '@/utils/axios';
+import axios from "@/utils/axios";
 // 添加类型定义
 interface ScriptItem {
   id: number;
@@ -84,10 +100,10 @@ const emit = defineEmits(["searchScripts"]);
 async function onConfirm() {
   try {
     await axios.post("/script/updateScript", { id: props.item.id, name: props.item.name, content: props.item.content });
-    MessagePlugin.success("剧本添加成功");
+    MessagePlugin.success("剧本更新成功");
   } catch (error) {
-    console.error("添加剧本失败:", error);
-    MessagePlugin.error("添加剧本失败，请稍后再试");
+    console.error("更新剧本失败:", error);
+    MessagePlugin.error("更新剧本失败，请稍后再试");
   } finally {
     close();
     emit("searchScripts");
@@ -188,10 +204,12 @@ $line-height: 28px;
       background: transparent;
       color: var(--td-text-color-primary);
       font-family: "KaiTi", "STKaiti", "PingFang SC", sans-serif;
-      background-image: repeating-linear-gradient(transparent,
-          transparent calc($line-height - 1px),
-          var(--td-component-border) calc($line-height - 1px),
-          var(--td-component-border) $line-height );
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent calc($line-height - 1px),
+        var(--td-component-border) calc($line-height - 1px),
+        var(--td-component-border) $line-height
+      );
       background-position: 0 12px;
 
       &::placeholder {
