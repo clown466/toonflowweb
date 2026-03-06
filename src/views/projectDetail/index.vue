@@ -4,15 +4,21 @@
     <div class="detailHeader">
       <div class="headerBar">
         <div class="headerLeft">
-          <button class="backBtn" @click="onBack">
-            <i-left :size="20" />
-          </button>
-          <div class="info ac">
-            <h1 class="title">{{ project?.name }}</h1>
-            <p class="meta">
-              <span v-if="project?.updatedAt && project?.updatedAt > 0">最后更新 {{ dayjs(project?.updatedAt).format("YYYY-MM-DD HH:mm:ss") }}</span>
-            </p>
-          </div>
+          <t-breadcrumb>
+            <t-breadcrumbItem @click="onBack" style="cursor: pointer">
+              <i-ad-product theme="outline" size="16" style="margin-right: 4px" />
+              我的项目
+            </t-breadcrumbItem>
+            <t-breadcrumbItem v-if="project?.name">
+              {{ project.name }}
+            </t-breadcrumbItem>
+            <t-breadcrumbItem v-if="currentSubViewLabel">
+              {{ currentSubViewLabel }}
+            </t-breadcrumbItem>
+            <template v-slot:separator>
+              <i-right theme="outline" size="14" />
+            </template>
+          </t-breadcrumb>
         </div>
       </div>
       <!-- sub nav -->
@@ -42,7 +48,7 @@
     </div>
     <!-- main -->
     <div class="main">
-      <!-- <overview v-if="currentSubView === 'overview'" /> -->
+      <overview v-if="currentSubView === 'overview'" />
       <originalNovalText v-if="currentSubView === 'originalNovalText'" />
       <!-- <outlineManager v-if="currentSubView === 'outline'" /> -->
       <!-- <assetsManager v-if="currentSubView === 'assets'" /> -->
@@ -54,9 +60,8 @@
 </template>
 
 <script setup lang="ts">
-import dayjs from "dayjs";
 import store from "@/stores";
-// import overview from "./components/overview/index.vue";
+import overview from "./components/overview/index.vue";
 import originalNovalText from "./components/originalNovalText/index.vue";
 // import outlineManager from "./components/outlineManager/index.vue";
 // import assetsManager from "./components/assetsManager/index.vue";
@@ -86,6 +91,12 @@ const subNavItems = [
 ];
 
 const currentSubView = ref<SubView>("overview");
+
+// 计算当前视图的标签文本
+const currentSubViewLabel = computed(() => {
+  const item = subNavItems.find((item) => item.id === currentSubView.value);
+  return item ? item.label : "";
+});
 
 function setCurrent(key: SubView) {
   currentSubView.value = key;
@@ -125,37 +136,11 @@ function assetsFn() {
       .headerLeft {
         display: flex;
         align-items: center;
+        margin: 10px;
         gap: 16px;
-
-        .backBtn {
-          padding: 8px;
-          color: var(--td-text-color-secondary);
-          border-radius: 8px;
-          background: none;
-          transition: background 0.2s;
-
-          &:hover {
-            background: var(--td-bg-color-secondarycontainer);
-          }
-
-          border: none;
-          outline: none;
-          cursor: pointer;
-          display: flex;
-        }
-
-        .info {
-          .title {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--td-text-color-primary);
-            margin: 0;
-          }
-
-          .meta {
-            font-size: 13px;
-            color: var(--td-text-color-secondary);
-          }
+        :deep(.t-breadcrumb) {
+          font-size: 18px;
+          font-weight: 900;
         }
       }
     }
