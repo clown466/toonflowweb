@@ -23,15 +23,20 @@
         <div class="content">
           <div class="cardHeader">
             <div class="left">
-              <div class="folderIcon">
-                <i-folder-open class="iconFolder" :size="24" />
-              </div>
               <div>
                 <h3 class="name">{{ project.name }}</h3>
                 <div class="type">
-                  <span class="desc">类型：{{ project.type }}</span>
+                  <t-tag shape="round">{{ project.type }}</t-tag>
                 </div>
               </div>
+            </div>
+          </div>
+          <p v-if="project.intro" class="summary">
+            {{ project.intro }}
+          </p>
+          <div class="bottom">
+            <div class="time">
+              <span>{{ dayjs(project?.createTime).format("YYYY-MM-DD HH:mm:ss") }}</span>
             </div>
             <div class="menu">
               <a-popconfirm title="确定要删除这个项目吗？" okText="确定" cancelText="取消" @confirm="deleteProject(project.id)" @click.stop>
@@ -40,12 +45,6 @@
                 </button>
               </a-popconfirm>
             </div>
-          </div>
-          <p v-if="project.intro" class="summary">
-            {{ project.intro }}
-          </p>
-          <div class="time">
-            <span>创建于 {{ dayjs(project?.createTime).format("YYYY-MM-DD HH:mm:ss") }}</span>
           </div>
         </div>
       </div>
@@ -219,22 +218,9 @@ function deleteProject(projectId: string | undefined) {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-
-            .folderIcon {
-              width: 3rem;
-              height: 3rem;
-              background: linear-gradient(135deg, var(--td-brand-color) 0%, var(--td-brand-color-5) 100%);
-              border-radius: 0.75rem;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              .iconFolder {
-                color: var(--td-text-color-anti);
-              }
-            }
-
             .name {
-              font-weight: 600;
+              font-weight: 900;
+              font-size: 19px;
               color: var(--td-text-color-primary);
             }
             .status {
@@ -242,10 +228,6 @@ function deleteProject(projectId: string | undefined) {
               align-items: center;
               gap: 0.5rem;
               margin-top: 0.25rem;
-              .desc {
-                font-size: 0.75rem;
-                color: var(--td-text-color-secondary);
-              }
             }
           }
           @keyframes spin {
@@ -253,9 +235,31 @@ function deleteProject(projectId: string | undefined) {
               transform: rotate(360deg);
             }
           }
+        }
 
+        .summary {
+          color: var(--td-text-color-secondary);
+          margin-bottom: 1rem;
+          font-size: 0.9375rem;
+          line-clamp: 2;
+          overflow: hidden;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+        }
+
+        .bottom {
+          margin-top: 1rem;
+          padding-top: 1rem;
+          border-top: 1px solid var(--td-border-level-1-color);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          .time {
+            color: var(--td-text-color-secondary);
+            font-size: 0.8125rem;
+          }
           .menu {
-            position: relative;
             .delBtn {
               padding: 0.5rem;
               color: var(--td-error-color);
@@ -271,34 +275,6 @@ function deleteProject(projectId: string | undefined) {
               }
             }
           }
-        }
-
-        .summary {
-          color: var(--td-text-color-secondary);
-          margin-bottom: 1rem;
-          font-size: 0.9375rem;
-          line-clamp: 2;
-          overflow: hidden;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
-        .meta {
-          display: flex;
-          align-items: center;
-          gap: 1.5rem;
-          color: var(--td-text-color-secondary);
-          font-size: 0.9375rem;
-        }
-        .time {
-          margin-top: 1rem;
-          padding-top: 1rem;
-          border-top: 1px solid var(--td-border-level-1-color);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          color: var(--td-text-color-secondary);
-          font-size: 0.8125rem;
         }
       }
     }
