@@ -34,9 +34,8 @@
 
     <div class="modelParameter">
       <div v-if="currentModel" class="parameterContent">
-        <t-form ref="formRef" :data="currentModel" class="configForm">
+        <t-form ref="formRef" :data="currentModel" labelAlign="top" class="configForm">
           <div class="formSection">
-            <h4 class="sectionTitle">API 配置</h4>
             <t-form-item label="API Key" name="apiKey">
               <div class="inputWrapper">
                 <t-input v-model="currentModel.apiKey" type="password" placeholder="sk-..." clearable :disabled="!currentModel.enabled">
@@ -66,10 +65,21 @@
           </div>
 
           <div class="formSection">
-            <h4 class="sectionTitle">模型设置</h4>
-            <div v-for="(item, index) in model" :key="index">
+            <div class="jb ac">
+              <h4 class="sectionTitle">模型设置</h4>
+              <t-button variant="outline" size="small" @click="addModel">
+                <template #icon><t-icon name="add" /></template>
+                添加模型
+              </t-button>
+            </div>
+            <div v-for="(item, index) in currentModel.modelList" :key="index">
               <div class="model f w">
-                <div class="modelName">{{ item.model }}</div>
+                <div class="modelName">{{ item.modelName }}</div>
+                <div class="del">
+                  <t-button size="small" variant="text" theme="danger">
+                    <template #icon><t-icon name="delete" /></template>
+                  </t-button>
+                </div>
                 <div class="modelType">{{ item.type }}</div>
                 <div class="modelTime">{{ new Date(item.time).toLocaleString() }}</div>
               </div>
@@ -97,23 +107,7 @@
       :on-confirm="handleDialogConfirm"
       confirm-btn-action="submit"
       width="500px">
-      <t-form ref="dialogFormRef" :data="dialogForm" label-width="100px">
-        <t-form-item label="模型名称" name="name" :rules="[{ required: true, message: '请输入模型名称' }]">
-          <t-input v-model="dialogForm.name" placeholder="例如: OpenAI, Claude" autofocus />
-        </t-form-item>
-        <t-form-item label="选择图标" name="icon">
-          <t-select v-model="dialogForm.icon" placeholder="选择模型图标">
-            <t-option value="logo-github" label="🐙 GitHub" />
-            <t-option value="chat" label="💬 Chat" />
-            <t-option value="cloud" label="☁️ Cloud" />
-            <t-option value="server" label="🖥️ Server" />
-            <t-option value="api" label="🔌 API" />
-            <t-option value="code" label="💻 Code" />
-            <t-option value="lightning" label="⚡ Lightning" />
-            <t-option value="star-filled" label="⭐ Star" />
-          </t-select>
-        </t-form-item>
-      </t-form>
+      212
     </t-dialog>
 
     <t-dialog v-model:visible="manageDialogVisible" header="模型管理" :close-btn="true" :footer="false" width="600px">
@@ -156,17 +150,12 @@ interface ModelItem {
   apiKey: string;
   baseUrl: string;
   modelName: string;
-  modelList?: { label: string; value: string }[];
-}
-
-interface DialogForm {
-  name: string;
-  icon: string;
+  modelList?: { modelName: string; type: string; time: number }[];
 }
 
 const STORAGE_KEY = "modelList";
 
-const DEFAULT_MODELS: ModelItem[] = [
+const modelList = ref<ModelItem[]>([
   {
     id: "openai",
     name: "OpenAI",
@@ -176,9 +165,9 @@ const DEFAULT_MODELS: ModelItem[] = [
     baseUrl: "https://api.openai.com/v1",
     modelName: "gpt-4",
     modelList: [
-      { label: "GPT-4", value: "gpt-4" },
-      { label: "GPT-4 Turbo", value: "gpt-4-turbo" },
-      { label: "GPT-3.5 Turbo", value: "gpt-3.5-turbo" },
+      { modelName: "GPT-4", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-4 Turbo", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-3.5 Turbo", type: "多模态", time: 1773234220665 },
     ],
   },
   {
@@ -189,6 +178,11 @@ const DEFAULT_MODELS: ModelItem[] = [
     apiKey: "",
     baseUrl: "https://api.anthropic.com",
     modelName: "claude-3-opus",
+    modelList: [
+      { modelName: "GPT-4", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-4 Turbo", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-3.5 Turbo", type: "多模态", time: 1773234220665 },
+    ],
   },
   {
     id: "qwen",
@@ -198,36 +192,18 @@ const DEFAULT_MODELS: ModelItem[] = [
     apiKey: "",
     baseUrl: "",
     modelName: "qwen-turbo",
-  },
-];
-const model = ref<{ model: string; type: string; time: number }[]>([
-  {
-    model: "123",
-    type: "text",
-    time: 1773234220665,
-  },
-  {
-    model: "1234",
-    type: "video",
-    time: 1773234220665,
-  },
-  {
-    model: "12345",
-    type: "image",
-    time: 1773234220665,
+    modelList: [
+      { modelName: "GPT-4", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-4 Turbo", type: "多模态", time: 1773234220665 },
+      { modelName: "GPT-3.5 Turbo", type: "多模态", time: 1773234220665 },
+    ],
   },
 ]);
-
-const modelList = ref<ModelItem[]>([...DEFAULT_MODELS]);
 const modelData = ref("openai");
 const dialogVisible = ref(false);
 const manageDialogVisible = ref(false);
 const dialogTitle = ref("新增模型");
 const editingModelId = ref<string | null>(null);
-const dialogForm = ref<DialogForm>({
-  name: "",
-  icon: "server",
-});
 
 const currentModel = computed(() => modelList.value.find((item) => item.id === modelData.value));
 
@@ -267,64 +243,11 @@ function changeFn(id: string) {
   modelData.value = id;
 }
 
-function openDialog(title: string, modelId: string | null = null) {
-  dialogTitle.value = title;
-  editingModelId.value = modelId;
+function addModel() {}
 
-  if (modelId) {
-    const model = findModelById(modelId);
-    if (model) {
-      dialogForm.value = { name: model.name, icon: model.icon };
-    }
-  } else {
-    dialogForm.value = { name: "", icon: "server" };
-  }
+function editModel(modelId: string) {}
 
-  dialogVisible.value = true;
-}
-
-function addModel() {
-  openDialog("新增模型");
-}
-
-function editModel(modelId: string) {
-  openDialog("编辑模型", modelId);
-}
-
-function handleDialogConfirm() {
-  const name = dialogForm.value.name.trim();
-  if (!name) {
-    MessagePlugin.warning("请输入模型名称");
-    return false;
-  }
-
-  if (editingModelId.value) {
-    // 编辑模式
-    const model = findModelById(editingModelId.value);
-    if (model) {
-      model.name = name;
-      model.icon = dialogForm.value.icon;
-      MessagePlugin.success("编辑成功");
-    }
-  } else {
-    // 新增模式
-    const newModel: ModelItem = {
-      id: generateModelId(),
-      name,
-      icon: dialogForm.value.icon,
-      enabled: true,
-      apiKey: "",
-      baseUrl: "",
-      modelName: "",
-    };
-    modelList.value.push(newModel);
-    modelData.value = newModel.id;
-    MessagePlugin.success("新增成功");
-  }
-
-  saveToLocalStorage();
-  return true;
-}
+function handleDialogConfirm() {}
 
 function confirmDelete(modelId: string) {
   const model = findModelById(modelId);
@@ -402,7 +325,8 @@ onMounted(() => {
         background: #ffffff;
       }
       &.active {
-        background: #ffffff;
+        background: #f7f7f7;
+        font-weight: 900;
         .modelName {
           font-weight: 500;
         }
@@ -455,10 +379,6 @@ onMounted(() => {
             font-size: 12px;
             color: #999999;
             margin-top: 2px;
-
-            &.connected {
-              color: #00b96b;
-            }
           }
         }
       }
@@ -473,16 +393,10 @@ onMounted(() => {
     .parameterContent {
       flex: 1;
       overflow-y: auto;
-      padding: 24px 32px;
+      margin-left: 30px;
       .configForm {
         .formSection {
           margin-bottom: 32px;
-          .sectionTitle {
-            margin: 0 0 16px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #000000;
-          }
           .model {
             width: 100%;
             height: 80px;
@@ -492,11 +406,17 @@ onMounted(() => {
             border-radius: 5px;
             position: relative;
             .modelName {
-              padding: 15px;
+              padding: 5px;
               font-size: 18px;
               font-weight: 900;
             }
+            .del {
+              position: absolute;
+              top: 5px;
+              right: 5px;
+            }
             .modelType {
+              padding: 5px;
               font-size: 14px;
               position: absolute;
               bottom: 5px;
@@ -506,8 +426,9 @@ onMounted(() => {
               font-size: 12px;
               color: #999999;
               position: absolute;
-              bottom: 15px;
-              right: 15px;
+              bottom: 5px;
+              right: 5px;
+              padding: 5px;
             }
           }
         }

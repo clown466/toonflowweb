@@ -4,7 +4,7 @@
     <div class="data f">
       <div class="operate">
         <div class="title jb ac">
-          <span class="text">剧本 Agent</span>
+          <span class="text">剧本 Agent</span>  
           <i-robot-one theme="outline" size="24" />
         </div>
         <div class="chat">
