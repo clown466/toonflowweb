@@ -117,8 +117,6 @@ interface ModelItem {
   model?: { modelName: string; type: string; time: number }[];
 }
 
-const STORAGE_KEY = "modelList";
-
 const modelList = ref<ModelItem[]>([
   {
     id: "openai",
@@ -164,8 +162,6 @@ const modelData = ref("openai");
 
 const currentModel = computed(() => modelList.value.find((item) => item.id === modelData.value));
 
-const findModelById = (id: string) => modelList.value.find((item) => item.id === id);
-
 function getProviderIcon(id: string): string {
   const iconMap: Record<string, string> = {
     openai: "logo-github",
@@ -185,22 +181,7 @@ function getProviderIcon(id: string): string {
 function handleMenuChange(value: any) {
   modelData.value = value;
 }
-
 function loadFromLocalStorage() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        modelList.value = parsed;
-        if (!findModelById(modelData.value)) {
-          modelData.value = modelList.value[0]?.id || "";
-        }
-      }
-    }
-  } catch (error) {
-    console.error("加载失败:", error);
-  }
 }
 function addVendor() {}
 const addModelShow = ref(false);
@@ -210,15 +191,16 @@ function addModel() {
 const formData = ref({
   modelName: "",
 });
+// 编辑模型
 function editModel(model: { modelName: string }) {
   addModelShow.value = true;
   formData.value = {
     ...model,
   };
 }
-
+// 测试模型
 function testModel(modelId: string) {}
-
+// 删除模型
 function confirmDelete(modelId: string) {}
 
 onMounted(() => {
