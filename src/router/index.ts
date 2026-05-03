@@ -1,4 +1,5 @@
 import { createRouter, createWebHashHistory } from "vue-router";
+import projectStore from "@/stores/project";
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
@@ -52,6 +53,11 @@ const router = createRouter({
           component: () => import("@/views/production/index.vue"),
         },
         {
+          path: "/studio",
+          meta: { requiresProject: true },
+          component: () => import("@/views/studio/index.vue"),
+        },
+        {
           path: "/assets",
           component: () => import("@/views/assets/index.vue"),
         },
@@ -72,6 +78,10 @@ router.beforeEach((to, from, next) => {
     next();
   } else {
     if (localStorage.getItem("token")) {
+      if (to.meta.requiresProject && !projectStore().project?.id) {
+        next("/project");
+        return;
+      }
       next();
     } else {
       next("/login");

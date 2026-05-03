@@ -70,18 +70,18 @@
     </div>
   </div>
   <hello />
-  <setting />
+  <setting v-if="showSetting" />
 </template>
 
 <script setup lang="ts">
 import axios from "@/utils/axios";
-import setting from "@/components/setting/index.vue";
 import hello from "@/components/hello.vue";
 import projectStore from "@/stores/project";
 const { project } = storeToRefs(projectStore());
 import settingStore from "@/stores/setting";
 import { NotifyPlugin } from "tdesign-vue-next";
 const { showSetting, isElectron, needUpdate } = storeToRefs(settingStore());
+const setting = defineAsyncComponent(() => import("@/components/setting/index.vue"));
 const menuList = ref([
   { type: "btn", path: "/project", labelKey: "workbench.menu.myProject", icon: "i-folder-close" },
   { type: "btn", path: "/task", labelKey: "workbench.menu.taskCenter", icon: "i-view-list" },
@@ -93,6 +93,7 @@ const rightBtnList = ref([
   { type: "btn", path: "/scriptAgent", labelKey: "workbench.menu.scriptAgent", icon: "i-color-filter", nodelOnly: true },
   { type: "btn", path: "/script", labelKey: "workbench.menu.scriptManage", icon: "i-document-folder" },
   { type: "btn", path: "/cornerScape", labelKey: "workbench.menu.cornerScape", icon: "i-peoples-two" },
+  { type: "btn", path: "/studio", labelKey: "workbench.menu.studio", icon: "i-movie", nodelOnly: true },
   { type: "btn", path: "/production", labelKey: "workbench.menu.production", icon: "i-carousel-video" },
   { type: "divider" },
   { type: "btn", path: "/assets", labelKey: "workbench.menu.assetCenter", icon: "i-receive" },

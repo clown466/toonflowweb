@@ -428,7 +428,8 @@
       "assetCenter": "ศูนย์สินทรัพย์",
       "settings": "การตั้งค่า",
       "jumpGithub": "ข้ามไปที่ Github",
-      "feedbackQuestions": "คำถามคำติชม"
+      "feedbackQuestions": "คำถามคำติชม",
+      "studio": "Flova Studio"
     },
     "project": {
       "title": "โปรเจกต์ของฉัน",
@@ -1383,6 +1384,14 @@
       "referenceImage": "รูปภาพอ้างอิง",
       "generatePrompt": "สร้างคำพร้อมท์",
       "generateVideo": "สร้างวิดีโอ"
+    },
+    "workspaceAgent": {
+      "welcomeMsg": "I am the workspace agent. I can inspect the novel, extract characters/scenes/props, organize the asset library, and coordinate script and production workflows.",
+      "start": "Extract characters, scenes, and props from the current novel and prepare the asset library",
+      "msg": {
+        "memoryCleared": "Memory cleared",
+        "error": "Operation failed"
+      }
     }
   },
   "login": {
@@ -1532,5 +1541,52 @@
   "settings.vendor.videoGenerating": "การสร้างวิดีโอช้า โปรดอดทนรอ",
   "settings.memory.modelMap.editRefeshWord": "ย้อนกลับ",
   "settings.memory.modelMap.delPrompt": "ลบ",
-  "settings.vendor.testModel": "ทดสอบ"
+  "settings.vendor.testModel": "ทดสอบ",
+  "studio": {
+    "untitled": "Untitled Project",
+    "state": {
+      "pending": "Pending",
+      "generating": "Generating",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "storyboard": {
+      "title": "Storyboard",
+      "loading": "Loading...",
+      "empty": "No storyboard",
+      "emptyDesc": "Chat with the Agent on the right to generate storyboard items",
+      "noPrompt": "No prompt"
+    },
+    "preview": {
+      "title": "Preview",
+      "empty": "No preview",
+      "emptyDesc": "Select a storyboard item on the left",
+      "createFirst": "Create first storyboard",
+      "generating": "Generating...",
+      "retry": "Retry",
+      "notGenerated": "Not generated",
+      "relatedAssets": "Related assets",
+      "duration": "Duration",
+      "track": "Track",
+      "prompt": "Prompt",
+      "noPrompt": "No description"
+    },
+    "files": {
+      "search": "Search assets...",
+      "noAssets": "No assets",
+      "noAssetsDesc": "Assets will be created during generation",
+      "noStoryboard": "No storyboard",
+      "noPrompt": "No description",
+      "variants": "variants",
+      "single": "single image"
+    },
+    "assetTypes": {
+      "character": "Character",
+      "role": "Character",
+      "scene": "Scene",
+      "prop": "Prop",
+      "tool": "Prop",
+      "unknown": "Other"
+    }
+  }
 }

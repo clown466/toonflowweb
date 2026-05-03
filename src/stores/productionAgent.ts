@@ -205,11 +205,13 @@ function makeProductionAgentStore(projectId: string) {
     }
 
     async function getFlowData() {
+      if (!episodesId.value) return flowData.value;
       const { data } = await axios.post("/production/getFlowData", {
         projectId: projectId,
         episodesId: episodesId.value,
       });
       flowData.value = data;
+      return data;
     }
     async function batchGenerateStoryboard(allIds: number[], compulsory: boolean = false) {
       try {
@@ -421,13 +423,14 @@ function makeProductionAgentStore(projectId: string) {
     );
 
     function updateContext() {
-      if (episodesId.value! < 0) return;
+      if (!episodesId.value) return;
       const ctx = {
         isolationKey: `${projectId}:productionAgent:${episodesId.value}`,
         projectId: projectId,
         scriptId: episodesId.value,
       };
       if (!connected.value) connect();
+      if (!socket.value) return;
       socket.value!.emit("updateContext", ctx);
     }
     async function addStoryboardInfo(items: any[]) {
@@ -451,6 +454,11 @@ function makeProductionAgentStore(projectId: string) {
 
     const loadingHistory = ref(false);
     async function getHistory() {
+      if (!episodesId.value) {
+        loadingHistory.value = false;
+        messages.value = [...defMsg];
+        return;
+      }
       loadingHistory.value = true;
       const { data } = await axios.post(`/agents/getMemory`, {
         projectId: projectId,
@@ -478,6 +486,8 @@ function makeProductionAgentStore(projectId: string) {
       stopGenerate,
       socket,
       status,
+      connect,
+      disconnect,
       flowData,
       setFlowData,
       getFlowData,
@@ -488,6 +498,7 @@ function makeProductionAgentStore(projectId: string) {
       getHistory,
       loadingHistory,
       batchGenerateStoryboard,
+      batchGenerateAssets,
       reconnect,
       thinkLevel,
       updateThinkConfig,

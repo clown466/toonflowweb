@@ -431,7 +431,8 @@
       "assetCenter": "資產中心",
       "settings": "設定",
       "jumpGithub": "跳轉Github",
-      "feedbackQuestions": "回饋問題"
+      "feedbackQuestions": "回饋問題",
+      "studio": "Flova工作台"
     },
     "project": {
       "title": "我的專案",
@@ -1387,6 +1388,14 @@
       "referenceImage": "參考圖片",
       "generatePrompt": "產生提示詞",
       "generateVideo": "產生影片"
+    },
+    "workspaceAgent": {
+      "welcomeMsg": "我是項目總控 Agent，可以協助檢查小說狀態、提取角色/場景/道具、整理資產庫，並協調劇本和生產流程。",
+      "start": "根據目前小說提取角色、場景和道具，準備項目資產庫",
+      "msg": {
+        "memoryCleared": "記憶已清除",
+        "error": "操作失敗"
+      }
     }
   },
   "login": {
@@ -1533,5 +1542,52 @@
   "settings.vendor.videoGenerating": "影片產生較慢，請耐心等待",
   "settings.memory.modelMap.editRefeshWord": "重新綁定",
   "settings.memory.modelMap.delPrompt": "刪除",
-  "settings.vendor.testModel": "測試"
+  "settings.vendor.testModel": "測試",
+  "studio": {
+    "untitled": "未命名項目",
+    "state": {
+      "pending": "待生成",
+      "generating": "生成中",
+      "completed": "已完成",
+      "failed": "失敗"
+    },
+    "storyboard": {
+      "title": "分鏡列表",
+      "loading": "載入中...",
+      "empty": "暫無分鏡",
+      "emptyDesc": "在右側與 Agent 對話，開始生成分鏡",
+      "noPrompt": "暫無提示詞"
+    },
+    "preview": {
+      "title": "預覽",
+      "empty": "暫無預覽",
+      "emptyDesc": "選擇左側分鏡進行預覽",
+      "createFirst": "建立第一個分鏡",
+      "generating": "生成中...",
+      "retry": "重試",
+      "notGenerated": "暫未生成",
+      "relatedAssets": "關聯資產",
+      "duration": "時長",
+      "track": "軌道",
+      "prompt": "提示詞",
+      "noPrompt": "暫無描述"
+    },
+    "files": {
+      "search": "搜尋素材...",
+      "noAssets": "暫無資產",
+      "noAssetsDesc": "資產會在生成過程中自動建立",
+      "noStoryboard": "暫無分鏡",
+      "noPrompt": "暫無描述",
+      "variants": "變體",
+      "single": "單圖"
+    },
+    "assetTypes": {
+      "character": "角色",
+      "role": "角色",
+      "scene": "場景",
+      "prop": "道具",
+      "tool": "道具",
+      "unknown": "其他"
+    }
+  }
 }

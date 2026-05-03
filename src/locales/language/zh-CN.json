@@ -646,7 +646,8 @@
       "assetCenter": "资产中心",
       "settings": "设置",
       "jumpGithub": "跳转Github",
-      "feedbackQuestions": "反馈问题"
+      "feedbackQuestions": "反馈问题",
+      "studio": "Flova工作台"
     },
     "project": {
       "title": "我的项目",
@@ -1645,6 +1646,14 @@
       "generateVideo": "生成视频",
       "modeChange": "清空内容",
       "modeChangeConfirm": "切换模式将会清空当前选中的图片和提示词"
+    },
+    "workspaceAgent": {
+      "welcomeMsg": "我是项目总控 Agent，可以帮你检查小说状态、提取角色/场景/道具、整理项目资产库，并协调剧本和生产流程。",
+      "start": "根据当前小说提取角色、场景和道具，准备项目资产库",
+      "msg": {
+        "memoryCleared": "记忆已清除",
+        "error": "操作失败"
+      }
     }
   },
   "login": {
@@ -1829,5 +1838,52 @@
   "settings.memory.modelMap.delPrompt": "删除",
   "workbench.cornerScape.textPromptInput": "提示词附加指令",
   "workbench.cornerScape.textPromptPh": "请输入提示词附加指令（可选）",
-  "settings.vendor.testModel": "测试"
+  "settings.vendor.testModel": "测试",
+  "studio": {
+    "untitled": "未命名项目",
+    "state": {
+      "pending": "待生成",
+      "generating": "生成中",
+      "completed": "已完成",
+      "failed": "失败"
+    },
+    "storyboard": {
+      "title": "分镜列表",
+      "loading": "加载中...",
+      "empty": "暂无分镜",
+      "emptyDesc": "在右侧与 Agent 对话，开始生成分镜",
+      "noPrompt": "暂无提示词"
+    },
+    "preview": {
+      "title": "预览",
+      "empty": "暂无预览",
+      "emptyDesc": "选择左侧分镜进行预览",
+      "createFirst": "创建第一个分镜",
+      "generating": "生成中...",
+      "retry": "重试",
+      "notGenerated": "暂未生成",
+      "relatedAssets": "关联资产",
+      "duration": "时长",
+      "track": "轨道",
+      "prompt": "提示词",
+      "noPrompt": "暂无描述"
+    },
+    "files": {
+      "search": "搜索素材...",
+      "noAssets": "暂无资产",
+      "noAssetsDesc": "资产将在生成过程中自动创建",
+      "noStoryboard": "暂无分镜",
+      "noPrompt": "暂无描述",
+      "variants": "变体",
+      "single": "单图"
+    },
+    "assetTypes": {
+      "character": "角色",
+      "role": "角色",
+      "scene": "场景",
+      "prop": "道具",
+      "tool": "道具",
+      "unknown": "其他"
+    }
+  }
 }

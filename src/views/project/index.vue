@@ -47,16 +47,16 @@
       </t-card>
     </div>
   </div>
-  <projectDialog v-model="dialogShow" :projectData="editProjectData" @add="addProjectFn" @edit="editProjectFn" />
+  <projectDialog v-if="dialogShow" v-model="dialogShow" :projectData="editProjectData" @add="addProjectFn" @edit="editProjectFn" />
 </template>
 
 <script setup lang="ts">
-import projectDialog from "./components/projectDialog.vue";
 import dayjs from "dayjs";
 import axios from "@/utils/axios";
 import projectStore from "@/stores/project";
 import imageListCacheStore from "@/stores/imageListCache";
 
+const projectDialog = defineAsyncComponent(() => import("./components/projectDialog.vue"));
 const { clearProjectCache } = imageListCacheStore();
 const { allProject, project } = storeToRefs(projectStore());
 
@@ -100,16 +100,10 @@ async function openProject(projectId: string | undefined) {
   }
 
   try {
-    if (item.imageModel) {
-      await axios.post("/modelSelect/getModelDetail", {
-        modelId: item.imageModel,
-      });
-    }
-    if (item.videoModel) {
-      await axios.post("/modelSelect/getModelDetail", {
-        modelId: item.videoModel,
-      });
-    }
+    await Promise.all([
+      axios.post("/modelSelect/getModelDetail", { modelId: item.imageModel }),
+      axios.post("/modelSelect/getModelDetail", { modelId: item.videoModel }),
+    ]);
   } catch {
     window.$message.warning($t("workbench.project.msg.modelProviderDisabled"));
     return openEdit(item);

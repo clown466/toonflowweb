@@ -68,14 +68,16 @@ async function getPort() {
   await nextTick();
   await nextTick();
   await nextTick();
-  try {
-    const res = await fetch("toonflow://getAppUrl");
-    const data = await res.json();
-    if (data?.url) {
-      baseUrl.value = data.url;
-      isElectron.value = true;
-    }
-  } catch (error) {}
+  if (navigator.userAgent.includes("Electron") || (window as any).process?.versions?.electron) {
+    try {
+      const res = await fetch("toonflow://getAppUrl");
+      const data = await res.json();
+      if (data?.url) {
+        baseUrl.value = data.url;
+        isElectron.value = true;
+      }
+    } catch (error) {}
+  }
 
   config({
     markdownItConfig(md) {

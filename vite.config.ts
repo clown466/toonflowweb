@@ -7,16 +7,23 @@ import { TDesignResolver } from "@tdesign-vue-next/auto-import-resolver";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import postcsspxtoviewport from "postcss-px-to-viewport";
 
+const singleFile = process.env.TOONFLOW_SINGLE_FILE === "1";
+
 export default defineConfig({
   base: "./",
-  build: {
-    assetsInlineLimit: Infinity,
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: true,
+  build: singleFile
+    ? {
+        assetsDir: "web-assets",
+        assetsInlineLimit: Infinity,
+        rollupOptions: {
+          output: {
+            inlineDynamicImports: true,
+          },
+        },
+      }
+    : {
+        assetsDir: "web-assets",
       },
-    },
-  },
   plugins: [
     vue(),
     AutoImport({
@@ -42,7 +49,7 @@ export default defineConfig({
         }),
       ],
     }),
-    viteSingleFile(),
+    ...(singleFile ? [viteSingleFile()] : []),
   ],
   resolve: {
     alias: {
