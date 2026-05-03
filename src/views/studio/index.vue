@@ -206,9 +206,23 @@ function registerWorkspacePlanDataHandler() {
   const s = workspaceRefs.socket.value;
   if (!s) return;
   s.off("getPlanData");
+  s.off("productionDataUpdated");
   s.on("getPlanData", (payload: { key?: string } | undefined, callback: (response: any) => void) => {
     const key = payload?.key;
     callback(buildStudioWorkspaceData(key));
+  });
+  s.on("productionDataUpdated", async (payload: { projectId?: number | string; episodesId?: number; createdCount?: number; storyboardIds?: number[] }) => {
+    if (String(payload?.projectId ?? "") !== String(project.value?.id ?? "")) return;
+    await loadEpisodes();
+    if (payload?.episodesId) {
+      prodStore.episodesId = payload.episodesId;
+      prodStore.updateContext?.();
+      await prodStore.getFlowData();
+      const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
+      selectedStoryboardId.value = firstStoryboardId ?? null;
+      selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
+      window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有分镜剧集");
+    }
   });
 }
 
