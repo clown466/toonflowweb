@@ -63,6 +63,12 @@
         >
           <div class="card-thumb">
             <img v-if="asset.src" :src="asset.src" />
+            <div v-else-if="asset.state === '生成中'" class="thumb-state generating">
+              <t-loading size="small" />
+            </div>
+            <div v-else-if="asset.state === '生成失败'" class="thumb-state error">
+              <i-refresh size="14" />
+            </div>
             <div v-else class="thumb-placeholder">
               <i-user size="24" />
             </div>
@@ -74,9 +80,9 @@
               <span v-if="asset.derive">{{ asset.derive.length }} {{ $t("studio.files.variants") }}</span>
               <span v-else>{{ $t("studio.files.single") }}</span>
             </div>
-            <t-button block size="small" variant="outline" disabled @click.stop>
-              父资产暂不支持重绘
-            </t-button>
+            <t-tag :theme="stateTheme(asset.state)" size="small" variant="light">
+              {{ stateLabel(asset.state || '未生成') }}
+            </t-tag>
           </div>
           <div v-if="asset.derive?.length" class="derive-list" @click.stop>
             <div
@@ -181,6 +187,7 @@ interface Asset {
   name: string;
   src?: string | null;
   type?: string;
+  state?: string;
   derive?: DeriveAsset[];
 }
 

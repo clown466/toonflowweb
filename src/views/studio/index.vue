@@ -111,6 +111,24 @@ interface Episode {
 const episodes = ref<Episode[]>([]);
 const currentEpisode = computed(() => episodes.value.find(e => e.id === episodesId.value));
 
+type ProductionDataUpdatedPayload = {
+  type?: string;
+  projectId?: number | string;
+  episodesId?: number;
+  createdCount?: number;
+  storyboardIds?: number[];
+  stage?: "submitted" | "progress" | string;
+  submitted?: number;
+  assetIds?: number[];
+  records?: Array<{
+    id?: number;
+    assetId?: number;
+    state: string;
+    src?: string | null;
+    errorReason?: string | null;
+  }>;
+};
+
 // 选择状态
 const selectedStoryboardId = ref<number | null>(null);
 const selectedStoryboardIds = ref<number[]>([]);
@@ -128,6 +146,9 @@ const selectedElements = computed(() => ({
 }));
 const generating = ref(false);
 const loading = ref(false);
+const assetProgressMessageId = ref<string | null>(null);
+const assetProgressTotal = ref(0);
+const assetProgressStates = new Map<number, string>();
 
 function ensureProductionEpisode(showMessage = true) {
   if (episodesId.value) return true;
@@ -202,6 +223,49 @@ function buildStudioWorkspaceData(key?: string) {
   return { ...context, requestedKey: key ?? null, data: key ? null : dataMap };
 }
 
+function upsertWorkspaceProgressMessage(text: string) {
+  const id = assetProgressMessageId.value || `workspace_asset_progress_${Date.now()}`;
+  assetProgressMessageId.value = id;
+  const existing = workspaceRefs.messages.value.find((message: any) => message.id === id) as any;
+  const content = [{ type: "text", status: "complete", data: text }];
+  if (existing) {
+    existing.content = content;
+    existing.status = "complete";
+    return;
+  }
+  workspaceRefs.messages.value.push({
+    id,
+    role: "assistant",
+    name: "项目总控",
+    status: "complete",
+    datetime: new Date().toISOString(),
+    content,
+  } as any);
+}
+
+function updateAssetProgressNotice(payload: ProductionDataUpdatedPayload) {
+  if (payload.stage === "submitted") {
+    assetProgressStates.clear();
+    assetProgressTotal.value = payload.submitted ?? payload.records?.length ?? payload.assetIds?.length ?? 0;
+    payload.assetIds?.forEach((id) => assetProgressStates.set(id, "生成中"));
+  }
+  payload.records?.forEach((record) => {
+    const id = Number(record.assetId ?? record.id);
+    if (Number.isFinite(id)) assetProgressStates.set(id, record.state);
+  });
+  assetProgressTotal.value = Math.max(assetProgressTotal.value, assetProgressStates.size);
+  const completed = Array.from(assetProgressStates.values()).filter((state) => state === "已完成").length;
+  const failed = Array.from(assetProgressStates.values()).filter((state) => state === "生成失败").length;
+  const generatingCount = Math.max(assetProgressTotal.value - completed - failed, 0);
+  if (payload.stage === "submitted") {
+    upsertWorkspaceProgressMessage(`已提交 ${assetProgressTotal.value} 个资产图生成任务。下方资产区已开始显示生成中状态，我会继续同步完成/失败状态。`);
+    return;
+  }
+  if (completed > 0 || failed > 0) {
+    upsertWorkspaceProgressMessage(`资产图生成进度：完成 ${completed}/${assetProgressTotal.value}，失败 ${failed}，生成中 ${generatingCount}。下方资产区会同步刷新。`);
+  }
+}
+
 function registerWorkspacePlanDataHandler() {
   const s = workspaceRefs.socket.value;
   if (!s) return;
@@ -211,8 +275,17 @@ function registerWorkspacePlanDataHandler() {
     const key = payload?.key;
     callback(buildStudioWorkspaceData(key));
   });
-  s.on("productionDataUpdated", async (payload: { projectId?: number | string; episodesId?: number; createdCount?: number; storyboardIds?: number[] }) => {
+  s.on("productionDataUpdated", async (payload: ProductionDataUpdatedPayload) => {
     if (String(payload?.projectId ?? "") !== String(project.value?.id ?? "")) return;
+    if (payload?.type === "asset_images") {
+      if (payload.assetIds?.length) prodStore.markAssetImagesGenerating?.(payload.assetIds);
+      if (payload.records?.length) prodStore.applyAssetImageRecords?.(payload.records as any);
+      updateAssetProgressNotice(payload);
+      if (payload.stage === "submitted" && episodesId.value) {
+        await prodStore.getFlowData();
+      }
+      return;
+    }
     await loadEpisodes();
     if (payload?.episodesId) {
       prodStore.episodesId = payload.episodesId;

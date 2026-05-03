@@ -6,6 +6,15 @@ import type { FlowData, Storyboard } from "@/views/production/utils/flowBuilder"
 import type { ChatMessagesData } from "@tdesign-vue-next/chat";
 import { useThrottleFn } from "@vueuse/core";
 
+type AssetImageRecord = {
+  id?: number;
+  assetId?: number;
+  state: "未生成" | "生成中" | "已完成" | "生成失败" | string;
+  src?: string | null;
+  errorReason?: string | null;
+  prompt?: string | null;
+};
+
 function makeProductionAgentStore(projectId: string) {
   return defineStore(`productionAgent-${projectId}`, () => {
     const defMsg: ChatMessagesData[] = [
@@ -259,25 +268,45 @@ function makeProductionAgentStore(projectId: string) {
           concurrentCount: settingStore().otherSetting.assetsBatchGenereateSize,
         });
         if (data) {
-          data.forEach((record: { id: number; state: "未生成" | "生成中" | "已完成" | "生成失败"; src: string }) => {
-            flowData.value.assets.forEach((asset) => {
-              if (asset.derive) {
-                asset.derive.forEach((derive) => {
-                  if (derive.id === record.id) {
-                    derive.state = record.state;
-                    derive.src = record.src;
-                  }
-                });
-              }
-            });
-          });
+          applyAssetImageRecords(data);
         }
         return data;
       } catch (e) {}
     }
+    function applyAssetImageRecords(records: AssetImageRecord[] = []) {
+      records.forEach((record) => {
+        const targetId = Number(record.assetId ?? record.id);
+        if (!Number.isFinite(targetId)) return;
+        const nextState = record.state as "未生成" | "生成中" | "已完成" | "生成失败";
+        flowData.value.assets.forEach((asset) => {
+          if (asset.id === targetId) {
+            asset.state = nextState;
+            if (record.src) asset.src = record.src;
+            asset.errorReason = record.errorReason ?? "";
+            if (record.prompt) asset.prompt = record.prompt;
+          }
+          asset.derive?.forEach((derive) => {
+            if (derive.id === targetId) {
+              derive.state = nextState;
+              if (record.src) derive.src = record.src;
+              derive.errorReason = record.errorReason ?? "";
+              if (record.prompt) derive.prompt = record.prompt;
+            }
+          });
+        });
+      });
+    }
+
+    function markAssetImagesGenerating(ids: number[] = []) {
+      applyAssetImageRecords(ids.map((id) => ({ assetId: id, state: "生成中" })));
+    }
+
     const assetsNotStateImageIds = computed(() => {
       const ids: number[] = [];
       flowData.value.assets.forEach((asset) => {
+        if (asset.state == ("生成中" as "未生成" | "生成中" | "已完成" | "生成失败")) {
+          ids.push(asset.id);
+        }
         if (asset.derive) {
           asset.derive.forEach((derive) => {
             if (derive.state == ("生成中" as "未生成" | "生成中" | "已完成" | "生成失败")) {
@@ -310,20 +339,7 @@ function makeProductionAgentStore(projectId: string) {
           ids: ids,
         });
         if (!data || data.length === 0) return;
-        const records = data as Array<{ id: number; state: string; src?: string; errorReason?: string; prompt?: string }>;
-        records.forEach((record) => {
-          flowData.value.assets.forEach((asset) => {
-            if (!asset.derive) return;
-            asset.derive.forEach((derive) => {
-              if (derive.id === record.id) {
-                derive.state = record.state as "未生成" | "生成中" | "已完成" | "生成失败";
-                if (record.src) derive.src = record.src;
-                derive.errorReason = record?.errorReason ?? "";
-                derive.prompt = record?.prompt ?? "";
-              }
-            });
-          });
-        });
+        applyAssetImageRecords(data as AssetImageRecord[]);
       } catch (e) {
         console.error("[assetsPolling] error", e);
       } finally {
@@ -494,6 +510,8 @@ function makeProductionAgentStore(projectId: string) {
       episodesId,
       stopAssetsPolling,
       stopStoryboardPolling,
+      applyAssetImageRecords,
+      markAssetImagesGenerating,
       updateContext,
       getHistory,
       loadingHistory,
