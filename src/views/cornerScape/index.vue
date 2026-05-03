@@ -223,6 +223,11 @@
           </t-form-item>
           <t-form-item>
             <div class="drawerActions">
+              <input ref="assetUploadInput" type="file" accept="image/png,image/jpeg,image/webp" style="display: none" @change="uploadAssetImage" />
+              <t-button theme="default" variant="outline" :loading="uploadingAsset" @click="triggerAssetUpload" :disabled="currentItem.state == '生成中' ? true : false">
+                <template #icon><t-icon name="upload" /></template>
+                {{ $t("workbench.cornerScape.uploadImage") }}
+              </t-button>
               <t-button
                 theme="default"
                 variant="outline"
@@ -439,6 +444,59 @@ async function cancelGenerationFn(item: DataItem) {
 const drawerVisible = ref(false);
 const currentItem = ref<DataItem | null>(null);
 const selectedHistoryId = ref<number | null>(null);
+const assetUploadInput = ref<HTMLInputElement | null>(null);
+const uploadingAsset = ref(false);
+
+function triggerAssetUpload() {
+  assetUploadInput.value?.click();
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error($t("workbench.cornerScape.msg.fileReadFailed")));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAssetImage(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file || !currentItem.value) return;
+  if (!/^image\/(png|jpe?g|webp)$/i.test(file.type)) {
+    window.$message.warning($t("workbench.cornerScape.msg.unsupportedImageType"));
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    window.$message.warning($t("workbench.cornerScape.msg.imageTooLarge"));
+    return;
+  }
+
+  uploadingAsset.value = true;
+  try {
+    await axios.post("/assets/saveAssets", {
+      id: currentItem.value.id,
+      type: currentItem.value.type,
+      projectId: project.value?.id,
+      prompt: editForm.prompt || currentItem.value.prompt,
+      base64: await fileToDataUrl(file),
+    });
+    window.$message.success($t("workbench.cornerScape.msg.uploadSuccess"));
+    await getFilteredData();
+    const freshItem = dataList.value.find((item) => item.id === currentItem.value?.id);
+    if (freshItem) {
+      currentItem.value = freshItem;
+      editForm.prompt = freshItem.prompt || editForm.prompt;
+      editForm.resolution = freshItem.resolution || editForm.resolution;
+    }
+  } catch (e: any) {
+    window.$message.error(e?.message ?? $t("workbench.cornerScape.msg.uploadFailed"));
+  } finally {
+    uploadingAsset.value = false;
+  }
+}
 
 async function toggleHistorySelect(id: number) {
   selectedHistoryId.value = selectedHistoryId.value === id ? null : id;

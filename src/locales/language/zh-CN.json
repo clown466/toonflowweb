@@ -966,6 +966,7 @@
       "promptPh": "请输入提示词",
       "aiPolish": "AI 润色",
       "regenerate": "重新生成",
+      "uploadImage": "上传图片",
       "filterRole": "人物",
       "filterScene": "场景",
       "filterTool": "道具",
@@ -990,7 +991,12 @@
         "emptyPrompt": "勾选的数据{emptyPromptNames}提示词为空,请先生成提示词",
         "promptGenFail": "提示词生成失败",
         "saveSuccess": "修改提示词成功",
-        "saveFailed": "提示词修改失败"
+        "saveFailed": "提示词修改失败",
+        "fileReadFailed": "文件读取失败",
+        "unsupportedImageType": "仅支持 PNG、JPG、WEBP 图片",
+        "imageTooLarge": "图片不能超过 20MB",
+        "uploadSuccess": "图片上传成功",
+        "uploadFailed": "图片上传失败"
       },
       "history": "历史图片",
       "confirmReplace": "确认替换",

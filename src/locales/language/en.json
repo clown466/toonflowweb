@@ -871,6 +871,7 @@
       "promptPh": "Please enter prompt",
       "aiPolish": "AI Polish",
       "regenerate": "Regenerate",
+      "uploadImage": "Upload Image",
       "filterRole": "Character",
       "filterScene": "Scene",
       "filterTool": "Prop",
@@ -894,7 +895,12 @@
         "replaceSuccess": "Replacement successful",
         "promptGenFail": "Prompt word generation failed",
         "saveSuccess": "Modification of prompt word successful",
-        "saveFailed": "Prompt word modification failed"
+        "saveFailed": "Prompt word modification failed",
+        "fileReadFailed": "Failed to read file",
+        "unsupportedImageType": "Only PNG, JPG, and WEBP images are supported",
+        "imageTooLarge": "Image must be under 20MB",
+        "uploadSuccess": "Image uploaded successfully",
+        "uploadFailed": "Image upload failed"
       },
       "history": "historical pictures",
       "confirmReplace": "Confirm replacement",
