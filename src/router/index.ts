@@ -42,7 +42,7 @@ const router = createRouter({
         },
         {
           path: "/scriptAgent",
-          component: () => import("@/views/scriptAgent/index.vue"),
+          redirect: "/studio",
         },
         {
           path: "/cornerScape",

@@ -46,6 +46,10 @@
               </t-loading>
             </div>
           </div>
+          <div class="skillSelect">
+            <span style="font-size: 16px; font-weight: 900">生图 Skill</span>
+            <t-select v-model="selectedSkillId" :options="skillOptions" :loading="skillLoading" clearable placeholder="默认：视觉手册标准生图" />
+          </div>
           <div class="selectModel f">
             <div style="width: 60%">
               <span style="font-size: 16px; font-weight: 900">{{ $t("workbench.assets.gen.selectModel") }}</span>
@@ -199,6 +203,48 @@ async function generatePrompt() {
 }
 const emit = defineEmits(["update"]);
 const resolution = ref("1K");
+
+interface ImageSkillMeta {
+  id: string;
+  name: string;
+  description: string;
+  targetTypes: string[];
+  aspectRatio?: string;
+}
+
+const imageGenerationSkills = ref<ImageSkillMeta[]>([]);
+const selectedSkillId = ref("");
+const skillLoading = ref(false);
+
+function normalizeSkillType(type?: string) {
+  if (type === "role" || type === "scene" || type === "tool") return type;
+  if (type === "props") return "tool";
+  return "";
+}
+
+const skillOptions = computed(() => {
+  const currentType = normalizeSkillType(props.formData.type);
+  const options = imageGenerationSkills.value
+    .filter((skill) => !currentType || skill.targetTypes.includes(currentType))
+    .map((skill) => ({
+      label: skill.aspectRatio ? `${skill.name} (${skill.aspectRatio})` : skill.name,
+      value: skill.id,
+    }));
+  return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
+});
+
+async function fetchImageGenerationSkills() {
+  skillLoading.value = true;
+  try {
+    const { data } = await axios.post("/setting/imageGenerationSkill/list");
+    imageGenerationSkills.value = Array.isArray(data) ? data : [];
+  } catch {
+    imageGenerationSkills.value = [];
+  } finally {
+    skillLoading.value = false;
+  }
+}
+
 //生成图片
 async function handleGenerate() {
   if (!props.formData.prompt) {
@@ -235,9 +281,11 @@ async function handleGenerate() {
       name: props.formData.name ?? $t("workbench.assets.gen.unnamed"),
       base64: referenceImageBase64,
       prompt: props.formData.prompt,
+      describe: props.formData.describe,
       model: selectValue.value,
       id: props.formData.id,
       resolution: resolution.value,
+      skillId: selectedSkillId.value || null,
     });
     window.$message.success($t("workbench.assets.gen.assetGenSuccess"));
     await fetchGeneratedImages();
@@ -290,9 +338,11 @@ watch(
     if (newVal) {
       referenceFileList.value = [];
       value2.value = "";
+      selectedSkillId.value = "";
       selectedImageIndex.value = null;
       hoveredImageIndex.value = null;
       generateLoading.value = false;
+      fetchImageGenerationSkills();
       fetchGeneratedImages();
     }
   },
@@ -401,6 +451,9 @@ async function onClick() {
       }
     }
     .selectModel {
+      margin-top: 20px;
+    }
+    .skillSelect {
       margin-top: 20px;
     }
     .resultImages {

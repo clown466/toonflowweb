@@ -44,6 +44,9 @@
                 { label: '4K', value: '4K' },
               ]"></t-select>
           </t-form-item>
+          <t-form-item label="生图 Skill">
+            <t-select v-model="selectedImageSkillId" :options="imageSkillOptions" :loading="imageSkillLoading" clearable placeholder="默认：视觉手册标准生图" />
+          </t-form-item>
           <t-form-item :label="$t('workbench.cornerScape.textPromptInput')">
             <t-textarea v-model="otherTextPrompt" :placeholder="$t('workbench.cornerScape.textPromptPh')"></t-textarea>
           </t-form-item>
@@ -195,6 +198,9 @@
           <t-form-item :label="$t('workbench.cornerScape.resolution')">
             <t-select v-model="editForm.resolution" :placeholder="$t('workbench.cornerScape.resolutionPh')" :options="resolutionOptions" />
           </t-form-item>
+          <t-form-item label="生图 Skill">
+            <t-select v-model="selectedImageSkillId" :options="imageSkillOptions" :loading="imageSkillLoading" clearable placeholder="默认：视觉手册标准生图" />
+          </t-form-item>
           <t-form-item :label="$t('workbench.cornerScape.promptLabel')">
             <t-loading style="width: 100%" :loading="currentItem.promptState == '生成中'">
               <t-textarea
@@ -285,6 +291,8 @@ const { project } = storeToRefs(projectStore());
 const selectValue = ref(project.value?.imageModel ?? "");
 const resolution = ref("1K");
 const otherTextPrompt = ref("");
+const selectedImageSkillId = ref("");
+const imageSkillLoading = ref(false);
 const resolutionOptions = [
   { label: "1K", value: "1K" },
   { label: "2K", value: "2K" },
@@ -305,6 +313,43 @@ const translatedOptions = computed(() =>
 const dataList = ref<DataItem[]>([]);
 const loading = ref(false);
 
+interface ImageGenerationSkillMeta {
+  id: string;
+  name: string;
+  description: string;
+  targetTypes: string[];
+  aspectRatio?: string;
+}
+
+const imageGenerationSkills = ref<ImageGenerationSkillMeta[]>([]);
+
+function imageSkillTypeLabel(type: string) {
+  if (type === "role") return "角色";
+  if (type === "scene") return "场景";
+  if (type === "tool") return "道具";
+  return type;
+}
+
+const imageSkillOptions = computed(() => [
+  { label: "默认：视觉手册标准生图", value: "" },
+  ...imageGenerationSkills.value.map((skill) => ({
+    label: `${skill.name}${skill.aspectRatio ? ` (${skill.aspectRatio})` : ""} - ${skill.targetTypes.map(imageSkillTypeLabel).join("/")}`,
+    value: skill.id,
+  })),
+]);
+
+async function fetchImageGenerationSkills() {
+  imageSkillLoading.value = true;
+  try {
+    const { data } = await axios.post("/setting/imageGenerationSkill/list");
+    imageGenerationSkills.value = Array.isArray(data) ? data : [];
+  } catch {
+    imageGenerationSkills.value = [];
+  } finally {
+    imageSkillLoading.value = false;
+  }
+}
+
 // 用于取消进行中的生成请求
 let abortController: AbortController | null = null;
 
@@ -316,6 +361,7 @@ function createAbortController() {
 
 onMounted(() => {
   getFilteredData();
+  fetchImageGenerationSkills();
 });
 
 onUnmounted(() => {
@@ -608,6 +654,9 @@ function regenerateItem() {
         id: item.id,
         resolution: editForm.resolution,
         concurrentCount: 1,
+        describe: item.describe,
+        skillId: selectedImageSkillId.value || null,
+        userRequirement: otherTextPrompt.value || null,
       },
       { signal: controller.signal },
     )
@@ -782,11 +831,15 @@ async function batchGenerationImage() {
       model: selectValue.value,
       resolution: resolution.value,
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
+      skillId: selectedImageSkillId.value || null,
+      userRequirement: otherTextPrompt.value || null,
       items: items.map((item) => ({
         id: item.id,
         type: item.type ?? "props",
         name: item.name ?? $t("workbench.cornerScape.unnamed"),
         prompt: item.prompt,
+        describe: item.describe,
+        userRequirement: otherTextPrompt.value || null,
       })),
     });
     selectedIds.value = [];

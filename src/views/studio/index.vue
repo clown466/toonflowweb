@@ -258,6 +258,7 @@ async function loadEpisodes() {
   try {
     const { data } = await axios.post("/script/getScrptApi", {
       projectId: project.value?.id,
+      includeFlovaProductionContainer: true,
     });
     episodes.value = data || [];
   } catch (err) {

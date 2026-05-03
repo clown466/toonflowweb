@@ -285,6 +285,7 @@ async function getScriptData() {
   const { data: scriptRes } = await axios.post("/script/getScrptApi", {
     projectId: project.value?.id,
     name: "",
+    includeFlovaProductionContainer: true,
   });
   episodesOptions.value = scriptRes.map((ep: any) => ({
     label: ep.name,
