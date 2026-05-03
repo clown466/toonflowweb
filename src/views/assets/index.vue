@@ -128,6 +128,17 @@
                             </template>
                             {{ $t("workbench.assets.edit") }}
                           </t-button>
+                          <t-button
+                            theme="primary"
+                            variant="text"
+                            :loading="isAssetImageUploading(subRow.id)"
+                            :disabled="isGenerating(subRow.id)"
+                            @click="handleUploadAssetImage(subRow)">
+                            <template #icon>
+                              <t-icon name="upload" />
+                            </template>
+                            上传图片
+                          </t-button>
                           <t-button theme="danger" variant="text" :disabled="isGenerating(subRow.id)" @click="handleDelete(subRow)">
                             <template #icon>
                               <t-icon name="delete" />
@@ -201,6 +212,17 @@
                         <t-icon name="edit" />
                       </template>
                       {{ $t("workbench.assets.edit") }}
+                    </t-button>
+                    <t-button
+                      theme="primary"
+                      variant="text"
+                      :loading="isAssetImageUploading(row.id)"
+                      :disabled="isGenerating(row.id)"
+                      @click="handleUploadAssetImage(row)">
+                      <template #icon>
+                        <t-icon name="upload" />
+                      </template>
+                      上传图片
                     </t-button>
                     <t-button theme="danger" variant="text" :disabled="isGenerating(row.id)" @click="handleDelete(row)">
                       <template #icon>
@@ -523,11 +545,13 @@ const selectedRowKeys = ref<Array<string | number>>([]);
 const selectedSubRowKeys = ref<Array<string | number>>([]);
 const expandedRowKeys = ref<Array<string | number>>([]);
 const loading = ref(false);
+const uploadingAssetIds = ref<Set<number>>(new Set());
 // 是否正在处于任意生成中（提示词或图片），基于 item 的实际 state/promptState 判断
 const isGenerating = (id: number) => {
   const item = findAssetById(id);
   return item?.promptState === "生成中" || item?.state === "生成中";
 };
+const isAssetImageUploading = (id: number) => uploadingAssetIds.value.has(id);
 //表格数据类型定义
 interface Asset {
   id: number;
@@ -881,7 +905,7 @@ const columns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 280,
+    width: 360,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -936,7 +960,7 @@ const subColumns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 280,
+    width: 360,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -1111,6 +1135,89 @@ function generate(row: any) {
     src: row.src,
   };
   generateImageShow.value = true;
+}
+
+function setAssetImageUploading(id: number, value: boolean) {
+  const next = new Set(uploadingAssetIds.value);
+  if (value) next.add(id);
+  else next.delete(id);
+  uploadingAssetIds.value = next;
+}
+
+function normalizeUploadAssetType(type?: string): "role" | "scene" | "tool" | null {
+  if (type === "role" || type === "scene" || type === "tool") return type;
+  if (assetOptions.value === "role" || assetOptions.value === "scene" || assetOptions.value === "tool") return assetOptions.value;
+  return null;
+}
+
+function pickImageFile(): Promise<File | null> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    let settled = false;
+    const cleanup = () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+    const settle = (file: File | null) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(file);
+    };
+    const handleFocus = () => {
+      setTimeout(() => settle(input.files?.[0] ?? null), 300);
+    };
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/webp";
+    input.onchange = () => settle(input.files?.[0] ?? null);
+    window.addEventListener("focus", handleFocus);
+    input.click();
+  });
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleUploadAssetImage(row: Asset) {
+  const type = normalizeUploadAssetType(row.type);
+  if (!type) {
+    window.$message.warning("当前资产类型不支持直接上传图片");
+    return;
+  }
+  if (!project.value?.id) {
+    window.$message.warning("当前项目不存在，无法上传图片");
+    return;
+  }
+
+  const file = await pickImageFile();
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    window.$message.warning("请选择图片文件");
+    return;
+  }
+
+  setAssetImageUploading(row.id, true);
+  try {
+    const base64 = await readFileAsDataUrl(file);
+    await axios.post("/assets/saveAssets", {
+      id: row.id,
+      base64,
+      type,
+      prompt: row.prompt ?? "",
+      projectId: project.value.id,
+    });
+    window.$message.success("图片已上传并绑定到资产");
+    await getFilteredData(assetOptions.value);
+  } catch (error: any) {
+    window.$message.error(error?.message || "图片上传失败");
+  } finally {
+    setAssetImageUploading(row.id, false);
+  }
 }
 // 编辑
 function handleEdit(row: any) {
