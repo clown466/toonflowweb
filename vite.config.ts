@@ -109,6 +109,10 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
       },
+      "/oss": {
+        target: backendOrigin,
+        changeOrigin: true,
+      },
     },
   },
 });
