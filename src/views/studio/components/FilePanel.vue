@@ -65,7 +65,7 @@
           v-for="asset in displayAssets"
           :key="asset.key"
           class="file-card"
-          :class="{ selected: selectedId === asset.id }"
+          :class="{ selected: selectedKey === asset.key }"
           @click="onSelectAsset(asset)"
           @dblclick="onPreviewAsset(asset)"
         >
@@ -92,7 +92,7 @@
               {{ stateLabel(asset.state || '未生成') }}
             </t-tag>
           </div>
-          <div v-if="asset.isDerived" class="card-actions">
+          <div v-if="asset.isDerived && !asset.isHistory" class="card-actions">
             <t-button size="small" variant="outline" :disabled="asset.state === '生成中'" @click.stop="onRepaintDerive(asset)">
               重绘
             </t-button>
@@ -159,6 +159,7 @@ interface DeriveAsset {
   id: number;
   key?: string;
   assetsId?: number;
+  imageId?: number;
   name?: string;
   src?: string | null;
   filePath?: string | null;
@@ -166,11 +167,14 @@ interface DeriveAsset {
   state?: string;
   parentName?: string;
   isDerived?: boolean;
+  isHistory?: boolean;
+  historyImages?: HistoryImage[];
 }
 
 interface Asset {
   id: number;
   key?: string;
+  imageId?: number;
   name: string;
   src?: string | null;
   filePath?: string | null;
@@ -178,8 +182,20 @@ interface Asset {
   state?: string;
   derive?: DeriveAsset[];
   sonAssets?: DeriveAsset[];
+  historyImages?: HistoryImage[];
   parentName?: string;
   isDerived?: boolean;
+  isHistory?: boolean;
+}
+
+interface HistoryImage {
+  id: number;
+  assetsId?: number;
+  src?: string | null;
+  filePath?: string | null;
+  type?: string;
+  state?: string;
+  selected?: boolean;
 }
 
 interface StoryboardItem {
@@ -208,7 +224,7 @@ const emit = defineEmits<{
 
 const activeTab = ref("assets");
 const searchQuery = ref("");
-const selectedId = ref<number | null>(null);
+const selectedKey = ref<string | undefined>();
 const panelHeight = defineModel<number>("panelHeight", { default: 200 });
 
 const tabs = computed(() => [
@@ -246,6 +262,7 @@ const displayAssets = computed(() =>
         isDerived: false,
       },
     ];
+    pushHistoryImages(items, normalizedAsset, normalizedAsset.name);
     assetDerives(normalizedAsset).forEach((derive) => {
       items.push({
         ...derive,
@@ -257,6 +274,7 @@ const displayAssets = computed(() =>
         state: derive.state || "未生成",
         isDerived: true,
       });
+      pushHistoryImages(items, derive, derive.name || normalizedAsset.name, normalizedAsset.name);
     });
     return items;
   }),
@@ -306,6 +324,37 @@ function assetDerives(asset: Asset) {
   return Array.isArray(asset.derive) && asset.derive.length > 0 ? asset.derive : asset.sonAssets || [];
 }
 
+function assetHistoryImages(asset: Asset | DeriveAsset) {
+  return Array.isArray(asset.historyImages) ? asset.historyImages : [];
+}
+
+function pushHistoryImages(
+  items: Array<Asset | DeriveAsset>,
+  asset: Asset | DeriveAsset,
+  name: string,
+  parentName?: string,
+) {
+  assetHistoryImages(asset)
+    .filter((image) => !image.selected && pickSrc(image))
+    .forEach((image) => {
+      const src = pickSrc(image);
+      items.push({
+        ...asset,
+        id: asset.id,
+        imageId: image.id,
+        key: `history-${asset.id}-${image.id}`,
+        name,
+        parentName: parentName ? `${parentName} / 历史图 #${image.id}` : `历史图 #${image.id}`,
+        type: image.type || asset.type,
+        src,
+        filePath: src,
+        state: image.state || "已完成",
+        isDerived: Boolean(parentName),
+        isHistory: true,
+      });
+    });
+}
+
 function deriveThumb(derive: DeriveAsset) {
   return pickSrc(derive);
 }
@@ -327,7 +376,7 @@ function assetVisualState(asset: Asset) {
 }
 
 function onSelectAsset(asset: Asset | DeriveAsset) {
-  selectedId.value = asset.id;
+  selectedKey.value = asset.key;
   emit("selectAsset", asset);
 }
 

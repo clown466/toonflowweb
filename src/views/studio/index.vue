@@ -238,12 +238,19 @@ function stripLargeFields<T>(value: T): T {
 
 function normalizeStudioAsset(asset: any) {
   const derive = asset?.derive ?? asset?.sonAssets ?? [];
+  const historyImages = Array.isArray(asset?.historyImages) ? asset.historyImages : [];
   return {
     ...asset,
     desc: asset?.desc ?? asset?.describe ?? "",
     src: asset?.src ?? asset?.filePath ?? "",
     filePath: asset?.filePath ?? asset?.src ?? "",
     state: asset?.state ?? "未生成",
+    historyImages: historyImages.map((item: any) => ({
+      ...item,
+      src: item?.src ?? item?.filePath ?? "",
+      filePath: item?.filePath ?? item?.src ?? "",
+      state: item?.state ?? "已完成",
+    })),
     derive: Array.isArray(derive)
       ? derive.map((item: any) => ({
           ...item,
@@ -252,6 +259,14 @@ function normalizeStudioAsset(asset: any) {
           src: item?.src ?? item?.filePath ?? "",
           filePath: item?.filePath ?? item?.src ?? "",
           state: item?.state ?? "未生成",
+          historyImages: Array.isArray(item?.historyImages)
+            ? item.historyImages.map((image: any) => ({
+                ...image,
+                src: image?.src ?? image?.filePath ?? "",
+                filePath: image?.filePath ?? image?.src ?? "",
+                state: image?.state ?? "已完成",
+              }))
+            : [],
         }))
       : [],
   };
@@ -267,12 +282,21 @@ function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
       return;
     }
     const deriveMap = new Map<number, any>();
-    [...(current.derive || []), ...(asset.derive || [])].forEach((item: any) => deriveMap.set(item.id, item));
+    (current.derive || []).forEach((item: any) => deriveMap.set(item.id, item));
+    (asset.derive || []).forEach((item: any) => {
+      const existing = deriveMap.get(item.id);
+      deriveMap.set(item.id, {
+        ...existing,
+        ...item,
+        historyImages: item.historyImages?.length ? item.historyImages : existing?.historyImages,
+      });
+    });
     map.set(asset.id, {
       ...current,
       ...asset,
       src: asset.src || current.src,
       state: asset.state || current.state,
+      historyImages: asset.historyImages?.length ? asset.historyImages : current.historyImages,
       derive: [...deriveMap.values()],
     });
   });
@@ -299,6 +323,7 @@ async function loadProjectAssets() {
           name: "",
           page: 1,
           limit: 500,
+          includeHistoryImages: true,
         }),
       ),
     );
