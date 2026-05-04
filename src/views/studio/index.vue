@@ -50,7 +50,12 @@
       <div class="studio-center">
         <div class="studio-canvas-wrap">
           <Suspense>
-            <ProductionFlowCanvas embedded :show-assistant="false" :show-canvas-controls="false" />
+            <ProductionFlowCanvas
+              embedded
+              show-embedded-toolbar
+              :show-assistant="false"
+              :show-canvas-controls="false"
+            />
             <template #fallback>
               <div class="canvas-loading">
                 <t-loading size="small" text="正在加载画布" />

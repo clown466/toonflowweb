@@ -39,6 +39,35 @@
     </template> -->
     <Background></Background>
     <Controls v-if="showCanvasControls" />
+    <div
+      v-if="showEmbeddedToolbar"
+      class="embeddedCanvasToolbar"
+      @mousedown.stop
+      @pointerdown.stop
+      @wheel.stop
+    >
+      <t-tooltip placement="bottom" theme="primary" content="刷新画布数据">
+        <t-button shape="square" variant="outline" size="small" :loading="loading" :disabled="!episodesId" @click="handleEmbeddedRefresh">
+          <template #icon>
+            <i-refresh size="15" />
+          </template>
+        </t-button>
+      </t-tooltip>
+      <t-tooltip placement="bottom" theme="primary" content="自动整理画布">
+        <t-button shape="square" variant="outline" size="small" :disabled="!episodesId || loading" @click="handleEmbeddedLayout">
+          <template #icon>
+            <i-tree-diagram size="15" />
+          </template>
+        </t-button>
+      </t-tooltip>
+      <t-tooltip placement="bottom" theme="primary" content="适应当前画布">
+        <t-button shape="square" variant="outline" size="small" :disabled="!episodesId" @click="handleEmbeddedFitView">
+          <template #icon>
+            <i-focus-one size="15" />
+          </template>
+        </t-button>
+      </t-tooltip>
+    </div>
     <div v-if="showCanvasControls || showAssistant" class="floatingWindow">
       <div v-if="showCanvasControls" class="episodesSelect f ac">
         <t-select
@@ -111,10 +140,12 @@ const {
   embedded = false,
   showAssistant = true,
   showCanvasControls = true,
+  showEmbeddedToolbar = false,
 } = defineProps<{
   embedded?: boolean;
   showAssistant?: boolean;
   showCanvasControls?: boolean;
+  showEmbeddedToolbar?: boolean;
 }>();
 provide("productionEmbedded", embedded);
 
@@ -438,6 +469,18 @@ async function layoutGraph(direction: "LR" | "TB" = "LR") {
   fitView({ duration: 300 });
 }
 
+async function handleEmbeddedRefresh() {
+  await refFlowData();
+}
+
+async function handleEmbeddedLayout() {
+  await layoutGraph();
+}
+
+function handleEmbeddedFitView() {
+  fitView({ duration: 300 });
+}
+
 const title = computed(() => {
   const episode = episodesOptions.value.find((option) => option.value === episodesId.value);
   return episode ? episode.label : "";
@@ -454,8 +497,14 @@ watch(
 );
 
 async function refFlowData() {
-  await productionAgentStore().getFlowData();
-  layoutGraph();
+  if (loading.value) return;
+  loading.value = true;
+  try {
+    await productionAgentStore().getFlowData();
+    await layoutGraph();
+  } finally {
+    loading.value = false;
+  }
 }
 
 const current = useLocalStorage("productionCurrent", 0);
@@ -558,6 +607,21 @@ watch(openShowVisible, (val) => {
       z-index: 10;
       cursor: pointer;
     }
+  }
+  .embeddedCanvasToolbar {
+    position: absolute;
+    top: 12px;
+    right: calc(var(--asset-safe-right, 0px) + 12px);
+    z-index: 25;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid var(--td-border-level-1-color);
+    border-radius: 6px;
+    background-color: var(--td-bg-color-container);
+    box-shadow: var(--td-shadow-2);
+    transition: right 0.2s ease;
   }
   :deep(.slide-enter-active),
   :deep(.slide-leave-active) {
