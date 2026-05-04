@@ -22,48 +22,10 @@
         </div>
       </div>
     </t-card>
-    <div class="codeRepository">
-      <span>{{ $t("settings.about.codeRepository") }}</span>
-      <t-card bordered :style="{ width: '100%' }" class="logoCard">
-        <div class="ac jb" style="cursor: pointer" @click="openLink('https://github.com/HBAI-Ltd/Toonflow-app')">
-          <div class="f">
-            <div class="github">
-              <i-github fill="#000" theme="outline" size="22" class="c" style="width: 100%; height: 100%" />
-            </div>
-            <div style="margin-left: 15px">
-              <div>
-                <span style="font-size: 15px; font-weight: 900">{{ $t("settings.about.githubRepo") }}</span>
-              </div>
-              <div>
-                <span style="font-size: 12px; color: #666">https://github.com/HBAI-Ltd/Toonflow-app</span>
-              </div>
-            </div>
-          </div>
-          <i-right theme="outline" size="18" />
-        </div>
-        <t-divider></t-divider>
-        <div class="ac jb" style="cursor: pointer" @click="openLink('https://gitee.com/HBAI-Ltd/Toonflow-app')">
-          <div class="f">
-            <div class="gitee">
-              <i-code fill="#000" theme="outline" size="20" class="c" style="width: 100%; height: 100%" />
-            </div>
-            <div style="margin-left: 15px">
-              <div>
-                <span style="font-size: 15px; font-weight: 900">{{ $t("settings.about.giteeRepo") }}</span>
-              </div>
-              <div>
-                <span style="font-size: 12px; color: #666">https://gitee.com/HBAI-Ltd/Toonflow-app</span>
-              </div>
-            </div>
-          </div>
-          <i-right theme="outline" size="18" />
-        </div>
-      </t-card>
-    </div>
     <div class="license">
       <span>{{ $t("settings.about.license") }}</span>
       <t-card bordered :style="{ width: '100%' }" class="logoCard">
-        <div class="ac jb" style="cursor: pointer" @click="openLink('https://github.com/HBAI-Ltd/Toonflow-app?tab=Apache-2.0-1-ov-file')">
+        <div class="ac jb">
           <div class="f">
             <div class="data">
               <i-notes fill="#000" theme="outline" size="20" class="c" style="width: 100%; height: 100%" />
@@ -77,7 +39,6 @@
               </div>
             </div>
           </div>
-          <i-right theme="outline" size="18" />
         </div>
       </t-card>
     </div>
@@ -421,21 +382,6 @@ function confirmUpdate() {
   span {
     font-size: 12px;
     font-weight: 500;
-  }
-  .codeRepository {
-    margin-top: 15px;
-    .github {
-      width: 50px;
-      height: 50px;
-      border-radius: 8px;
-      background-color: #ececec;
-    }
-    .gitee {
-      width: 50px;
-      height: 50px;
-      border-radius: 8px;
-      background-color: #ececec;
-    }
   }
   .versionUpdate {
     margin-top: 15px;

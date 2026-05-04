@@ -73,13 +73,6 @@
               <p class="qrcodeLabel">{{ $t("hello.qrcodeLabel") }}</p>
               <t-qrcode value="https://work.weixin.qq.com/u/vc36adcc89845edcbe?v=5.0.3.63936&bb=85b8d228e8" level="Q" type="svg" />
             </div>
-            <div class="githubBox">
-              <p class="qrcodeLabel">{{ $t("hello.githubLabel")}}</p>
-              <t-button theme="danger" size="large" @click="jumpGithub">
-                <template #icon><t-icon name="logo-github" /></template>
-                Star on GitHub
-              </t-button>
-            </div>
           </div>
         </div>
         <!-- 底部按钮 -->
@@ -102,7 +95,7 @@ import { useI18n } from "vue-i18n";
 import JSConfetti from "js-confetti";
 import settingStore from "@/stores/setting";
 import { languageList, cachedLocale } from "@/locales";
-const { showSetting, activeMenu, isElectron } = storeToRefs(settingStore());
+const { showSetting, activeMenu } = storeToRefs(settingStore());
 
 const { locale } = useI18n();
 const langOptions = languageList.map((item) => ({
@@ -138,14 +131,6 @@ function handleFinish() {
   show.value = false;
   const jsConfetti = new JSConfetti();
   jsConfetti.addConfetti();
-}
-
-async function jumpGithub() {
-  if (isElectron.value) {
-    await fetch("toonflow://openurlwithbrowser?url=https://github.com/HBAI-Ltd/Toonflow-app");
-  } else {
-    window.open("https://github.com/HBAI-Ltd/Toonflow-app");
-  }
 }
 </script>
 
@@ -235,12 +220,6 @@ async function jumpGithub() {
         }
       }
 
-      .githubBox {
-        margin-top: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
     }
   }
 

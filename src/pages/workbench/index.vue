@@ -19,21 +19,11 @@
         </t-tooltip>
       </div>
       <div class="footItem fc ac">
-        <t-tooltip :content="$t('workbench.menu.feedbackQuestions')" placement="right" destroyOnClose :showArrow="false">
-          <div class="item c" @click="openFeedback">
-            <i-bill class="icon" />
-          </div>
-        </t-tooltip>
         <t-tooltip :content="$t('workbench.menu.settings')" placement="right" destroyOnClose :showArrow="false">
           <div class="item c" @click="showSetting = true">
             <t-badge :count="needUpdate ? 1 : 0" dot>
               <i-setting-one class="icon" />
             </t-badge>
-          </div>
-        </t-tooltip>
-        <t-tooltip :content="$t('workbench.menu.jumpGithub')" placement="right" destroyOnClose :showArrow="false">
-          <div class="item c" @click="jumpGithub">
-            <i-github-one class="icon" />
           </div>
         </t-tooltip>
       </div>
@@ -114,22 +104,6 @@ function handleClick(menu: any) {
   if (menu.needProject && !project.value) return;
   router.push(menu.path);
   activeMenu.value = menu.path;
-}
-
-async function jumpGithub() {
-  if (isElectron.value) {
-    await fetch("toonflow://openurlwithbrowser?url=https://github.com/HBAI-Ltd/Toonflow-app");
-  } else {
-    window.open("https://github.com/HBAI-Ltd/Toonflow-app");
-  }
-}
-
-async function openFeedback() {
-  if (isElectron.value) {
-    await fetch("toonflow://openurlwithbrowser?url=https://docs.qq.com/smartsheet/form/EmvmQBrmlPmr%2Fss_vsqk2v%2FvhiGzE?tab=ss_vsqk2v");
-  } else {
-    window.open("https://docs.qq.com/smartsheet/form/EmvmQBrmlPmr%2Fss_vsqk2v%2FvhiGzE?tab=ss_vsqk2v");
-  }
 }
 
 async function checkVersion() {
