@@ -34,10 +34,12 @@ const router = createRouter({
         // },
         {
           path: "/novel",
+          meta: { projectScoped: true },
           component: () => import("@/views/novel/index.vue"),
         },
         {
           path: "/script",
+          meta: { projectScoped: true },
           component: () => import("@/views/script/index.vue"),
         },
         {
@@ -46,20 +48,22 @@ const router = createRouter({
         },
         {
           path: "/cornerScape",
+          meta: { projectScoped: true },
           component: () => import("@/views/cornerScape/index.vue"),
         },
         {
           path: "/production",
-          meta: { requiresProject: true },
+          meta: { requiresProject: true, projectScoped: true },
           component: () => import("@/views/videoWorkbench/index.vue"),
         },
         {
           path: "/studio",
-          meta: { requiresProject: true },
+          meta: { requiresProject: true, projectScoped: true },
           component: () => import("@/views/studio/index.vue"),
         },
         {
           path: "/assets",
+          meta: { projectScoped: true },
           component: () => import("@/views/assets/index.vue"),
         },
         {

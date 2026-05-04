@@ -54,7 +54,9 @@
       </div>
       <div class="viewBox">
         <router-view v-slot="{ Component }">
-          <component :is="Component" :key="$route.fullPath" />
+          <KeepAlive :max="10">
+            <component :is="Component" :key="routeCacheKey" />
+          </KeepAlive>
         </router-view>
       </div>
     </div>
@@ -92,6 +94,13 @@ const router = useRouter();
 const route = useRoute();
 const activeMenu = ref(route.path);
 const isEdgeToEdgeView = computed(() => route.path === "/studio");
+const routeCacheKey = computed(() => {
+  const baseKey = route.path;
+  if (route.meta.projectScoped) {
+    return `${baseKey}:${project.value?.id ?? "none"}`;
+  }
+  return baseKey;
+});
 
 watch(
   () => route.path,
