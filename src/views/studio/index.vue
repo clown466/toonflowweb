@@ -8,64 +8,107 @@
       @refresh="refreshData"
     />
 
-    <div class="studio-body">
-      <StoryPanel
-        v-model:selected-id="selectedStoryboardId"
-        v-model:selected-ids="selectedStoryboardIds"
-        :storyboard="flowData.storyboard"
-        :loading="loading"
-        @select="onStoryboardSelect"
-        @preview="onPreviewStoryboard"
-        @select-all="onSelectAll"
-        @generate-all="onGenerateAll"
-        @retry="onRetryStoryboard"
-        @retry-failed="onRetryFailedStoryboards"
-      />
+    <div class="studio-body" :style="studioLayoutStyle">
+      <t-button
+        v-if="!leftPanelOpen"
+        class="floating-toggle left-toggle"
+        shape="square"
+        theme="primary"
+        @click="leftPanelOpen = true"
+      >
+        <template #icon><i-menu-unfold-one size="18" /></template>
+      </t-button>
+      <t-button
+        v-if="!rightPanelOpen"
+        class="floating-toggle right-toggle"
+        shape="square"
+        theme="primary"
+        @click="rightPanelOpen = true"
+      >
+        <template #icon><i-menu-fold-one size="18" /></template>
+      </t-button>
 
-      <div class="studio-center">
-        <PreviewPanel
-          :storyboard="selectedStoryboard"
-          :assets="flowData.assets"
-          :loading="generating"
-          @generate="onPreviewGenerate"
-          @retry="onPreviewRetry"
-          @edit="onPreviewEdit"
-          @create-first="onCreateFirst"
-        />
-        <FilePanel
-          :assets="flowData.assets"
+      <div v-show="leftPanelOpen" class="studio-floating-panel story-floating-panel">
+        <t-button class="panel-close-btn story-close" shape="square" variant="text" size="small" @click="leftPanelOpen = false">
+          <template #icon><i-menu-fold-one size="16" /></template>
+        </t-button>
+        <StoryPanel
+          v-model:selected-id="selectedStoryboardId"
+          v-model:selected-ids="selectedStoryboardIds"
+          v-model:panel-width="leftPanelWidth"
           :storyboard="flowData.storyboard"
-          @select-asset="onAssetSelect"
-          @select-storyboard="onStoryboardSelectById"
-          @preview-asset="onAssetPreview"
-          @repaint-asset="onAssetRepaint"
+          :loading="loading"
+          @select="onStoryboardSelect"
+          @preview="onPreviewStoryboard"
+          @select-all="onSelectAll"
+          @generate-all="onGenerateAll"
+          @retry="onRetryStoryboard"
+          @retry-failed="onRetryFailedStoryboards"
         />
       </div>
 
-      <AgentPanel
-        v-model:mode="agentMode"
-        :connected="activeAgent.connected"
-        :messages="activeAgent.messages"
-        :status="activeAgent.status"
-        :loading-history="activeAgent.loadingHistory"
-        :think-level="activeAgent.thinkLevel"
-        :flow-data="flowData"
-        :project-name="project?.name"
-        :episodes-count="episodes.length"
-        :selected-storyboard-id="selectedStoryboardId"
-        :selected-storyboard-ids="selectedStoryboardIds"
-        :selected-asset-id="selectedAssetId"
-        :selected-asset="selectedAsset"
-        :selected-elements="selectedElements"
-        :current-episode="currentEpisode"
-        @select-storyboard="onStoryboardSelectById"
-        @select-asset="onAgentAssetSelect"
-        @send="handleAgentSend"
-        @stop="handleAgentStop"
-        @clear-memory="handleClearMemory"
-        @reconnect="handleReconnect"
-        @update-think-config="handleUpdateThinkConfig"
-      />
+      <div class="studio-center">
+        <div class="studio-canvas-wrap">
+          <ProductionFlowCanvas embedded :show-assistant="false" :show-canvas-controls="false" />
+        </div>
+        <button
+          class="asset-panel-toggle"
+          :class="{ open: assetPanelOpen }"
+          :style="{ bottom: assetPanelOpen ? assetPanelHeight + 8 + 'px' : '12px' }"
+          @click="assetPanelOpen = !assetPanelOpen"
+        >
+          <i-pic size="14" />
+          <span>资产 {{ studioAssets.length }}</span>
+          <i-up v-if="!assetPanelOpen" size="14" />
+          <i-down v-else size="14" />
+        </button>
+        <div v-if="assetPanelOpen" class="studio-assets-shell">
+          <FilePanel
+            v-model:panel-height="assetPanelHeight"
+            :assets="studioAssets"
+            :storyboard="flowData.storyboard"
+            :loading="assetLoading"
+            :error-message="assetError"
+            @select-asset="onAssetSelect"
+            @select-storyboard="onStoryboardSelectById"
+            @preview-asset="onAssetPreview"
+            @repaint-asset="onAssetRepaint"
+            @refresh-assets="loadProjectAssets"
+            @collapse="assetPanelOpen = false"
+          />
+        </div>
+      </div>
+
+      <div v-show="rightPanelOpen" class="studio-floating-panel agent-floating-panel">
+        <t-button class="panel-close-btn agent-close" shape="square" variant="text" size="small" @click="rightPanelOpen = false">
+          <template #icon><i-menu-unfold-one size="16" /></template>
+        </t-button>
+        <AgentPanel
+          v-model:mode="agentMode"
+          v-model:panel-width="rightPanelWidth"
+          :connected="activeAgent.connected"
+          :messages="activeAgent.messages"
+          :status="activeAgent.status"
+          :loading-history="activeAgent.loadingHistory"
+          :think-level="activeAgent.thinkLevel"
+          :flow-data="flowData"
+          :project-name="project?.name"
+          :episodes-count="episodes.length"
+          :selected-storyboard-id="selectedStoryboardId"
+          :selected-storyboard-ids="selectedStoryboardIds"
+          :selected-asset-id="selectedAssetId"
+          :selected-asset="selectedAsset"
+          :selected-elements="selectedElements"
+          :current-episode="currentEpisode"
+          @select-storyboard="onStoryboardSelectById"
+          @select-asset="onAgentAssetSelect"
+          @send="handleAgentSend"
+          @stop="handleAgentStop"
+          @clear-memory="handleClearMemory"
+          @reconnect="handleReconnect"
+          @update-think-config="handleUpdateThinkConfig"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -79,9 +122,9 @@ import axios from "@/utils/axios";
 import { DialogPlugin } from "tdesign-vue-next";
 import StudioHeader from "./components/StudioHeader.vue";
 import StoryPanel from "./components/StoryPanel.vue";
-import PreviewPanel from "./components/PreviewPanel.vue";
 import FilePanel from "./components/FilePanel.vue";
 import AgentPanel from "./components/AgentPanel.vue";
+import ProductionFlowCanvas from "@/views/production/index.vue";
 
 const { project } = storeToRefs(projectStore());
 const prodStore = productionAgentStore();
@@ -89,6 +132,7 @@ const workspaceStore = useWorkspaceAgentStore();
 const prodRefs = storeToRefs(prodStore);
 const workspaceRefs = storeToRefs(workspaceStore);
 const { flowData, episodesId } = prodRefs;
+provide("episodesId", episodesId);
 
 type AgentMode = "workspace" | "production";
 const agentMode = ref<AgentMode>("workspace");
@@ -133,22 +177,38 @@ type ProductionDataUpdatedPayload = {
 const selectedStoryboardId = ref<number | null>(null);
 const selectedStoryboardIds = ref<number[]>([]);
 const selectedAssetId = ref<number | null>(null);
+const leftPanelOpen = ref(true);
+const rightPanelOpen = ref(true);
+const leftPanelWidth = ref(320);
+const rightPanelWidth = ref(410);
+const assetPanelOpen = ref(true);
+const assetPanelHeight = ref(220);
+const projectAssets = ref<any[]>([]);
+const assetLoading = ref(false);
+const assetError = ref("");
 
 const selectedStoryboard = computed(() =>
   flowData.value.storyboard.find(s => s.id === selectedStoryboardId.value)
 );
 const selectedAsset = computed(() => findAssetById(selectedAssetId.value));
+const studioAssets = computed(() => mergeStudioAssets(projectAssets.value, flowData.value.assets || []));
 const selectedElements = computed(() => ({
   storyboardIds: selectedStoryboardIds.value,
   storyboard: selectedStoryboard.value || null,
   asset: selectedAsset.value || null,
   episode: currentEpisode.value || null,
 }));
+const studioLayoutStyle = computed(() => ({
+  "--asset-safe-left": leftPanelOpen.value ? `${leftPanelWidth.value + 24}px` : "0px",
+  "--asset-safe-right": rightPanelOpen.value ? `${rightPanelWidth.value + 24}px` : "0px",
+  "--floating-panel-bottom": assetPanelOpen.value ? `${assetPanelHeight.value + 12}px` : "12px",
+}));
 const generating = ref(false);
 const loading = ref(false);
 const assetProgressMessageId = ref<string | null>(null);
 const assetProgressTotal = ref(0);
 const assetProgressStates = new Map<number, string>();
+let projectAssetsPollingTimer: number | null = null;
 
 function ensureProductionEpisode(showMessage = true) {
   if (episodesId.value) return true;
@@ -176,6 +236,103 @@ function stripLargeFields<T>(value: T): T {
   return cloned;
 }
 
+function normalizeStudioAsset(asset: any) {
+  const derive = asset?.derive ?? asset?.sonAssets ?? [];
+  return {
+    ...asset,
+    desc: asset?.desc ?? asset?.describe ?? "",
+    src: asset?.src ?? asset?.filePath ?? "",
+    filePath: asset?.filePath ?? asset?.src ?? "",
+    state: asset?.state ?? "未生成",
+    derive: Array.isArray(derive)
+      ? derive.map((item: any) => ({
+          ...item,
+          assetsId: item.assetsId ?? asset?.id,
+          desc: item?.desc ?? item?.describe ?? "",
+          src: item?.src ?? item?.filePath ?? "",
+          filePath: item?.filePath ?? item?.src ?? "",
+          state: item?.state ?? "未生成",
+        }))
+      : [],
+  };
+}
+
+function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
+  const map = new Map<number, any>();
+  globalAssets.map(normalizeStudioAsset).forEach((asset) => map.set(asset.id, asset));
+  flowAssets.map(normalizeStudioAsset).forEach((asset) => {
+    const current = map.get(asset.id);
+    if (!current) {
+      map.set(asset.id, asset);
+      return;
+    }
+    const deriveMap = new Map<number, any>();
+    [...(current.derive || []), ...(asset.derive || [])].forEach((item: any) => deriveMap.set(item.id, item));
+    map.set(asset.id, {
+      ...current,
+      ...asset,
+      src: asset.src || current.src,
+      state: asset.state || current.state,
+      derive: [...deriveMap.values()],
+    });
+  });
+  return [...map.values()];
+}
+
+async function loadProjectAssets() {
+  if (!project.value?.id) {
+    projectAssets.value = [];
+    assetLoading.value = false;
+    assetError.value = "";
+    syncProjectAssetsPolling();
+    return;
+  }
+  assetLoading.value = true;
+  assetError.value = "";
+  try {
+    const types = ["role", "scene", "tool"];
+    const responses = await Promise.all(
+      types.map((type) =>
+        axios.post("/assets/getAssetsApi", {
+          projectId: project.value!.id,
+          type,
+          name: "",
+          page: 1,
+          limit: 500,
+        }),
+      ),
+    );
+    projectAssets.value = responses.flatMap((res) => res.data?.data ?? []).map(normalizeStudioAsset);
+  } catch (err: any) {
+    console.error("[studio] loadProjectAssets failed:", err);
+    assetError.value = err?.message || "资产加载失败";
+  } finally {
+    assetLoading.value = false;
+    syncProjectAssetsPolling();
+  }
+}
+
+function hasGeneratingAssetImages() {
+  return projectAssets.value.some((asset) => {
+    if (asset?.state === "生成中") return true;
+    return (asset?.derive || []).some((derive: any) => derive?.state === "生成中");
+  });
+}
+
+function syncProjectAssetsPolling() {
+  if (hasGeneratingAssetImages()) {
+    if (projectAssetsPollingTimer) return;
+    projectAssetsPollingTimer = window.setInterval(() => {
+      void loadProjectAssets();
+    }, 3000);
+    return;
+  }
+  if (projectAssetsPollingTimer) {
+    clearInterval(projectAssetsPollingTimer);
+    projectAssetsPollingTimer = null;
+  }
+}
+
 function buildStudioWorkspaceData(key?: string) {
   const context = {
     source: "studio",
@@ -197,7 +354,7 @@ function buildStudioWorkspaceData(key?: string) {
     selectedElements: selectedElements.value,
     flowSummary: {
       storyboardCount: flowData.value.storyboard?.length ?? 0,
-      assetCount: flowData.value.assets?.length ?? 0,
+      assetCount: studioAssets.value?.length ?? 0,
       hasScript: Boolean(flowData.value.script),
       hasScriptPlan: Boolean(flowData.value.scriptPlan),
       hasStoryboardTable: Boolean(flowData.value.storyboardTable),
@@ -216,7 +373,7 @@ function buildStudioWorkspaceData(key?: string) {
     },
     flowData: stripLargeFields(flowData.value),
     storyboard: stripLargeFields(flowData.value.storyboard),
-    assets: stripLargeFields(flowData.value.assets),
+    assets: stripLargeFields(studioAssets.value),
   };
 
   if (key && key in dataMap) return dataMap[key];
@@ -281,6 +438,7 @@ function registerWorkspacePlanDataHandler() {
       if (payload.assetIds?.length) prodStore.markAssetImagesGenerating?.(payload.assetIds);
       if (payload.records?.length) prodStore.applyAssetImageRecords?.(payload.records as any);
       updateAssetProgressNotice(payload);
+      await loadProjectAssets();
       if (payload.stage === "submitted" && episodesId.value) {
         await prodStore.getFlowData();
       }
@@ -305,8 +463,15 @@ watch(
   { immediate: true },
 );
 
+watch(
+  () => project.value?.id,
+  () => {
+    void loadProjectAssets();
+  },
+);
+
 onMounted(async () => {
-  await loadEpisodes();
+  await Promise.all([loadEpisodes(), loadProjectAssets()]);
   if (episodes.value.length > 0 && !episodesId.value) {
     prodStore.episodesId = episodes.value[0].id;
   }
@@ -323,6 +488,10 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  if (projectAssetsPollingTimer) {
+    clearInterval(projectAssetsPollingTimer);
+    projectAssetsPollingTimer = null;
+  }
   workspaceStore.disconnect();
   prodStore.disconnect();
 });
@@ -343,10 +512,12 @@ function handleEpisodeChange(id: number) {
   prodStore.episodesId = id;
   prodStore.updateContext?.();
   if (ensureProductionEpisode(false)) prodStore.getFlowData();
+  void loadProjectAssets();
 }
 
 function refreshData() {
   if (episodesId.value) prodStore.getFlowData();
+  void loadProjectAssets();
   if (agentMode.value === "workspace") workspaceStore.getHistory?.();
 }
 
@@ -402,7 +573,7 @@ async function onRetryFailedStoryboards(ids: number[]) {
 
 function findAssetById(id: number | null) {
   if (!id) return null;
-  for (const asset of flowData.value.assets || []) {
+  for (const asset of studioAssets.value || []) {
     if (asset.id === id) return asset;
     const derive = asset.derive?.find((item: any) => item.id === id);
     if (derive) return { ...derive, parentAsset: asset };
@@ -534,19 +705,166 @@ watch(() => flowData.value.storyboard, (newVal) => {
 }
 
 .studio-body {
+  position: relative;
   display: flex;
   flex: 1;
   overflow: hidden;
-  gap: 1px;
   background-color: var(--td-border-level-1-color);
 }
 
 .studio-center {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   background-color: var(--td-border-level-1-color);
+  --asset-safe-left: 0px;
+  --asset-safe-right: 0px;
+}
+
+.studio-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background-color: var(--td-bg-color-page);
+}
+
+.studio-assets-shell {
+  flex-shrink: 0;
+  min-width: 0;
+  margin-left: var(--asset-safe-left);
+  margin-right: var(--asset-safe-right);
+  transition: margin 0.2s ease;
+}
+
+.asset-panel-toggle {
+  position: absolute;
+  left: var(--asset-safe-left);
+  right: var(--asset-safe-right);
+  z-index: 32;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: max-content;
+  height: 30px;
+  margin-inline: auto;
+  padding: 0 12px;
+  border: 1px solid var(--td-border-level-1-color);
+  border-radius: 16px;
+  background-color: var(--td-bg-color-container);
+  color: var(--td-text-color-primary);
+  box-shadow: var(--td-shadow-2);
+  cursor: pointer;
+  font-size: 12px;
+  transition: left 0.2s ease, right 0.2s ease, bottom 0.2s ease, background-color 0.2s ease;
+
+  &:hover {
+    background-color: var(--td-bg-color-container-hover);
+  }
+
+  &.open {
+    border-color: var(--td-brand-color);
+    color: var(--td-brand-color);
+  }
+}
+
+.studio-floating-panel {
+  position: absolute;
+  top: 12px;
+  bottom: var(--floating-panel-bottom, 12px);
+  z-index: 30;
+  display: flex;
+  min-height: 0;
+  box-shadow: var(--td-shadow-3);
+  border: 1px solid var(--td-border-level-1-color);
+  background-color: var(--td-bg-color-container);
+}
+
+.story-floating-panel {
+  left: 12px;
+}
+
+.agent-floating-panel {
+  right: 12px;
+}
+
+.panel-close-btn {
+  position: absolute;
+  top: 8px;
+  z-index: 35;
+}
+
+.story-close {
+  right: 8px;
+}
+
+.agent-close {
+  left: 8px;
+}
+
+.floating-toggle {
+  position: absolute;
+  top: 14px;
+  z-index: 40;
+  box-shadow: var(--td-shadow-2);
+}
+
+.left-toggle {
+  left: 14px;
+}
+
+.right-toggle {
+  right: 14px;
+}
+
+.story-floating-panel :deep(.story-panel),
+.agent-floating-panel :deep(.agent-panel) {
+  height: 100%;
+  box-shadow: none;
+}
+
+.story-floating-panel :deep(.story-panel) {
+  border-right: 1px solid var(--td-border-level-1-color);
+}
+
+.agent-floating-panel :deep(.agent-panel) {
+  border-left: 1px solid var(--td-border-level-1-color);
+}
+
+.story-floating-panel :deep(.story-panel .panel-header) {
+  padding-right: 48px;
+}
+
+.agent-floating-panel :deep(.agent-panel .panel-header) {
+  padding-left: 48px;
+}
+
+@media (max-width: 960px) {
+  .studio-center {
+    --asset-safe-left: 0px !important;
+    --asset-safe-right: 0px !important;
+  }
+
+  .studio-floating-panel {
+    top: 8px;
+    bottom: var(--floating-panel-bottom, 8px);
+  }
+
+  .story-floating-panel {
+    left: 8px;
+    right: 56px;
+  }
+
+  .agent-floating-panel {
+    left: 56px;
+    right: 8px;
+  }
 }
 </style>

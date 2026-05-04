@@ -1,7 +1,7 @@
 <template>
   <VueFlow
     class="flowMain"
-    :class="{ 'is-interacting': isInteracting && otherSetting.interacting, 'space-dragging': isSpacePressed }"
+    :class="{ embedded, 'is-interacting': isInteracting && otherSetting.interacting, 'space-dragging': isSpacePressed }"
     id="mainFlowBox"
     @mousedown="onSpaceMouseDown"
     :nodes="episodesId ? nodes : []"
@@ -39,8 +39,8 @@
     </template> -->
     <Background></Background>
     <Controls />
-    <div class="floatingWindow">
-      <div class="episodesSelect f ac">
+    <div v-if="showCanvasControls || showAssistant" class="floatingWindow">
+      <div v-if="showCanvasControls" class="episodesSelect f ac">
         <t-select
           :value="episodesId"
           :placeholder="$t('workbench.production.selectPlaceholder')"
@@ -73,15 +73,15 @@
           </div>
         </t-tooltip> -->
       </div>
-      <div class="openRightChatBoxBtn c" v-show="!openShowVisible" @click.stop="openShowVisible = true">
+      <div v-if="showAssistant" class="openRightChatBoxBtn c" v-show="!openShowVisible" @click.stop="openShowVisible = true">
         <i-menu-unfold-one theme="outline" size="24" />
       </div>
-      <transition name="slide" v-show="openShowVisible" v-if="episodesId">
+      <transition name="slide" v-show="openShowVisible" v-if="showAssistant && episodesId">
         <rightChatBox :title="title" v-model="flowData" @close="openShowVisible = false" />
       </transition>
     </div>
-    <t-guide v-model="current" :steps="steps" @finish="() => (current = -1)" />
-    <t-tag variant="outline" class="fps" v-if="!openShowVisible">{{ fps }}</t-tag>
+    <t-guide v-if="!embedded && showCanvasControls" v-model="current" :steps="steps" @finish="() => (current = -1)" />
+    <t-tag variant="outline" class="fps" v-if="showAssistant && !openShowVisible">{{ fps }}</t-tag>
   </VueFlow>
 </template>
 
@@ -106,6 +106,17 @@ import { useLayout } from "./utils/dagre";
 import { useFlowBuilder } from "./utils/flowBuilder";
 import axios from "@/utils/axios";
 import projectStore from "@/stores/project";
+
+const {
+  embedded = false,
+  showAssistant = true,
+  showCanvasControls = true,
+} = defineProps<{
+  embedded?: boolean;
+  showAssistant?: boolean;
+  showCanvasControls?: boolean;
+}>();
+provide("productionEmbedded", embedded);
 
 const { project } = storeToRefs(projectStore());
 import settingStore from "@/stores/setting";
@@ -501,6 +512,12 @@ watch(openShowVisible, (val) => {
 <style lang="scss" scoped>
 .flowMain {
   height: 100%;
+  width: 100%;
+
+  &.embedded {
+    background-color: var(--td-bg-color-page);
+  }
+
   &.space-dragging {
     cursor: grab !important;
     :deep(*) {

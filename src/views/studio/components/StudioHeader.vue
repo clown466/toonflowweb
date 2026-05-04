@@ -18,25 +18,6 @@
       </div>
     </div>
 
-    <div class="header-center">
-      <!-- 工具模式切换：当前为演示状态，点击提示即将支持 -->
-      <t-button-group>
-        <t-button
-          v-for="tool in tools"
-          :key="tool.key"
-          :theme="activeTool === tool.key ? 'primary' : 'default'"
-          variant="text"
-          size="small"
-          @click="onToolClick(tool.key)"
-        >
-          <template #icon>
-            <component :is="tool.icon" size="16" />
-          </template>
-          {{ tool.label }}
-        </t-button>
-      </t-button-group>
-    </div>
-
     <div class="header-right">
       <t-tooltip content="刷新">
         <t-button variant="text" shape="square" size="small" @click="$emit('refresh')">
@@ -66,12 +47,6 @@ interface Episode {
   name: string;
 }
 
-interface Tool {
-  key: string;
-  label: string;
-  icon: string;
-}
-
 const props = defineProps<{
   title: string;
   currentEpisode?: Episode;
@@ -81,10 +56,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "refresh"): void;
   (e: "episodeChange", id: number): void;
-  (e: "toolChange", key: string): void;
 }>();
 
-const activeTool = ref("edit");
 const setting = settingStore();
 
 const episodeOptions = computed(() =>
@@ -94,23 +67,8 @@ const episodeOptions = computed(() =>
   }))
 );
 
-const tools: Tool[] = [
-  { key: "edit", label: "编辑", icon: "i-edit" },
-  { key: "preview", label: "预览", icon: "i-play" },
-  { key: "publish", label: "发布", icon: "i-share" },
-];
-
 function onEpisodeChange(value: SelectValue) {
   emit("episodeChange", value as number);
-}
-
-function onToolClick(key: string) {
-  activeTool.value = key;
-  emit("toolChange", key);
-  // 暂时只有编辑模式可用，其他提示即将支持
-  if (key !== "edit") {
-    window.$message.info(`${tools.find(t => t.key === key)?.label}模式即将支持`);
-  }
 }
 
 function openSettings() {
@@ -157,10 +115,4 @@ function openSettings() {
   }
 }
 
-.header-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-}
 </style>

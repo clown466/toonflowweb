@@ -41,21 +41,29 @@
             </template>
           </t-popup>
         </t-tooltip>
-        <t-button variant="text" shape="square" size="small" @click="collapsed = !collapsed">
-          <template #icon><i-up v-if="!collapsed" size="14" /><i-down v-else size="14" /></template>
+        <t-button variant="text" shape="square" size="small" :loading="loading" @click="emit('refreshAssets')">
+          <template #icon><i-refresh size="14" /></template>
+        </t-button>
+        <t-button variant="text" shape="square" size="small" @click="emit('collapse')">
+          <template #icon><i-down size="14" /></template>
         </t-button>
       </div>
     </div>
 
-    <div v-show="!collapsed" class="panel-body">
+    <div class="panel-body">
+      <t-alert v-if="errorMessage" theme="error" :message="errorMessage" close style="margin: 8px 12px 0" />
+
       <!-- Assets Tab -->
       <div v-if="activeTab === 'assets'" class="file-grid">
-        <div v-if="filteredAssets.length === 0" class="empty-state">
+        <div v-if="loading && displayAssets.length === 0" class="empty-state">
+          <t-loading size="small" text="正在加载资产" />
+        </div>
+        <div v-else-if="displayAssets.length === 0" class="empty-state">
           <t-empty :title="$t('studio.files.noAssets')" :description="$t('studio.files.noAssetsDesc')" />
         </div>
         <div
-          v-for="asset in filteredAssets"
-          :key="asset.id"
+          v-for="asset in displayAssets"
+          :key="asset.key"
           class="file-card"
           :class="{ selected: selectedId === asset.id }"
           @click="onSelectAsset(asset)"
@@ -77,44 +85,17 @@
           <div class="card-info">
             <div class="info-name" :title="asset.name">{{ asset.name }}</div>
             <div class="info-meta">
-              <span v-if="asset.derive">{{ asset.derive.length }} {{ $t("studio.files.variants") }}</span>
+              <span v-if="asset.parentName" :title="asset.parentName">{{ asset.parentName }}</span>
               <span v-else>{{ $t("studio.files.single") }}</span>
             </div>
             <t-tag :theme="stateTheme(asset.state)" size="small" variant="light">
               {{ stateLabel(asset.state || '未生成') }}
             </t-tag>
           </div>
-          <div v-if="asset.derive?.length" class="derive-list" @click.stop>
-            <div
-              v-for="derive in asset.derive"
-              :key="derive.id"
-              class="derive-item"
-              :class="{ selected: selectedId === derive.id }"
-              @click="onSelectDerive(derive)"
-              @dblclick="onPreviewDerive(derive)"
-            >
-              <div class="derive-thumb">
-                <img v-if="derive.src" :src="derive.src" />
-                <div v-else-if="derive.state === '生成中'" class="thumb-state generating">
-                  <t-loading size="small" />
-                </div>
-                <div v-else-if="derive.state === '生成失败'" class="thumb-state error">
-                  <i-refresh size="14" />
-                </div>
-                <div v-else class="thumb-state pending">
-                  <i-image-error size="14" />
-                </div>
-              </div>
-              <div class="derive-info">
-                <div class="derive-name" :title="derive.name">{{ derive.name || '衍生资产' }}</div>
-                <t-tag :theme="stateTheme(derive.state)" size="small" variant="light">
-                  {{ stateLabel(derive.state) }}
-                </t-tag>
-              </div>
-              <t-button size="small" variant="outline" :disabled="derive.state === '生成中'" @click.stop="onRepaintDerive(derive)">
-                重绘
-              </t-button>
-            </div>
+          <div v-if="asset.isDerived" class="card-actions">
+            <t-button size="small" variant="outline" :disabled="asset.state === '生成中'" @click.stop="onRepaintDerive(asset)">
+              重绘
+            </t-button>
           </div>
         </div>
       </div>
@@ -159,14 +140,15 @@
     </div>
 
     <!-- Resize handle -->
-    <div ref="resizeHandle" class="resize-handle top" v-show="!collapsed" />
+    <div ref="resizeHandle" class="resize-handle top" />
 
     <!-- Asset Preview Dialog -->
-    <t-image-viewer
-      v-model:visible="showPreview"
-      :images="previewAsset?.src ? [previewAsset.src] : []"
-      :default-index="0"
-    />
+    <t-dialog v-model:visible="showPreview" :header="previewAsset?.name || '图片预览'" width="min(80vw, 960px)" :footer="false">
+      <div class="asset-preview-dialog">
+        <img v-if="previewAsset?.src" :src="previewAsset.src" :alt="previewAsset.name || 'asset preview'" />
+        <t-empty v-else title="暂无可预览图片" />
+      </div>
+    </t-dialog>
   </div>
 </template>
 
@@ -175,20 +157,29 @@ import { useMouse, useMousePressed } from "@vueuse/core";
 
 interface DeriveAsset {
   id: number;
+  key?: string;
   assetsId?: number;
   name?: string;
   src?: string | null;
+  filePath?: string | null;
   type?: string;
   state?: string;
+  parentName?: string;
+  isDerived?: boolean;
 }
 
 interface Asset {
   id: number;
+  key?: string;
   name: string;
   src?: string | null;
+  filePath?: string | null;
   type?: string;
   state?: string;
   derive?: DeriveAsset[];
+  sonAssets?: DeriveAsset[];
+  parentName?: string;
+  isDerived?: boolean;
 }
 
 interface StoryboardItem {
@@ -202,6 +193,8 @@ interface StoryboardItem {
 const props = defineProps<{
   assets: any[];
   storyboard: StoryboardItem[];
+  loading?: boolean;
+  errorMessage?: string;
 }>();
 
 const emit = defineEmits<{
@@ -209,11 +202,12 @@ const emit = defineEmits<{
   (e: "selectStoryboard", id: number): void;
   (e: "previewAsset", asset: Asset | DeriveAsset): void;
   (e: "repaintAsset", asset: DeriveAsset): void;
+  (e: "refreshAssets"): void;
+  (e: "collapse"): void;
 }>();
 
 const activeTab = ref("assets");
 const searchQuery = ref("");
-const collapsed = ref(false);
 const selectedId = ref<number | null>(null);
 const panelHeight = defineModel<number>("panelHeight", { default: 200 });
 
@@ -239,6 +233,34 @@ const filteredAssets = computed(() => {
   }
   return result;
 });
+
+const displayAssets = computed(() =>
+  filteredAssets.value.flatMap((asset) => {
+    const normalizedAsset = asset as Asset;
+    const items: Array<Asset | DeriveAsset> = [
+      {
+        ...normalizedAsset,
+        key: `asset-${normalizedAsset.id}`,
+        src: assetThumb(normalizedAsset),
+        state: assetVisualState(normalizedAsset),
+        isDerived: false,
+      },
+    ];
+    assetDerives(normalizedAsset).forEach((derive) => {
+      items.push({
+        ...derive,
+        key: `derive-${derive.id}`,
+        type: derive.type || normalizedAsset.type,
+        name: derive.name || normalizedAsset.name,
+        parentName: normalizedAsset.name,
+        src: deriveThumb(derive),
+        state: derive.state || "未生成",
+        isDerived: true,
+      });
+    });
+    return items;
+  }),
+);
 
 const filteredStoryboard = computed(() => {
   if (!searchQuery.value) return props.storyboard;
@@ -276,29 +298,51 @@ function assetTypeLabel(type?: string): string {
   return labels[type || ""] || type || $t("studio.assetTypes.unknown");
 }
 
-function onSelectAsset(asset: Asset) {
-  selectedId.value = asset.id;
-  emit("selectAsset", asset);
+function pickSrc(item?: { src?: string | null; filePath?: string | null }) {
+  return item?.src || item?.filePath || "";
 }
 
-function onSelectDerive(derive: DeriveAsset) {
-  selectedId.value = derive.id;
-  emit("selectAsset", derive);
+function assetDerives(asset: Asset) {
+  return Array.isArray(asset.derive) && asset.derive.length > 0 ? asset.derive : asset.sonAssets || [];
+}
+
+function deriveThumb(derive: DeriveAsset) {
+  return pickSrc(derive);
+}
+
+function assetThumb(asset: Asset) {
+  const ownSrc = pickSrc(asset);
+  if (ownSrc) return ownSrc;
+  const completedDerive = assetDerives(asset).find((derive) => pickSrc(derive));
+  return pickSrc(completedDerive);
+}
+
+function assetVisualState(asset: Asset) {
+  if (asset.state && asset.state !== "未生成") return asset.state;
+  const derives = assetDerives(asset);
+  if (derives.some((derive) => derive.state === "生成中")) return "生成中";
+  if (assetThumb(asset)) return "已完成";
+  if (derives.some((derive) => derive.state === "生成失败")) return "生成失败";
+  return asset.state || "未生成";
+}
+
+function onSelectAsset(asset: Asset | DeriveAsset) {
+  selectedId.value = asset.id;
+  emit("selectAsset", asset);
 }
 
 const showPreview = ref(false);
 const previewAsset = ref<Asset | DeriveAsset | null>(null);
 
-function onPreviewAsset(asset: Asset) {
-  previewAsset.value = asset;
+function onPreviewAsset(asset: Asset | DeriveAsset) {
+  const src = pickSrc(asset);
+  if (!src) {
+    window.$message.warning("该资产还没有可预览图片");
+    return;
+  }
+  previewAsset.value = { ...asset, src };
   showPreview.value = true;
   emit('previewAsset', asset);
-}
-
-function onPreviewDerive(derive: DeriveAsset) {
-  previewAsset.value = derive;
-  showPreview.value = true;
-  emit("previewAsset", derive);
 }
 
 function onRepaintDerive(derive: DeriveAsset) {
@@ -360,6 +404,7 @@ if (typeof window !== "undefined") {
   position: relative;
   flex-shrink: 0;
   border-top: 1px solid var(--td-border-level-1-color);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .panel-header {
@@ -424,7 +469,9 @@ if (typeof window !== "undefined") {
   overflow-y: auto;
   padding: 12px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(112px, 140px));
+  align-content: start;
+  justify-content: start;
   gap: 12px;
 
   &.compact {
@@ -437,6 +484,7 @@ if (typeof window !== "undefined") {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  height: 100%;
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
@@ -510,66 +558,18 @@ if (typeof window !== "undefined") {
     .info-meta {
       font-size: 10px;
       color: var(--td-text-color-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 }
 
-.derive-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.derive-item {
-  display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 6px;
-  background-color: var(--td-bg-color-secondarycontainer);
-  cursor: pointer;
-
-  &:hover {
-    background-color: var(--td-bg-color-container-hover);
-  }
-
-  &.selected {
-    outline: 1px solid var(--td-brand-color);
-  }
-}
-
-.derive-thumb {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  overflow: hidden;
-  background-color: var(--td-bg-color-container);
+.card-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-}
-
-.derive-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.derive-name {
-  font-size: 10px;
-  color: var(--td-text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-top: auto;
 }
 
 .thumb-state {
@@ -680,6 +680,21 @@ if (typeof window !== "undefined") {
 
   &:hover {
     background-color: var(--td-brand-color);
+  }
+}
+
+.asset-preview-dialog {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-height: 72vh;
+  min-height: 240px;
+  overflow: auto;
+
+  img {
+    max-width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
   }
 }
 </style>

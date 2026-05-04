@@ -1,5 +1,5 @@
 <template>
-  <t-card class="workbench" @click="visible = !visible">
+  <t-card class="workbench" @click="openWorkbench">
     <div class="titleBar dragHandle pr">
       <div class="title">{{ $t("workbench.production.node.workbench.title") }}</div>
       <Handle :id="props.handleIds.target" type="target" :position="Position.Left" style="left: calc(-1 * var(--td-comp-paddingLR-xl))" />
@@ -23,7 +23,7 @@
         </div>
       </div> -->
     </div>
-    <workbench v-model:visible="visible" v-if="visible" />
+    <workbench v-model:visible="visible" v-if="visible && !productionEmbedded" />
   </t-card>
 </template>
 
@@ -32,6 +32,8 @@ import workbench from "../components/workbench/index.vue";
 import { Handle, Position } from "@vue-flow/core";
 
 const visible = ref(false);
+const router = useRouter();
+const productionEmbedded = inject("productionEmbedded", false);
 
 interface WorkbenchData {
   name: string;
@@ -51,6 +53,14 @@ const props = defineProps<{
 }>();
 
 const workbenchData = defineModel<WorkbenchData>({ required: true });
+
+function openWorkbench() {
+  if (productionEmbedded) {
+    router.push("/production");
+    return;
+  }
+  visible.value = !visible.value;
+}
 </script>
 
 <style lang="scss" scoped>

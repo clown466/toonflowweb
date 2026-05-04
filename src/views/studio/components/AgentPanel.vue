@@ -5,9 +5,11 @@
     <div class="panel-header">
       <div class="header-title">
         <span class="title-text">{{ panelTitle }}</span>
-        <span class="connection-dot" :class="connected ? 'online' : 'offline'"></span>
       </div>
       <div class="header-actions">
+        <t-tooltip :content="connected ? '已连接' : '未连接'" placement="bottom">
+          <span class="connection-dot" :class="connected ? 'online' : 'offline'"></span>
+        </t-tooltip>
         <t-tooltip content="更多" placement="bottom">
           <t-button variant="text" shape="square" size="small" @click="showMoreMenu = true">
             <template #icon><i-more size="16" /></template>
@@ -406,7 +408,7 @@ const inputValue = ref("");
 const showMoreMenu = ref(false);
 const showSettingPopup = ref(false);
 const showThink = ref(true);
-const panelWidth = ref(410);
+const panelWidth = defineModel<number>("panelWidth", { default: 410 });
 const activeElementTab = ref("storyboard");
 const skillSearch = ref("");
 const elementSearch = ref("");
@@ -809,6 +811,7 @@ function openSettings() {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   height: 48px;
   padding: 0 16px;
   border-bottom: 1px solid var(--td-border-level-1-color);
@@ -818,20 +821,33 @@ function openSettings() {
   .header-title {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex: 1;
+    min-width: 0;
 
     .title-text {
       font-size: 14px;
       font-weight: 600;
       color: var(--td-text-color-primary);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
 .connection-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  flex: 0 0 8px;
 
   &.online {
     background-color: var(--td-success-color);

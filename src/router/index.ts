@@ -50,7 +50,8 @@ const router = createRouter({
         },
         {
           path: "/production",
-          component: () => import("@/views/production/index.vue"),
+          meta: { requiresProject: true },
+          component: () => import("@/views/videoWorkbench/index.vue"),
         },
         {
           path: "/studio",
