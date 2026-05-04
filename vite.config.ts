@@ -4,11 +4,30 @@ import vue from "@vitejs/plugin-vue";
 import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
 import { TDesignResolver } from "@tdesign-vue-next/auto-import-resolver";
+import type { ComponentResolver } from "unplugin-vue-components";
 import { viteSingleFile } from "vite-plugin-singlefile";
 import postcsspxtoviewport from "postcss-px-to-viewport";
 
 const singleFile = process.env.TOONFLOW_SINGLE_FILE === "1";
 const backendOrigin = process.env.VITE_BACKEND_ORIGIN || "http://127.0.0.1:10588";
+
+const iconParkNameOverrides: Record<string, string> = {
+  IComponent: "Components",
+  IFolderAdd: "FolderPlus",
+  IImage: "Pic",
+  IImageError: "ImageFiles",
+};
+
+const IconParkResolver: ComponentResolver = (name) => {
+  if (!/^I[A-Z]/.test(name)) return;
+
+  const iconName = iconParkNameOverrides[name] || name.slice(1);
+  return {
+    name: "default",
+    from: `@icon-park/vue-next/es/icons/${iconName}`,
+    as: name,
+  };
+};
 
 export default defineConfig({
   base: "./",
@@ -42,6 +61,7 @@ export default defineConfig({
     Components({
       dts: "src/types/components.d.ts",
       resolvers: [
+        IconParkResolver,
         TDesignResolver({
           library: "vue-next",
         }),

@@ -36,7 +36,8 @@
 <script setup lang="ts">
 import { h, render } from "vue";
 import { Popup } from "tdesign-vue-next";
-import { Video, VolumeMute } from "@icon-park/vue-next";
+import Video from "@icon-park/vue-next/es/icons/Video";
+import VolumeMute from "@icon-park/vue-next/es/icons/VolumeMute";
 
 const props = defineProps<{
   references?: { type: "image" | "video" | "audio" | "text"; src: string }[];
