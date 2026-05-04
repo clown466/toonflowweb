@@ -14,7 +14,6 @@ import { cachedLocale } from "@/locales";
 import { initTheme } from "@/utils/theme";
 import { type GlobalConfigProvider } from "tdesign-vue-next";
 const { baseUrl, isElectron } = storeToRefs(settingStore());
-import { config } from "md-editor-v3";
 
 watch(
   () => isElectron.value,
@@ -81,33 +80,6 @@ async function getPort() {
       }
     } catch (error) {}
   }
-
-  config({
-    markdownItConfig(md) {
-      // 自定义链接渲染
-      const defaultRender =
-        md.renderer.rules.link_open ||
-        function (tokens, idx, options, env, self) {
-          return self.renderToken(tokens, idx, options);
-        };
-      md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
-        const token = tokens[idx];
-        const href = token.attrGet("href");
-
-        if (href) {
-          // 添加 target="_blank" 在新窗口打开
-          token.attrSet("target", "_blank");
-          token.attrSet("rel", "noopener noreferrer");
-
-          // 或者添加自定义点击事件的标识
-          token.attrSet("data-link", href);
-          token.attrSet("onclick", "return handleLinkClick(event)");
-        }
-
-        return defaultRender(tokens, idx, options, env, self);
-      };
-    },
-  });
 }
 
 const tdesignLocaleMap: Record<string, object> = {

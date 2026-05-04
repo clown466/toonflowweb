@@ -8,7 +8,8 @@
     </div>
     <div class="content">
       <t-empty v-if="!scriptPlan" style="margin-top: 16px"></t-empty>
-      <MdPreview v-else v-model="scriptPlan" :theme="themeSetting.mode" />
+      <pre v-else-if="productionEmbedded" class="markdown-lite">{{ scriptPlan }}</pre>
+      <MdPreview v-else v-model="scriptPlan" :theme="mdTheme" />
     </div>
   </t-card>
 
@@ -25,8 +26,9 @@
     placement="center"
     attach="body">
     <MdEditor
+      v-if="dialogVisible"
       v-model="editContent"
-      :theme="themeSetting.mode"
+      :theme="mdTheme"
       :toolbars="toolbars"
       :footers="[]"
       style="height: 72vh"
@@ -37,12 +39,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, defineAsyncComponent, inject, ref, watchEffect } from "vue";
 import { Handle, Position } from "@vue-flow/core";
-import { MdEditor, MdPreview } from "md-editor-v3";
 import type { ToolbarNames } from "md-editor-v3";
 import settingStore from "@/stores/setting";
+import { ensureMdEditorLinkConfig } from "@/utils/mdEditorConfig";
 const { themeSetting } = storeToRefs(settingStore());
+const MdEditor = defineAsyncComponent(() => import("md-editor-v3").then((module) => module.MdEditor));
+const MdPreview = defineAsyncComponent(() => import("md-editor-v3").then((module) => module.MdPreview));
+const productionEmbedded = inject("productionEmbedded", false);
+const mdTheme = computed(() => (themeSetting.value.mode === "auto" ? "light" : themeSetting.value.mode));
 
 const props = defineProps<{
   id: string;
@@ -55,6 +61,10 @@ const props = defineProps<{
 const scriptPlan = defineModel<string>({ required: true });
 const editContent = ref("");
 const dialogVisible = ref(false);
+
+watchEffect(() => {
+  if (!productionEmbedded || dialogVisible.value) void ensureMdEditorLinkConfig();
+});
 
 const toolbars: ToolbarNames[] = [
   "bold",
@@ -136,6 +146,17 @@ function onPaste(e: ClipboardEvent) {
 
     :deep(.md-editor) {
       border: none;
+    }
+
+    .markdown-lite {
+      max-height: 260px;
+      margin: 0;
+      overflow: hidden;
+      color: var(--td-text-color-secondary);
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
     }
   }
 }

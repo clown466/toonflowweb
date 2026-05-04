@@ -49,7 +49,14 @@
 
       <div class="studio-center">
         <div class="studio-canvas-wrap">
-          <ProductionFlowCanvas embedded :show-assistant="false" :show-canvas-controls="false" />
+          <Suspense>
+            <ProductionFlowCanvas embedded :show-assistant="false" :show-canvas-controls="false" />
+            <template #fallback>
+              <div class="canvas-loading">
+                <t-loading size="small" text="正在加载画布" />
+              </div>
+            </template>
+          </Suspense>
         </div>
         <button
           class="asset-panel-toggle"
@@ -124,7 +131,8 @@ import StudioHeader from "./components/StudioHeader.vue";
 import StoryPanel from "./components/StoryPanel.vue";
 import FilePanel from "./components/FilePanel.vue";
 import AgentPanel from "./components/AgentPanel.vue";
-import ProductionFlowCanvas from "@/views/production/index.vue";
+
+const ProductionFlowCanvas = defineAsyncComponent(() => import("@/views/production/index.vue"));
 
 const { project } = storeToRefs(projectStore());
 const prodStore = productionAgentStore();
@@ -759,6 +767,14 @@ watch(() => flowData.value.storyboard, (newVal) => {
   min-width: 0;
   overflow: hidden;
   background-color: var(--td-bg-color-page);
+}
+
+.canvas-loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--td-text-color-secondary);
 }
 
 .studio-assets-shell {

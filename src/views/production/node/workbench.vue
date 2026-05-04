@@ -23,14 +23,14 @@
         </div>
       </div> -->
     </div>
-    <workbench v-model:visible="visible" v-if="visible && !productionEmbedded" />
+    <workbenchDialog v-model:visible="visible" v-if="visible && !productionEmbedded" />
   </t-card>
 </template>
 
 <script setup lang="ts">
-import workbench from "../components/workbench/index.vue";
 import { Handle, Position } from "@vue-flow/core";
 
+const workbenchDialog = defineAsyncComponent(() => import("../components/workbench/index.vue"));
 const visible = ref(false);
 const router = useRouter();
 const productionEmbedded = inject("productionEmbedded", false);

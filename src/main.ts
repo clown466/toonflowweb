@@ -12,9 +12,6 @@ import { LoadingDirective, LoadingPlugin } from "tdesign-vue-next";
 
 import "@/utils/global";
 
-import { Log } from "@webav/av-cliper";
-Log.setLogLevel(Log.warn);
-
 import "md-editor-v3/lib/style.css";
 import "splitpanes/dist/splitpanes.css";
 
