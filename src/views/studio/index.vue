@@ -209,7 +209,6 @@ const selectedElements = computed(() => ({
 const studioLayoutStyle = computed(() => ({
   "--asset-safe-left": leftPanelOpen.value ? `${leftPanelWidth.value + 1}px` : "0px",
   "--asset-safe-right": rightPanelOpen.value ? `${rightPanelWidth.value + 1}px` : "0px",
-  "--floating-panel-bottom": assetPanelOpen.value ? `${assetPanelHeight.value}px` : "0px",
 }));
 const generating = ref(false);
 const loading = ref(false);
@@ -817,7 +816,7 @@ watch(() => flowData.value.storyboard, (newVal) => {
 .studio-floating-panel {
   position: absolute;
   top: 0;
-  bottom: var(--floating-panel-bottom, 0);
+  bottom: 0;
   z-index: 30;
   display: flex;
   min-height: 0;
@@ -893,7 +892,7 @@ watch(() => flowData.value.storyboard, (newVal) => {
 
   .studio-floating-panel {
     top: 0;
-    bottom: var(--floating-panel-bottom, 0);
+    bottom: 0;
   }
 
   .story-floating-panel {
