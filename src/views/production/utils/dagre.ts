@@ -6,7 +6,7 @@ import { Position, useVueFlow, type Node, type Edge } from "@vue-flow/core";
  * 通过 dagre 库计算节点和边的布局位置。
  */
 export function useLayout(flowId?: string) {
-  const { findNode, fitView } = useVueFlow(flowId ? { id: flowId } : undefined);
+  const { findNode } = useVueFlow(flowId ? { id: flowId } : undefined);
 
   const graph = ref(new dagre.graphlib.Graph());
   const previousDirection = ref("LR"); // 上一次布局方向
@@ -45,11 +45,13 @@ export function useLayout(flowId?: string) {
     // 返回带有新位置的节点
     return nodes.map((node) => {
       const pos = dagreGraph.node(node.id);
+      const width = pos.width ?? 150;
+      const height = pos.height ?? 50;
       return {
         ...node,
         targetPosition: isHorizontal ? Position.Left : Position.Top,
         sourcePosition: isHorizontal ? Position.Right : Position.Bottom,
-        position: { x: pos.x, y: pos.y },
+        position: { x: pos.x - width / 2, y: pos.y - height / 2 },
       };
     });
   }

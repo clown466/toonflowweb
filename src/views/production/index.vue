@@ -38,7 +38,7 @@
       <poster :id="props.id" v-model="flowData.poster" :handleIds="props.data.handleIds" />
     </template> -->
     <Background></Background>
-    <Controls />
+    <Controls v-if="showCanvasControls" />
     <div v-if="showCanvasControls || showAssistant" class="floatingWindow">
       <div v-if="showCanvasControls" class="episodesSelect f ac">
         <t-select
