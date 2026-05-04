@@ -203,6 +203,8 @@ onUnmounted(() => {
   width: 100vw;
   padding: 16px;
   display: flex;
+  overflow: hidden;
+  min-height: 0;
 
   .menu {
     width: 64px;
@@ -275,6 +277,8 @@ onUnmounted(() => {
     background-color: var(--page);
     border-radius: 16px;
     width: 100%;
+    min-width: 0;
+    min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
     scrollbar-gutter: stable;
@@ -311,6 +315,7 @@ onUnmounted(() => {
     .viewBox {
       width: 100%;
       height: calc(100% - 6vh);
+      min-height: 0;
     }
   }
 }

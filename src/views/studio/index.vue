@@ -731,7 +731,8 @@ watch(() => flowData.value.storyboard, (newVal) => {
 .studio-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--td-comp-size-xxxl, 48px));
+  height: 100%;
+  min-height: 0;
   background-color: var(--td-bg-color-page);
   overflow: hidden;
 }
