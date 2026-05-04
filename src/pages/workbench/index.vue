@@ -38,7 +38,7 @@
         </t-tooltip>
       </div>
     </div>
-    <div class="view">
+    <div class="view" :class="{ 'edge-to-edge-view': isEdgeToEdgeView }">
       <div class="topMenu f ac jb" v-if="project?.id">
         <div class="title">
           <h2>{{ project?.name || $t("workbench.selectProject") }}</h2>
@@ -101,6 +101,7 @@ const rightBtnList = ref([
 const router = useRouter();
 const route = useRoute();
 const activeMenu = ref(route.path);
+const isEdgeToEdgeView = computed(() => route.path === "/studio");
 
 watch(
   () => route.path,
@@ -279,6 +280,17 @@ onUnmounted(() => {
     scrollbar-gutter: stable;
     padding-left: 32px;
     padding-right: 32px;
+
+    &.edge-to-edge-view {
+      padding-left: 0;
+      padding-right: 0;
+
+      .topMenu {
+        padding-left: 32px;
+        padding-right: 32px;
+      }
+    }
+
     .topMenu {
       height: 6vh;
       .rightBtnList {
