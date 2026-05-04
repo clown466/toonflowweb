@@ -199,9 +199,9 @@ const selectedElements = computed(() => ({
   episode: currentEpisode.value || null,
 }));
 const studioLayoutStyle = computed(() => ({
-  "--asset-safe-left": leftPanelOpen.value ? `${leftPanelWidth.value + 24}px` : "0px",
-  "--asset-safe-right": rightPanelOpen.value ? `${rightPanelWidth.value + 24}px` : "0px",
-  "--floating-panel-bottom": assetPanelOpen.value ? `${assetPanelHeight.value + 12}px` : "12px",
+  "--asset-safe-left": leftPanelOpen.value ? `${leftPanelWidth.value + 1}px` : "0px",
+  "--asset-safe-right": rightPanelOpen.value ? `${rightPanelWidth.value + 1}px` : "0px",
+  "--floating-panel-bottom": assetPanelOpen.value ? `${assetPanelHeight.value}px` : "0px",
 }));
 const generating = ref(false);
 const loading = ref(false);
@@ -777,8 +777,8 @@ watch(() => flowData.value.storyboard, (newVal) => {
 
 .studio-floating-panel {
   position: absolute;
-  top: 12px;
-  bottom: var(--floating-panel-bottom, 12px);
+  top: 0;
+  bottom: var(--floating-panel-bottom, 0);
   z-index: 30;
   display: flex;
   min-height: 0;
@@ -788,11 +788,11 @@ watch(() => flowData.value.storyboard, (newVal) => {
 }
 
 .story-floating-panel {
-  left: 12px;
+  left: 0;
 }
 
 .agent-floating-panel {
-  right: 12px;
+  right: 0;
 }
 
 .panel-close-btn {
@@ -811,17 +811,17 @@ watch(() => flowData.value.storyboard, (newVal) => {
 
 .floating-toggle {
   position: absolute;
-  top: 14px;
+  top: 8px;
   z-index: 40;
   box-shadow: var(--td-shadow-2);
 }
 
 .left-toggle {
-  left: 14px;
+  left: 8px;
 }
 
 .right-toggle {
-  right: 14px;
+  right: 8px;
 }
 
 .story-floating-panel :deep(.story-panel),
@@ -853,18 +853,18 @@ watch(() => flowData.value.storyboard, (newVal) => {
   }
 
   .studio-floating-panel {
-    top: 8px;
-    bottom: var(--floating-panel-bottom, 8px);
+    top: 0;
+    bottom: var(--floating-panel-bottom, 0);
   }
 
   .story-floating-panel {
-    left: 8px;
+    left: 0;
     right: 56px;
   }
 
   .agent-floating-panel {
     left: 56px;
-    right: 8px;
+    right: 0;
   }
 }
 </style>
