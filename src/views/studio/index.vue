@@ -757,8 +757,6 @@ watch(() => flowData.value.storyboard, (newVal) => {
   height: 100%;
   overflow: hidden;
   background-color: var(--td-border-level-1-color);
-  --asset-safe-left: 0px;
-  --asset-safe-right: 0px;
 }
 
 .studio-canvas-wrap {
