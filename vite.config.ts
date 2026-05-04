@@ -8,6 +8,7 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 import postcsspxtoviewport from "postcss-px-to-viewport";
 
 const singleFile = process.env.TOONFLOW_SINGLE_FILE === "1";
+const backendOrigin = process.env.VITE_BACKEND_ORIGIN || "http://127.0.0.1:10588";
 
 export default defineConfig({
   base: "./",
@@ -96,6 +97,18 @@ export default defineConfig({
     },
   },
   server: {
-    port: 50188,
+    port: Number(process.env.VITE_PORT || 50188),
+    proxy: {
+      "/api": {
+        target: backendOrigin,
+        changeOrigin: true,
+        ws: true,
+      },
+      "/socket.io": {
+        target: backendOrigin,
+        changeOrigin: true,
+        ws: true,
+      },
+    },
   },
 });

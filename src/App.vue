@@ -68,6 +68,9 @@ async function getPort() {
   await nextTick();
   await nextTick();
   await nextTick();
+  if (import.meta.env.DEV && import.meta.env.VITE_BASE_URL) {
+    baseUrl.value = import.meta.env.VITE_BASE_URL;
+  }
   if (navigator.userAgent.includes("Electron") || (window as any).process?.versions?.electron) {
     try {
       const res = await fetch("toonflow://getAppUrl");

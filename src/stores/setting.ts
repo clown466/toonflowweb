@@ -1,3 +1,7 @@
+const defaultBaseUrl =
+  import.meta.env.VITE_BASE_URL ||
+  (typeof window !== "undefined" ? `${window.location.origin}/api` : "http://localhost:10588/api");
+
 export default defineStore(
   "setting",
   () => {
@@ -6,7 +10,7 @@ export default defineStore(
     const canvasWheelEvent = ref("zoom");
     const activeMenu = ref("ui");
 
-    const baseUrl = ref<string>("http://localhost:10588/api");
+    const baseUrl = ref<string>(defaultBaseUrl);
 
     const needUpdate = ref(false);
 
