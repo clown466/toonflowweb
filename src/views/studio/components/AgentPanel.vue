@@ -66,7 +66,7 @@
         <div v-if="progressHint" class="progress-hint">{{ progressHint }}</div>
       </div>
 
-      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory" @load.capture="scrollMessagesToBottom('auto')">
+      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory" @load.capture="scrollMessagesToBottom">
         <t-chat-list :clear-history="false">
           <t-chat-message
             v-for="message in messages"
@@ -450,15 +450,16 @@ function clearAutoScrollQueue() {
   autoScrollTimers = [];
 }
 
-function scrollMessagesToBottom(behavior: ScrollBehavior = "auto") {
+function scrollMessagesToBottom() {
   clearAutoScrollQueue();
 
   const scrollNow = () => {
     const el = messagesSectionRef.value;
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior });
+    el.scrollTop = el.scrollHeight;
   };
 
+  scrollNow();
   void nextTick(() => {
     scrollNow();
     autoScrollFrame = requestAnimationFrame(() => {
@@ -617,22 +618,22 @@ watch(isBusy, (busy) => {
 }, { immediate: true });
 
 onMounted(() => {
-  scrollMessagesToBottom("auto");
+  scrollMessagesToBottom();
 });
 
 onActivated(() => {
-  scrollMessagesToBottom("auto");
+  scrollMessagesToBottom();
 });
 
 watch(
   () => [props.loadingHistory, props.mode, props.messages.length] as const,
-  () => nextTick(() => scrollMessagesToBottom("auto")),
+  () => nextTick(() => scrollMessagesToBottom()),
   { immediate: true },
 );
 
 watch(
   () => latestMessageSignature.value,
-  () => scrollMessagesToBottom("auto"),
+  () => scrollMessagesToBottom(),
 );
 
 onUnmounted(() => {
@@ -1067,7 +1068,6 @@ function openSettings() {
   overflow-y: auto;
   padding: 14px 18px 18px;
   min-height: 0;
-  scroll-behavior: smooth;
 
   :deep(.t-chat__list) {
     padding: 0;

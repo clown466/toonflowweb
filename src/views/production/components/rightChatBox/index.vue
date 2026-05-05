@@ -134,9 +134,10 @@ function scrollChatToBottom() {
   const scrollNow = () => {
     const el = getChatScrollElement();
     if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+    el.scrollTop = el.scrollHeight;
   };
 
+  scrollNow();
   void nextTick(() => {
     scrollNow();
     autoScrollFrame = requestAnimationFrame(() => {
