@@ -5,15 +5,13 @@
         <t-tabs :value="activeKey" disabled>
           <t-tab-panel value="To1" :label="$t('workbench.novel.import.step1')" style="height: 680px; overflow-y: auto">
             <div class="uploadArea" @click="triggerUpload" @dragover.prevent @drop.prevent="handleDrop">
-              <t-upload
-                ref="uploadRef"
-                v-model="fileList"
-                theme="file"
-                :multiple="false"
-                :max="1"
-                :before-upload="handleBeforeUpload"
-                :request-method="requestMethod"
-                style="display: none" />
+              <input
+                ref="fileInputRef"
+                class="hiddenFileInput"
+                type="file"
+                multiple
+                accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                @change="handleFileInputChange" />
               <div class="dragIcon">
                 <i-upload-one theme="outline" size="32" fill="var(--td-brand-color)" />
               </div>
@@ -45,7 +43,7 @@
             <div class="fc to2Box">
               <t-table
                 ref="tableRef"
-                row-key="index"
+                row-key="rowKey"
                 :data="tableData"
                 :columns="columns"
                 :selected-row-keys="selectedRowKeys"
@@ -78,23 +76,26 @@ import { LoadingPlugin } from "tdesign-vue-next";
 import axios from "@/utils/axios";
 import parseNovel from "@/utils/parseNovel";
 import mammoth from "mammoth";
-import type { UploadFile, PrimaryTableCol, TableRowData } from "tdesign-vue-next";
+import type { PrimaryTableCol, TableRowData } from "tdesign-vue-next";
 import projectStore from "@/stores/project";
 const { project } = storeToRefs(projectStore());
 interface ChapterItem {
+  rowKey: string;
   index: number;
   reel: string;
   chapter: string;
   chapterData: string;
+  sourceFile?: string;
 }
 
 const purgeNovelShow = defineModel<boolean>();
 
 const activeKey = ref("To1");
-const uploadRef = ref();
+const fileInputRef = ref<HTMLInputElement>();
 const content = ref("");
-const fileList = ref<any[]>([]);
-const selectedRowKeys = ref<number[]>([]);
+const uploadedRows = ref<ChapterItem[]>([]);
+const uploadedContentSnapshot = ref("");
+const selectedRowKeys = ref<Array<string | number>>([]);
 
 const nextLoading = ref(false);
 
@@ -108,16 +109,10 @@ const columns: PrimaryTableCol<TableRowData>[] = [
 
 // 解析后的章节数据
 const tableData = computed<ChapterItem[]>(() => {
+  if (uploadedRows.value.length) return uploadedRows.value;
   if (!content.value) return [];
   try {
-    return parseNovel(content.value).flatMap((reel) =>
-      reel.chapters.map((chapter) => ({
-        index: chapter.index,
-        reel: reel.reel,
-        chapter: chapter.chapter,
-        chapterData: chapter.text,
-      })),
-    );
+    return parseContentRows(content.value, "paste");
   } catch (e) {
     console.error("解析小说内容出错:", e);
     return [];
@@ -125,76 +120,160 @@ const tableData = computed<ChapterItem[]>(() => {
 });
 
 // 选中的行数据
-const selectedRows = computed(() => tableData.value.filter((item) => selectedRowKeys.value.includes(item.index)));
+const selectedRows = computed(() => tableData.value.filter((item) => selectedRowKeys.value.includes(item.rowKey)));
 
 // 已选文本总长度
 const selectedTextLength = computed(() => selectedRows.value.reduce((sum, item) => sum + item.chapterData.length, 0));
 
 // 触发上传
 function triggerUpload() {
-  uploadRef.value?.triggerUpload();
+  fileInputRef.value?.click();
 }
 
 // 处理拖拽上传
 async function handleDrop(e: DragEvent) {
   const files = e.dataTransfer?.files;
   if (files && files.length > 0) {
-    await handleBeforeUpload({ raw: files[0] });
+    await loadFiles(Array.from(files));
   }
 }
 
 // 读取文件内容
 async function readFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
-  if (file.type === "text/plain") {
+  const ext = file.name.toLowerCase().split(".").pop();
+  if (file.type === "text/plain" || ext === "txt") {
     return new TextDecoder().decode(buffer);
   }
   const result = await mammoth.extractRawText({ arrayBuffer: buffer });
   return result.value;
 }
-function requestMethod() {
-  return Promise.resolve({
-    response: {},
-    status: "success",
-  } as const);
+
+function normalizeFullWidthDigits(value: string) {
+  return value.replace(/[０-９]/g, (digit) => String.fromCharCode(digit.charCodeAt(0) - 0xfee0));
 }
 
-// 上传前校验并解析
-async function handleBeforeUpload(file: UploadFile) {
-  const rawFile = file.raw;
-  if (!rawFile) {
-    window.$message.error($t("workbench.novel.import.msg.selectFile"));
-    return false;
+function parseChapterNumber(value: string) {
+  const text = normalizeFullWidthDigits(value.trim());
+  if (/^\d+$/.test(text)) return Number(text);
+  const map: Record<string, number> = { 零: 0, 〇: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+  if (text === "十") return 10;
+  const tenParts = text.split("十");
+  if (tenParts.length === 2) {
+    const tens = tenParts[0] ? map[tenParts[0]] ?? 0 : 1;
+    const ones = tenParts[1] ? map[tenParts[1]] ?? 0 : 0;
+    return tens * 10 + ones;
   }
-  const allowTypes = ["text/plain", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+  if (text.length === 1 && map[text] != null) return map[text];
+  return null;
+}
 
-  if (rawFile.type === "application/msword") {
-    window.$message.warning($t("workbench.novel.import.msg.docNotSupported"));
-    return false;
+function parseFileChapterMeta(fileName: string) {
+  const baseName = fileName.replace(/\.[^.]+$/, "");
+  const patterns = [
+    { regexp: /\bjuben[-_\s]*(\d{1,4})\b/i, prefix: "juben" },
+    { regexp: /\bch(?:apter)?[-_\s]*(\d{1,4})\b/i, prefix: "chapter" },
+    { regexp: /第\s*([0-9０-９零〇一二两三四五六七八九十]{1,8})\s*[章章节回]/i, prefix: "第" },
+  ];
+  for (const pattern of patterns) {
+    const match = baseName.match(pattern.regexp);
+    const index = match?.[1] ? parseChapterNumber(match[1]) : null;
+    if (index && index > 0) {
+      return {
+        index,
+        chapter: pattern.prefix === "juben" ? `juben${index}` : baseName.trim() || `第${index}章`,
+      };
+    }
   }
-  if (!allowTypes.includes(rawFile.type)) {
+  return null;
+}
+
+function parseContentRows(text: string, sourceKey: string, sourceFile?: string): ChapterItem[] {
+  return parseNovel(text).flatMap((reel, reelIndex) =>
+    reel.chapters.map((chapter, chapterIndex) => ({
+      rowKey: `${sourceKey}:${reelIndex}:${chapterIndex}:${chapter.index}`,
+      index: chapter.index,
+      reel: reel.reel,
+      chapter: chapter.chapter,
+      chapterData: chapter.text,
+      sourceFile,
+    })),
+  );
+}
+
+function rowsFromFile(file: File, text: string, order: number) {
+  const rows = parseContentRows(text, `file:${order}:${file.name}`, file.name);
+  const fileMeta = parseFileChapterMeta(file.name);
+  if (!fileMeta || rows.length !== 1) return rows;
+  return rows.map((row) => ({
+    ...row,
+    rowKey: `file:${order}:${fileMeta.chapter}:${fileMeta.index}`,
+    index: fileMeta.index,
+    chapter: fileMeta.chapter,
+  }));
+}
+
+function isSupportedNovelFile(file: File) {
+  const ext = file.name.toLowerCase().split(".").pop();
+  if (file.type === "application/msword" || ext === "doc") return "doc";
+  if (file.type === "text/plain" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") return "ok";
+  if (ext === "txt" || ext === "docx") return "ok";
+  return "unsupported";
+}
+
+async function loadFiles(files: File[]) {
+  if (!files.length) {
+    window.$message.error($t("workbench.novel.import.msg.selectFile"));
+    return;
+  }
+
+  const unsupported = files.find((file) => isSupportedNovelFile(file) === "unsupported");
+  if (unsupported) {
     window.$message.error($t("workbench.novel.import.msg.unsupportedType"));
-    return false;
+    return;
   }
-  if (rawFile.size > 10 * 1024 * 1024) {
+  const doc = files.find((file) => isSupportedNovelFile(file) === "doc");
+  if (doc) {
+    window.$message.warning($t("workbench.novel.import.msg.docNotSupported"));
+    return;
+  }
+  const tooLarge = files.find((file) => file.size > 10 * 1024 * 1024);
+  if (tooLarge) {
     window.$message.error($t("workbench.novel.import.msg.fileTooLarge"));
-    return false;
+    return;
   }
 
   LoadingPlugin(true);
   try {
-    content.value = await readFile(rawFile);
+    const sortedFiles = [...files].sort((a, b) => {
+      const aIndex = parseFileChapterMeta(a.name)?.index;
+      const bIndex = parseFileChapterMeta(b.name)?.index;
+      if (aIndex && bIndex && aIndex !== bIndex) return aIndex - bIndex;
+      return a.name.localeCompare(b.name);
+    });
+    const parsed = await Promise.all(sortedFiles.map(async (file, index) => ({ file, index, text: await readFile(file) })));
+    const rows = parsed.flatMap((item) => rowsFromFile(item.file, item.text, item.index));
+    const combinedText = parsed.map((item) => `# ${item.file.name}\n${item.text}`).join("\n\n");
+    uploadedContentSnapshot.value = combinedText;
+    uploadedRows.value = rows;
+    content.value = combinedText;
+    selectedRowKeys.value = rows.map((row) => row.rowKey);
   } catch {
     window.$message.error($t("workbench.novel.import.msg.parseFailed"));
   } finally {
     LoadingPlugin(false);
   }
-  return false;
+}
+
+async function handleFileInputChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  await loadFiles(Array.from(input.files ?? []));
+  input.value = "";
 }
 
 // 勾选变化
-function onSelectChange(selectedKeys: Array<string | number>, context: { selectedRowData: TableRowData[] }) {
-  selectedRowKeys.value = selectedKeys as number[];
+function onSelectChange(selectedKeys: Array<string | number>, _context: { selectedRowData: TableRowData[] }) {
+  selectedRowKeys.value = selectedKeys;
 }
 const emit = defineEmits(["select"]);
 //保存小说
@@ -222,10 +301,22 @@ async function keep() {
 watch(purgeNovelShow, (newVal) => {
   if (!newVal) {
     content.value = "";
-    fileList.value = [];
+    uploadedRows.value = [];
+    uploadedContentSnapshot.value = "";
     selectedRowKeys.value = [];
     activeKey.value = "To1";
   }
+});
+
+watch(content, (value) => {
+  if (uploadedRows.value.length && value !== uploadedContentSnapshot.value) {
+    uploadedRows.value = [];
+    uploadedContentSnapshot.value = "";
+  }
+});
+
+watch(tableData, (rows) => {
+  selectedRowKeys.value = rows.map((row) => row.rowKey);
 });
 </script>
 
@@ -242,6 +333,10 @@ watch(purgeNovelShow, (newVal) => {
       transition: all 0.2s;
       &:hover {
         border-color: #000000;
+      }
+
+      .hiddenFileInput {
+        display: none;
       }
 
       .dragIcon {
