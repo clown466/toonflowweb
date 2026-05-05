@@ -693,39 +693,27 @@ if (typeof window !== "undefined") {
 
     .image-switch-button {
       position: absolute;
-      right: 3px;
-      bottom: 3px;
-      width: 28px;
-      height: 28px;
+      right: 5px;
+      bottom: 5px;
+      width: 24px;
+      height: 24px;
       border: 0;
       padding: 0;
-      color: #e34d59;
+      color: #fff;
       cursor: pointer;
-      background: transparent;
+      background: rgba(0, 0, 0, 0.58);
+      border-radius: 5px;
       z-index: 3;
-
-      &::before {
-        content: "";
-        position: absolute;
-        right: 0;
-        bottom: 0;
-        width: 24px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.9);
-        border-right: 2px solid #e34d59;
-        border-bottom: 2px solid #e34d59;
-        clip-path: polygon(100% 0, 100% 100%, 0 100%);
-      }
+      display: flex;
+      align-items: center;
+      justify-content: center;
 
       svg {
-        position: absolute;
-        right: 2px;
-        bottom: 2px;
-        z-index: 1;
+        display: block;
       }
 
       &:hover {
-        color: #c9353f;
+        background: rgba(0, 0, 0, 0.76);
       }
     }
   }
