@@ -335,7 +335,7 @@ async function loadProjectAssets() {
           name: "",
           page: 1,
           limit: 500,
-          includeHistoryImages: true,
+          includeHistoryImages: false,
         }),
       ),
     );

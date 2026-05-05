@@ -262,7 +262,6 @@ const displayAssets = computed(() =>
         isDerived: false,
       },
     ];
-    pushHistoryImages(items, normalizedAsset, normalizedAsset.name);
     assetDerives(normalizedAsset).forEach((derive) => {
       items.push({
         ...derive,
@@ -274,7 +273,6 @@ const displayAssets = computed(() =>
         state: derive.state || "未生成",
         isDerived: true,
       });
-      pushHistoryImages(items, derive, derive.name || normalizedAsset.name, normalizedAsset.name);
     });
     return items;
   }),
@@ -322,37 +320,6 @@ function pickSrc(item?: { src?: string | null; filePath?: string | null }) {
 
 function assetDerives(asset: Asset) {
   return Array.isArray(asset.derive) && asset.derive.length > 0 ? asset.derive : asset.sonAssets || [];
-}
-
-function assetHistoryImages(asset: Asset | DeriveAsset) {
-  return Array.isArray(asset.historyImages) ? asset.historyImages : [];
-}
-
-function pushHistoryImages(
-  items: Array<Asset | DeriveAsset>,
-  asset: Asset | DeriveAsset,
-  name: string,
-  parentName?: string,
-) {
-  assetHistoryImages(asset)
-    .filter((image) => !image.selected && pickSrc(image))
-    .forEach((image) => {
-      const src = pickSrc(image);
-      items.push({
-        ...asset,
-        id: asset.id,
-        imageId: image.id,
-        key: `history-${asset.id}-${image.id}`,
-        name,
-        parentName: parentName ? `${parentName} / 历史图 #${image.id}` : `历史图 #${image.id}`,
-        type: image.type || asset.type,
-        src,
-        filePath: src,
-        state: image.state || "已完成",
-        isDerived: Boolean(parentName),
-        isHistory: true,
-      });
-    });
 }
 
 function deriveThumb(derive: DeriveAsset) {
