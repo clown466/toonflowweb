@@ -29,6 +29,7 @@
           <fileManagement v-if="activeMenu === 'fileManagement'" />
           <skillManagement v-if="activeMenu === 'skillManagement'" />
           <imageGenerationSkill v-if="activeMenu === 'imageGenerationSkill'" />
+          <storyboardGenerationSkill v-if="activeMenu === 'storyboardGenerationSkill'" />
           <devConfig v-if="activeMenu === 'devConfig'" />
           <modelMap v-if="activeMenu === 'modelMap'" />
         </div>
@@ -55,6 +56,7 @@ const memoryConfig = defineAsyncComponent(() => import("./components/memoryConfi
 const fileManagement = defineAsyncComponent(() => import("./components/fileManagement.vue"));
 const skillManagement = defineAsyncComponent(() => import("./components/skillManagement.vue"));
 const imageGenerationSkill = defineAsyncComponent(() => import("./components/imageGenerationSkill.vue"));
+const storyboardGenerationSkill = defineAsyncComponent(() => import("./components/storyboardGenerationSkill.vue"));
 const devConfig = defineAsyncComponent(() => import("./components/devConfig.vue"));
 const promptManage = defineAsyncComponent(() => import("./components/promptManage.vue"));
 const modelMap = defineAsyncComponent(() => import("./components/modelMap.vue"));
@@ -68,6 +70,7 @@ const menuItems = [
   { key: "promptManage", label: "settings.menu.promptManage", icon: "i-tips" },
   { key: "skillManagement", label: "settings.menu.skillsSkillsManagement", icon: "i-ring" },
   { key: "imageGenerationSkill", label: "生图 Skill", icon: "i-magic" },
+  { key: "storyboardGenerationSkill", label: "分镜 Skill", icon: "i-movie-board" },
   { key: "memoryConfig", label: "settings.menu.memoryConfig", icon: "i-memory-card-one" },
   { key: "loginConfig", label: "settings.menu.loginConfig", icon: "i-lock" },
   { key: "dbConfig", label: "settings.menu.dbConfig", icon: "i-data" },

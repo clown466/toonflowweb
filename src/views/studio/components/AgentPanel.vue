@@ -119,6 +119,19 @@
 
         <t-divider layout="vertical" />
 
+        <t-select
+          v-model="selectedStoryboardSkillId"
+          class="storyboard-skill-select"
+          size="small"
+          clearable
+          :loading="storyboardSkillLoading"
+          :options="storyboardSkillOptions"
+          placeholder="分镜 Skill"
+          @popup-visible-change="handleStoryboardSkillPopup"
+        />
+
+        <t-divider layout="vertical" />
+
         <!-- 技能按钮 -->
         <t-popup trigger="click" placement="top">
           <t-button variant="text" size="small" class="tool-btn">
@@ -437,6 +450,30 @@ let progressTimer: ReturnType<typeof setInterval> | null = null;
 const currentProjectImageModel = computed(() => project.value?.imageModel || props.imageModel || "");
 const localProjectImageModel = ref(currentProjectImageModel.value);
 
+interface StoryboardSkillMeta {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+const storyboardSkills = ref<StoryboardSkillMeta[]>([]);
+const selectedStoryboardSkillId = ref("");
+const storyboardSkillLoading = ref(false);
+const storyboardSkillLoaded = ref(false);
+
+const storyboardSkillOptions = computed(() => [
+  { label: "默认分镜 Skill", value: "" },
+  ...storyboardSkills.value.map((skill) => ({
+    label: skill.name || skill.id,
+    value: skill.id,
+    title: skill.description || skill.id,
+  })),
+]);
+
+const selectedStoryboardSkill = computed(() =>
+  storyboardSkills.value.find((skill) => skill.id === selectedStoryboardSkillId.value),
+);
+
 watch(currentProjectImageModel, (value) => {
   localProjectImageModel.value = value;
 });
@@ -644,6 +681,7 @@ watch(isBusy, (busy) => {
 
 onMounted(() => {
   scrollMessagesToBottom();
+  void fetchStoryboardSkills();
 });
 
 onActivated(() => {
@@ -766,8 +804,37 @@ const handleActions = {
 function handleSend() {
   const text = inputValue.value.trim();
   if (!text || !props.connected) return;
-  emit("send", text);
+  emit("send", withStoryboardSkillInstruction(text));
   inputValue.value = "";
+}
+
+function isStoryboardGenerationMessage(text: string) {
+  return /分镜|镜头|镜号|storyboard|shot/i.test(text);
+}
+
+function withStoryboardSkillInstruction(text: string) {
+  if (!selectedStoryboardSkillId.value || !isStoryboardGenerationMessage(text)) return text;
+  const skill = selectedStoryboardSkill.value;
+  const skillText = skill?.name ? `${skill.name}（${selectedStoryboardSkillId.value}）` : selectedStoryboardSkillId.value;
+  return `${text}\n\n使用分镜 Skill：${skillText}`;
+}
+
+async function fetchStoryboardSkills(force = false) {
+  if (storyboardSkillLoading.value || (storyboardSkillLoaded.value && !force)) return;
+  storyboardSkillLoading.value = true;
+  try {
+    const { data } = await axios.post("/setting/storyboardGenerationSkill/list");
+    storyboardSkills.value = Array.isArray(data) ? data : [];
+    storyboardSkillLoaded.value = true;
+  } catch {
+    storyboardSkills.value = [];
+  } finally {
+    storyboardSkillLoading.value = false;
+  }
+}
+
+function handleStoryboardSkillPopup(visible: boolean) {
+  if (visible) void fetchStoryboardSkills(true);
 }
 
 function onTextareaKeydown(_value: unknown, context?: { e: KeyboardEvent }) {
@@ -1182,6 +1249,15 @@ function openSettings() {
     &:hover {
       color: var(--td-text-color-primary);
     }
+  }
+}
+
+.storyboard-skill-select {
+  width: 132px;
+  flex: 0 0 132px;
+
+  :deep(.t-input) {
+    font-size: 12px;
   }
 }
 
