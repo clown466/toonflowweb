@@ -125,6 +125,7 @@
           size="small"
           clearable
           :loading="storyboardSkillLoading"
+          :popup-props="{ overlayClassName: 'storyboard-skill-popup' }"
           placeholder="分镜 Skill"
           @popup-visible-change="handleStoryboardSkillPopup"
         >
@@ -138,11 +139,11 @@
             v-for="skill in storyboardSkills"
             :key="skill.id"
             :value="skill.id"
-            :label="storyboardSkillLabel(skill)"
+            :label="storyboardSkillDisplayName(skill)"
           >
             <div class="storyboard-skill-option">
-              <span class="skill-name">{{ skill.name || skill.id }}</span>
-              <span class="skill-desc">{{ skill.description || skill.id }}</span>
+              <span class="skill-name">{{ storyboardSkillDisplayName(skill) }}</span>
+              <span class="skill-desc">{{ storyboardSkillDisplayDescription(skill) }}</span>
             </div>
           </t-option>
         </t-select>
@@ -471,6 +472,8 @@ interface StoryboardSkillMeta {
   id: string;
   name: string;
   description?: string;
+  path?: string;
+  source?: "builtin" | "user";
 }
 
 const storyboardSkills = ref<StoryboardSkillMeta[]>([]);
@@ -482,10 +485,63 @@ const selectedStoryboardSkill = computed(() =>
   storyboardSkills.value.find((skill) => skill.id === selectedStoryboardSkillId.value),
 );
 
-function storyboardSkillLabel(skill: StoryboardSkillMeta) {
-  const name = skill.name || skill.id;
-  const desc = skill.description?.trim();
-  return desc ? `${name} - ${desc}` : name;
+function compactText(value: string, maxLength = 18) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
+function cleanStoryboardSkillDescription(skill: StoryboardSkillMeta) {
+  return (skill.description || "")
+    .replace(/\s+/g, " ")
+    .replace(/^视频制作执行层Agent技能\s*[—-]\s*/, "")
+    .trim();
+}
+
+function storyboardSkillStyleName(skill: StoryboardSkillMeta) {
+  const desc = cleanStoryboardSkillDescription(skill);
+  const promptMatch = desc.match(/^导演分镜提示词技法\s*·\s*(.+)$/);
+  if (promptMatch) return compactText(promptMatch[1], 14);
+
+  const tableStyleMatch = desc.match(/^分镜表(.+?)约束/);
+  if (tableStyleMatch) return compactText(tableStyleMatch[1], 12);
+
+  const narrativeMatch = desc.match(/^分镜表叙事手法\s*·\s*(.+?)\s*[—-]/);
+  if (narrativeMatch) return compactText(narrativeMatch[1], 12);
+
+  return "";
+}
+
+function storyboardSkillDisplayName(skill: StoryboardSkillMeta) {
+  const desc = cleanStoryboardSkillDescription(skill);
+  const styleName = storyboardSkillStyleName(skill);
+
+  if (skill.id.includes("storyboard_table_techniques")) return "通用分镜表技法";
+  if (skill.id.includes("storyboard_prompt_techniques")) return "通用提示词技法";
+  if (/构建分镜表/.test(desc)) return "构建分镜表";
+  if (/分镜面板写入/.test(desc)) return "分镜面板写入";
+  if (/分镜图生成/.test(desc)) return "分镜图生成";
+  if (/^导演分镜提示词技法/.test(desc) && styleName) return `${styleName} · 提示词技法`;
+  if (/^分镜表.+?约束/.test(desc) && styleName) return `${styleName} · 表格约束`;
+  if (/^分镜表叙事手法/.test(desc) && styleName) return `${styleName} · 叙事分镜`;
+
+  return compactText((skill.name || skill.id).replace(/\.md$/i, "").replace(/_/g, " "), 18);
+}
+
+function storyboardSkillDisplayDescription(skill: StoryboardSkillMeta) {
+  const desc = cleanStoryboardSkillDescription(skill);
+
+  if (skill.source === "user") return compactText(desc || "用户自定义分镜生成规则", 26);
+  if (skill.id.includes("storyboard_table_techniques")) return "分镜字段、拆镜粒度与表格规则";
+  if (skill.id.includes("storyboard_prompt_techniques")) return "提示词结构、参考图标注与画质规则";
+  if (/构建分镜表/.test(desc)) return "把剧本拆成结构化分镜表";
+  if (/分镜面板写入/.test(desc)) return "把分镜表写入分镜面板";
+  if (/分镜图生成/.test(desc)) return "按分镜面板生成分镜图";
+  if (/^导演分镜提示词技法/.test(desc)) return "生成分镜图提示词的风格规则";
+  if (/^分镜表.+?约束/.test(desc)) return "约束光影、动作、运镜与转场";
+  if (/^分镜表叙事手法/.test(desc)) return "约束景别、节奏、镜头与转场";
+
+  return compactText(desc || "分镜生成规则", 26);
 }
 
 watch(currentProjectImageModel, (value) => {
@@ -1275,24 +1331,48 @@ function openSettings() {
   }
 }
 
-.storyboard-skill-option {
+:global(.storyboard-skill-popup) {
+  max-width: min(380px, calc(100vw - 24px));
+}
+
+:global(.storyboard-skill-popup .t-select-option) {
+  height: auto !important;
+  min-height: 48px;
+  align-items: flex-start;
+  padding: 6px 12px;
+  line-height: 1.35;
+}
+
+:global(.storyboard-skill-popup .t-select-option__content) {
+  width: 100%;
+  overflow: hidden;
+}
+
+.storyboard-skill-option,
+:global(.storyboard-skill-option) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 360px;
+  width: 100%;
+  max-width: 340px;
   padding: 2px 0;
 
   .skill-name {
     font-size: 13px;
     font-weight: 500;
     color: var(--td-text-color-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .skill-desc {
     font-size: 11px;
     line-height: 1.35;
     color: var(--td-text-color-secondary);
-    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
