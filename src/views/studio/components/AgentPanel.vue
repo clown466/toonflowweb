@@ -441,13 +441,17 @@ const messagesSectionRef = ref<HTMLElement | null>(null);
 let autoScrollFrame: number | null = null;
 let autoScrollTimers: ReturnType<typeof setTimeout>[] = [];
 
-function scrollMessagesToBottom(behavior: ScrollBehavior = "auto") {
+function clearAutoScrollQueue() {
   if (autoScrollFrame !== null) {
     cancelAnimationFrame(autoScrollFrame);
     autoScrollFrame = null;
   }
   autoScrollTimers.forEach((timer) => clearTimeout(timer));
   autoScrollTimers = [];
+}
+
+function scrollMessagesToBottom(behavior: ScrollBehavior = "auto") {
+  clearAutoScrollQueue();
 
   const scrollNow = () => {
     const el = messagesSectionRef.value;
@@ -616,6 +620,10 @@ onMounted(() => {
   scrollMessagesToBottom("auto");
 });
 
+onActivated(() => {
+  scrollMessagesToBottom("auto");
+});
+
 watch(
   () => [props.loadingHistory, props.mode, props.messages.length] as const,
   () => nextTick(() => scrollMessagesToBottom("auto")),
@@ -632,12 +640,7 @@ onUnmounted(() => {
     clearInterval(progressTimer);
     progressTimer = null;
   }
-  if (autoScrollFrame !== null) {
-    cancelAnimationFrame(autoScrollFrame);
-    autoScrollFrame = null;
-  }
-  autoScrollTimers.forEach((timer) => clearTimeout(timer));
-  autoScrollTimers = [];
+  clearAutoScrollQueue();
 });
 
 // 技能列表

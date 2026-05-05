@@ -115,17 +115,21 @@ const chatBoxRef = ref<HTMLElement | null>(null);
 let autoScrollFrame: number | null = null;
 let autoScrollTimers: ReturnType<typeof setTimeout>[] = [];
 
-function getChatScrollElement() {
-  return chatBoxRef.value?.querySelector<HTMLElement>(".t-chat__list") || chatBoxRef.value;
-}
-
-function scrollChatToBottom() {
+function clearAutoScrollQueue() {
   if (autoScrollFrame !== null) {
     cancelAnimationFrame(autoScrollFrame);
     autoScrollFrame = null;
   }
   autoScrollTimers.forEach((timer) => clearTimeout(timer));
   autoScrollTimers = [];
+}
+
+function getChatScrollElement() {
+  return chatBoxRef.value?.querySelector<HTMLElement>(".t-chat__list") || chatBoxRef.value;
+}
+
+function scrollChatToBottom() {
+  clearAutoScrollQueue();
 
   const scrollNow = () => {
     const el = getChatScrollElement();
@@ -256,13 +260,12 @@ onMounted(async () => {
   scrollChatToBottom();
 });
 
+onActivated(() => {
+  scrollChatToBottom();
+});
+
 onUnmounted(() => {
-  if (autoScrollFrame !== null) {
-    cancelAnimationFrame(autoScrollFrame);
-    autoScrollFrame = null;
-  }
-  autoScrollTimers.forEach((timer) => clearTimeout(timer));
-  autoScrollTimers = [];
+  clearAutoScrollQueue();
 });
 </script>
 
