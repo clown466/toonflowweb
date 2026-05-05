@@ -10,7 +10,7 @@
         <i-click-to-fold size="18" @click.stop="emit('close')" />
       </div>
     </div>
-    <div class="chatBox" v-loading="loadingHistory">
+    <div ref="chatBoxRef" class="chatBox" v-loading="loadingHistory" @load.capture="scrollChatToBottom">
       <t-chat-list :clear-history="false">
         <t-chat-message
           v-for="message in messages"
@@ -111,6 +111,72 @@ const props = defineProps({ title: String });
 const emit = defineEmits(["close"]);
 
 const inputValue = ref("");
+const chatBoxRef = ref<HTMLElement | null>(null);
+let autoScrollFrame: number | null = null;
+let autoScrollTimers: ReturnType<typeof setTimeout>[] = [];
+
+function getChatScrollElement() {
+  return chatBoxRef.value?.querySelector<HTMLElement>(".t-chat__list") || chatBoxRef.value;
+}
+
+function scrollChatToBottom() {
+  if (autoScrollFrame !== null) {
+    cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = null;
+  }
+  autoScrollTimers.forEach((timer) => clearTimeout(timer));
+  autoScrollTimers = [];
+
+  const scrollNow = () => {
+    const el = getChatScrollElement();
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+  };
+
+  void nextTick(() => {
+    scrollNow();
+    autoScrollFrame = requestAnimationFrame(() => {
+      autoScrollFrame = null;
+      scrollNow();
+    });
+    autoScrollTimers.push(setTimeout(scrollNow, 80), setTimeout(scrollNow, 240));
+  });
+}
+
+function stringifyForScroll(value: unknown, seen = new WeakSet<object>()): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value !== "object") return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => stringifyForScroll(item, seen)).join("|");
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .map((key) => `${key}:${stringifyForScroll((value as Record<string, unknown>)[key], seen)}`)
+    .join("|");
+}
+
+const latestMessageSignature = computed(() =>
+  messages.value
+    .slice(-4)
+    .map((message) => stringifyForScroll({
+      id: message.id,
+      status: message.status,
+      content: (message as any).content,
+    }))
+    .join("||"),
+);
+
+watch(
+  () => [loadingHistory.value, messages.value.length] as const,
+  () => scrollChatToBottom(),
+  { immediate: true },
+);
+
+watch(
+  () => latestMessageSignature.value,
+  () => scrollChatToBottom(),
+);
 
 function handleSend(text: string) {
   productionAgentStore().chat(text);
@@ -187,6 +253,16 @@ onMounted(async () => {
   if (data && data.think) {
     showThink.value = true;
   }
+  scrollChatToBottom();
+});
+
+onUnmounted(() => {
+  if (autoScrollFrame !== null) {
+    cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = null;
+  }
+  autoScrollTimers.forEach((timer) => clearTimeout(timer));
+  autoScrollTimers = [];
 });
 </script>
 
@@ -226,12 +302,17 @@ onMounted(async () => {
     height: calc(100% - 50px);
     display: flex;
     flex-direction: column;
+    min-height: 0;
     padding-left: 8px;
     .inputBox {
       padding-right: 8px;
+      flex-shrink: 0;
     }
   }
   :deep(.t-chat__list) {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     padding-right: 8px;
   }
   .header {

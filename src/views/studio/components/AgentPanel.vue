@@ -66,7 +66,7 @@
         <div v-if="progressHint" class="progress-hint">{{ progressHint }}</div>
       </div>
 
-      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory">
+      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory" @load.capture="scrollMessagesToBottom('auto')">
         <t-chat-list :clear-history="false">
           <t-chat-message
             v-for="message in messages"
@@ -439,18 +439,55 @@ const MAX_WIDTH = 620;
 const resizeHandleRef = ref<HTMLElement | null>(null);
 const messagesSectionRef = ref<HTMLElement | null>(null);
 let autoScrollFrame: number | null = null;
+let autoScrollTimers: ReturnType<typeof setTimeout>[] = [];
 
 function scrollMessagesToBottom(behavior: ScrollBehavior = "auto") {
   if (autoScrollFrame !== null) {
     cancelAnimationFrame(autoScrollFrame);
-  }
-  autoScrollFrame = requestAnimationFrame(() => {
     autoScrollFrame = null;
+  }
+  autoScrollTimers.forEach((timer) => clearTimeout(timer));
+  autoScrollTimers = [];
+
+  const scrollNow = () => {
     const el = messagesSectionRef.value;
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior });
+  };
+
+  void nextTick(() => {
+    scrollNow();
+    autoScrollFrame = requestAnimationFrame(() => {
+      autoScrollFrame = null;
+      scrollNow();
+    });
+    autoScrollTimers.push(setTimeout(scrollNow, 80), setTimeout(scrollNow, 240));
   });
 }
+
+function stringifyForScroll(value: unknown, seen = new WeakSet<object>()): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value !== "object") return "";
+  if (seen.has(value)) return "";
+  seen.add(value);
+  if (Array.isArray(value)) return value.map((item) => stringifyForScroll(item, seen)).join("|");
+  return Object.keys(value as Record<string, unknown>)
+    .sort()
+    .map((key) => `${key}:${stringifyForScroll((value as Record<string, unknown>)[key], seen)}`)
+    .join("|");
+}
+
+const latestMessageSignature = computed(() =>
+  props.messages
+    .slice(-4)
+    .map((message) => stringifyForScroll({
+      id: message.id,
+      status: message.status,
+      content: (message as any).content,
+    }))
+    .join("||"),
+);
 
 const { pressed } = useMousePressed({ target: resizeHandleRef });
 const { x } = useMouse();
@@ -586,8 +623,8 @@ watch(
 );
 
 watch(
-  () => props.messages.map((message) => `${message.id}:${message.content ?? ""}:${message.status ?? ""}`).join("|"),
-  () => nextTick(() => scrollMessagesToBottom("smooth")),
+  () => latestMessageSignature.value,
+  () => scrollMessagesToBottom("auto"),
 );
 
 onUnmounted(() => {
@@ -599,6 +636,8 @@ onUnmounted(() => {
     cancelAnimationFrame(autoScrollFrame);
     autoScrollFrame = null;
   }
+  autoScrollTimers.forEach((timer) => clearTimeout(timer));
+  autoScrollTimers = [];
 });
 
 // 技能列表
