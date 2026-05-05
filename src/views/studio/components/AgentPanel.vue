@@ -125,24 +125,41 @@
           size="small"
           clearable
           :loading="storyboardSkillLoading"
-          :options="storyboardSkillOptions"
           placeholder="分镜 Skill"
           @popup-visible-change="handleStoryboardSkillPopup"
-        />
+        >
+          <t-option key="default" value="" label="默认分镜 Skill">
+            <div class="storyboard-skill-option">
+              <span class="skill-name">默认分镜 Skill</span>
+              <span class="skill-desc">使用系统默认分镜生成逻辑</span>
+            </div>
+          </t-option>
+          <t-option
+            v-for="skill in storyboardSkills"
+            :key="skill.id"
+            :value="skill.id"
+            :label="storyboardSkillLabel(skill)"
+          >
+            <div class="storyboard-skill-option">
+              <span class="skill-name">{{ skill.name || skill.id }}</span>
+              <span class="skill-desc">{{ skill.description || skill.id }}</span>
+            </div>
+          </t-option>
+        </t-select>
 
         <t-divider layout="vertical" />
 
-        <!-- 技能按钮 -->
+        <!-- 预设按钮 -->
         <t-popup trigger="click" placement="top">
           <t-button variant="text" size="small" class="tool-btn">
             <span class="btn-prefix">/</span>
-            <span>技能</span>
+            <span>预设</span>
           </t-button>
           <template #content>
             <div class="popup-menu skills-menu">
-              <div class="menu-title">{{ mode === 'workspace' ? '项目技能' : '生产技能' }}</div>
+              <div class="menu-title">{{ mode === 'workspace' ? '项目预设' : '生产预设' }}</div>
               <div class="search-row">
-                <t-input v-model="skillSearch" size="small" clearable placeholder="搜索技能" />
+                <t-input v-model="skillSearch" size="small" clearable placeholder="搜索预设" />
               </div>
               <div
                 v-for="skill in filteredSkills"
@@ -461,18 +478,15 @@ const selectedStoryboardSkillId = ref("");
 const storyboardSkillLoading = ref(false);
 const storyboardSkillLoaded = ref(false);
 
-const storyboardSkillOptions = computed(() => [
-  { label: "默认分镜 Skill", value: "" },
-  ...storyboardSkills.value.map((skill) => ({
-    label: skill.name || skill.id,
-    value: skill.id,
-    title: skill.description || skill.id,
-  })),
-]);
-
 const selectedStoryboardSkill = computed(() =>
   storyboardSkills.value.find((skill) => skill.id === selectedStoryboardSkillId.value),
 );
+
+function storyboardSkillLabel(skill: StoryboardSkillMeta) {
+  const name = skill.name || skill.id;
+  const desc = skill.description?.trim();
+  return desc ? `${name} - ${desc}` : name;
+}
 
 watch(currentProjectImageModel, (value) => {
   localProjectImageModel.value = value;
@@ -1253,11 +1267,32 @@ function openSettings() {
 }
 
 .storyboard-skill-select {
-  width: 132px;
-  flex: 0 0 132px;
+  width: 172px;
+  flex: 0 0 172px;
 
   :deep(.t-input) {
     font-size: 12px;
+  }
+}
+
+.storyboard-skill-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 360px;
+  padding: 2px 0;
+
+  .skill-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--td-text-color-primary);
+  }
+
+  .skill-desc {
+    font-size: 11px;
+    line-height: 1.35;
+    color: var(--td-text-color-secondary);
+    white-space: normal;
   }
 }
 
