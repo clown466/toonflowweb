@@ -79,6 +79,7 @@
             v-model:panel-height="assetPanelHeight"
             :assets="studioAssets"
             :storyboard="flowData.storyboard"
+            :project-id="project?.id"
             :loading="assetLoading"
             :error-message="assetError"
             @select-asset="onAssetSelect"
@@ -86,6 +87,7 @@
             @preview-asset="onAssetPreview"
             @repaint-asset="onAssetRepaint"
             @refresh-assets="loadProjectAssets"
+            @asset-image-changed="loadProjectAssets"
             @collapse="assetPanelOpen = false"
           />
         </div>
@@ -300,16 +302,22 @@ function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
     (asset.derive || []).forEach((item: any) => {
       const existing = deriveMap.get(item.id);
       deriveMap.set(item.id, {
-        ...existing,
         ...item,
+        ...existing,
+        imageId: existing?.imageId ?? item.imageId,
+        src: existing?.src || item.src,
+        filePath: existing?.filePath || item.filePath,
+        state: existing?.state || item.state,
         historyImages: item.historyImages?.length ? item.historyImages : existing?.historyImages,
       });
     });
     map.set(asset.id, {
       ...current,
       ...asset,
-      src: asset.src || current.src,
-      state: asset.state || current.state,
+      imageId: current.imageId ?? asset.imageId,
+      src: current.src || asset.src,
+      filePath: current.filePath || asset.filePath,
+      state: current.state || asset.state,
       historyImages: asset.historyImages?.length ? asset.historyImages : current.historyImages,
       derive: [...deriveMap.values()],
     });
@@ -509,7 +517,14 @@ watch(
   },
 );
 
+function handleAssetsUpdated(event: Event) {
+  const detail = (event as CustomEvent<{ projectId?: string | number }>).detail;
+  if (detail?.projectId && String(detail.projectId) !== String(project.value?.id ?? "")) return;
+  void loadProjectAssets();
+}
+
 onMounted(async () => {
+  window.addEventListener("toonflow-assets-updated", handleAssetsUpdated);
   await Promise.all([loadEpisodes(), loadProjectAssets()]);
   if (episodes.value.length > 0 && !episodesId.value) {
     prodStore.episodesId = episodes.value[0].id;
@@ -526,7 +541,12 @@ onMounted(async () => {
   }
 });
 
+onActivated(() => {
+  void loadProjectAssets();
+});
+
 onUnmounted(() => {
+  window.removeEventListener("toonflow-assets-updated", handleAssetsUpdated);
   if (projectAssetsPollingTimer) {
     clearInterval(projectAssetsPollingTimer);
     projectAssetsPollingTimer = null;

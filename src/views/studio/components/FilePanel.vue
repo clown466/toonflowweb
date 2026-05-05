@@ -81,6 +81,16 @@
               <i-user size="24" />
             </div>
             <div class="card-type">{{ assetTypeLabel(asset.type) }}</div>
+            <t-tooltip v-if="canSwitchAssetImage(asset)" content="选择其他图片">
+              <button
+                class="image-switch-button"
+                type="button"
+                @click.stop="openImageChoice(asset)"
+                @dblclick.stop
+              >
+                <i-pic size="13" />
+              </button>
+            </t-tooltip>
           </div>
           <div class="card-info">
             <div class="info-name" :title="asset.name">{{ asset.name }}</div>
@@ -149,11 +159,44 @@
         <t-empty v-else title="暂无可预览图片" />
       </div>
     </t-dialog>
+
+    <!-- Asset Image Choice Dialog -->
+    <t-dialog v-model:visible="showImageChoice" :header="`选择图片 - ${imageChoiceAsset?.name || ''}`" width="min(82vw, 960px)">
+      <div class="asset-choice-dialog">
+        <div v-if="imageChoiceLoading" class="asset-choice-loading">
+          <t-loading size="small" text="正在加载图片" />
+        </div>
+        <t-empty v-else-if="imageChoiceImages.length === 0" title="暂无可选图片" description="先在资产中心生成或上传图片后再选择" />
+        <div v-else class="asset-choice-grid">
+          <button
+            v-for="image in imageChoiceImages"
+            :key="image.id"
+            type="button"
+            class="asset-choice-card"
+            :class="{ selected: selectedChoiceImageId === image.id, disabled: image.state !== '已完成' }"
+            :disabled="image.state !== '已完成'"
+            @click="selectedChoiceImageId = image.id"
+          >
+            <img v-if="image.src" :src="image.src" :alt="`image-${image.id}`" />
+            <div v-else class="choice-state">{{ stateLabel(image.state || '未生成') }}</div>
+            <t-tag v-if="image.selected" class="choice-badge" theme="success" size="small" variant="light">当前</t-tag>
+            <div v-if="selectedChoiceImageId === image.id" class="choice-check">
+              <i-check-one theme="filled" size="18" />
+            </div>
+          </button>
+        </div>
+      </div>
+      <template #footer>
+        <t-button variant="outline" @click="showImageChoice = false">取消</t-button>
+        <t-button theme="primary" :loading="imageChoiceSaving" :disabled="!selectedChoiceImageId" @click="confirmImageChoice">设为当前图片</t-button>
+      </template>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useMouse, useMousePressed } from "@vueuse/core";
+import axios from "@/utils/axios";
 
 interface DeriveAsset {
   id: number;
@@ -165,6 +208,7 @@ interface DeriveAsset {
   filePath?: string | null;
   type?: string;
   state?: string;
+  prompt?: string | null;
   parentName?: string;
   isDerived?: boolean;
   isHistory?: boolean;
@@ -180,6 +224,7 @@ interface Asset {
   filePath?: string | null;
   type?: string;
   state?: string;
+  prompt?: string | null;
   derive?: DeriveAsset[];
   sonAssets?: DeriveAsset[];
   historyImages?: HistoryImage[];
@@ -198,6 +243,13 @@ interface HistoryImage {
   selected?: boolean;
 }
 
+interface ChoiceImage {
+  id: number;
+  src: string;
+  state: string;
+  selected?: boolean;
+}
+
 interface StoryboardItem {
   id?: number;
   src?: string | null;
@@ -209,6 +261,7 @@ interface StoryboardItem {
 const props = defineProps<{
   assets: any[];
   storyboard: StoryboardItem[];
+  projectId?: string | number;
   loading?: boolean;
   errorMessage?: string;
 }>();
@@ -219,6 +272,7 @@ const emit = defineEmits<{
   (e: "previewAsset", asset: Asset | DeriveAsset): void;
   (e: "repaintAsset", asset: DeriveAsset): void;
   (e: "refreshAssets"): void;
+  (e: "assetImageChanged", asset: Asset | DeriveAsset): void;
   (e: "collapse"): void;
 }>();
 
@@ -349,6 +403,12 @@ function onSelectAsset(asset: Asset | DeriveAsset) {
 
 const showPreview = ref(false);
 const previewAsset = ref<Asset | DeriveAsset | null>(null);
+const showImageChoice = ref(false);
+const imageChoiceLoading = ref(false);
+const imageChoiceSaving = ref(false);
+const imageChoiceAsset = ref<Asset | DeriveAsset | null>(null);
+const imageChoiceImages = ref<ChoiceImage[]>([]);
+const selectedChoiceImageId = ref<number | null>(null);
 
 function onPreviewAsset(asset: Asset | DeriveAsset) {
   const src = pickSrc(asset);
@@ -363,6 +423,80 @@ function onPreviewAsset(asset: Asset | DeriveAsset) {
 
 function onRepaintDerive(derive: DeriveAsset) {
   emit("repaintAsset", derive);
+}
+
+function normalizeImageAssetType(type?: string): "role" | "scene" | "tool" | null {
+  if (type === "role" || type === "character") return "role";
+  if (type === "scene") return "scene";
+  if (type === "tool" || type === "prop") return "tool";
+  return null;
+}
+
+function canSwitchAssetImage(asset: Asset | DeriveAsset) {
+  return Boolean(asset.id && normalizeImageAssetType(asset.type) && asset.state !== "生成中");
+}
+
+async function openImageChoice(asset: Asset | DeriveAsset) {
+  if (!props.projectId) {
+    window.$message.warning("当前项目不存在，无法切换图片");
+    return;
+  }
+  if (!normalizeImageAssetType(asset.type)) {
+    window.$message.warning("当前资产类型不支持切换图片");
+    return;
+  }
+
+  imageChoiceAsset.value = asset;
+  showImageChoice.value = true;
+  imageChoiceLoading.value = true;
+  selectedChoiceImageId.value = asset.imageId ? Number(asset.imageId) : null;
+  imageChoiceImages.value = [];
+
+  try {
+    const { data } = await axios.post("/assets/getImage", { assetsId: asset.id });
+    const images = (data?.tempAssets || [])
+      .map((item: { id: number | string; filePath?: string; src?: string; state?: string; selected?: boolean }) => ({
+        id: Number(item.id),
+        src: item.filePath || item.src || "",
+        state: item.state || "未生成",
+        selected: Boolean(item.selected),
+      }))
+      .sort((a: ChoiceImage, b: ChoiceImage) => Number(b.selected) - Number(a.selected) || b.id - a.id);
+    imageChoiceImages.value = images;
+    const selected = images.find((image: ChoiceImage) => image.selected);
+    selectedChoiceImageId.value = selected?.id ?? selectedChoiceImageId.value;
+  } catch (err: any) {
+    window.$message.error(err?.message || "图片列表加载失败");
+    showImageChoice.value = false;
+  } finally {
+    imageChoiceLoading.value = false;
+  }
+}
+
+async function confirmImageChoice() {
+  const asset = imageChoiceAsset.value;
+  const imageId = selectedChoiceImageId.value;
+  const type = normalizeImageAssetType(asset?.type);
+  if (!asset || !imageId || !type || !props.projectId) return;
+
+  imageChoiceSaving.value = true;
+  try {
+    await axios.post("/assets/saveAssets", {
+      id: asset.id,
+      base64: "",
+      type,
+      prompt: asset.prompt ?? "",
+      projectId: Number(props.projectId),
+      imageId,
+    });
+    window.$message.success("已切换资产图片");
+    showImageChoice.value = false;
+    emit("assetImageChanged", asset);
+  } catch (err: any) {
+    window.$message.error(err?.message || "资产图片切换失败");
+  } finally {
+    imageChoiceSaving.value = false;
+  }
 }
 
 // Resize logic
@@ -556,6 +690,44 @@ if (typeof window !== "undefined") {
       color: white;
       border-radius: 3px;
     }
+
+    .image-switch-button {
+      position: absolute;
+      right: 3px;
+      bottom: 3px;
+      width: 28px;
+      height: 28px;
+      border: 0;
+      padding: 0;
+      color: #e34d59;
+      cursor: pointer;
+      background: transparent;
+      z-index: 3;
+
+      &::before {
+        content: "";
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 24px;
+        height: 24px;
+        background: rgba(255, 255, 255, 0.9);
+        border-right: 2px solid #e34d59;
+        border-bottom: 2px solid #e34d59;
+        clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      }
+
+      svg {
+        position: absolute;
+        right: 2px;
+        bottom: 2px;
+        z-index: 1;
+      }
+
+      &:hover {
+        color: #c9353f;
+      }
+    }
   }
 
   .card-info {
@@ -711,6 +883,87 @@ if (typeof window !== "undefined") {
     max-width: 100%;
     max-height: 70vh;
     object-fit: contain;
+  }
+}
+
+.asset-choice-dialog {
+  min-height: 260px;
+}
+
+.asset-choice-loading {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  max-height: 62vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.asset-choice-card {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 2px solid var(--td-border-level-2-color);
+  border-radius: 8px;
+  background: var(--td-bg-color-secondarycontainer);
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--td-brand-color);
+  }
+
+  &.selected {
+    border-color: var(--td-brand-color);
+    box-shadow: 0 0 0 2px var(--td-brand-color-light);
+  }
+
+  &.disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .choice-state {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--td-text-color-secondary);
+    font-size: 12px;
+  }
+
+  .choice-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+  }
+
+  .choice-check {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--td-brand-color);
+    background: rgba(255, 255, 255, 0.92);
+    border-radius: 999px;
   }
 }
 </style>

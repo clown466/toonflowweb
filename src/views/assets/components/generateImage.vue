@@ -429,6 +429,7 @@ async function onClick() {
       imageId: isLocalUpload ? undefined : Number(selectedImage.id),
     });
     window.$message.success($t("workbench.assets.gen.imageSaved"));
+    window.dispatchEvent(new CustomEvent("toonflow-assets-updated", { detail: { projectId: project.value?.id, assetId: props.formData.id } }));
     generateImageShow.value = false;
     emit("update");
   }

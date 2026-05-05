@@ -1212,6 +1212,7 @@ async function handleUploadAssetImage(row: Asset) {
       projectId: project.value.id,
     });
     window.$message.success("图片已上传并绑定到资产");
+    window.dispatchEvent(new CustomEvent("toonflow-assets-updated", { detail: { projectId: project.value.id, assetId: row.id } }));
     await getFilteredData(assetOptions.value);
   } catch (error: any) {
     window.$message.error(error?.message || "图片上传失败");
