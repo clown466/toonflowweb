@@ -105,6 +105,8 @@
           :think-level="activeAgent.thinkLevel"
           :flow-data="flowData"
           :project-name="project?.name"
+          :image-model="project?.imageModel"
+          :video-model="project?.videoModel"
           :episodes-count="episodes.length"
           :selected-storyboard-id="selectedStoryboardId"
           :selected-storyboard-ids="selectedStoryboardIds"

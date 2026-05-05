@@ -164,13 +164,25 @@
                   <span class="info-value">{{ currentModel || '默认' }}</span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">图像模型</span>
-                  <span class="info-value">{{ imageModel || '项目配置' }}</span>
+                  <span class="info-label">项目出图</span>
+                  <span class="info-value" :title="currentProjectImageModel">{{ currentProjectImageModel || '未选择' }}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">视频模型</span>
                   <span class="info-value">{{ videoModel || '项目配置' }}</span>
                 </div>
+              </div>
+              <div class="model-select-row">
+                <t-loading :loading="imageModelSaving" size="small">
+                  <modelSelect
+                    v-model="localProjectImageModel"
+                    type="image"
+                    size="small"
+                    placeholder="选择本项目出图模型"
+                    :disabled="imageModelSaving"
+                    @change="handleProjectImageModelChange"
+                  />
+                </t-loading>
               </div>
               <div class="menu-divider"></div>
               <div class="menu-item" @click="openSettings">
@@ -354,6 +366,9 @@
 import { useMousePressed, useMouse } from "@vueuse/core";
 import type { ChatMessagesData } from "@tdesign-vue-next/chat";
 import settingStore from "@/stores/setting";
+import projectStore from "@/stores/project";
+import { storeToRefs } from "pinia";
+import axios from "@/utils/axios";
 
 interface FlowData {
   storyboard: Array<{
@@ -403,6 +418,9 @@ const emit = defineEmits<{
   (e: "selectAsset", id: number): void;
 }>();
 
+const projectState = projectStore();
+const { project, allProject } = storeToRefs(projectState);
+
 // 输入状态
 const inputValue = ref("");
 const showMoreMenu = ref(false);
@@ -414,7 +432,14 @@ const skillSearch = ref("");
 const elementSearch = ref("");
 const busyStartedAt = ref<number | null>(null);
 const now = ref(Date.now());
+const imageModelSaving = ref(false);
 let progressTimer: ReturnType<typeof setInterval> | null = null;
+const currentProjectImageModel = computed(() => project.value?.imageModel || props.imageModel || "");
+const localProjectImageModel = ref(currentProjectImageModel.value);
+
+watch(currentProjectImageModel, (value) => {
+  localProjectImageModel.value = value;
+});
 
 const localThinkLevel = computed({
   get: () => props.thinkLevel,
@@ -817,6 +842,37 @@ function selectAssetElement(asset: { id: number; name?: string }) {
   appendToInput(`引用资产：#${asset.id} ${asset.name || ''}`.trim());
 }
 
+async function handleProjectImageModelChange(value: string) {
+  if (!value || value === currentProjectImageModel.value) return;
+  const currentProject = project.value;
+  if (!currentProject?.id) {
+    localProjectImageModel.value = currentProjectImageModel.value;
+    window.$message.warning("当前没有可更新的项目");
+    return;
+  }
+
+  imageModelSaving.value = true;
+  try {
+    await axios.post("/project/updateImageModel", {
+      id: Number(currentProject.id),
+      imageModel: value,
+    });
+    project.value = {
+      ...currentProject,
+      imageModel: value,
+    };
+    allProject.value = allProject.value.map((item) =>
+      String(item.id) === String(currentProject.id) ? { ...item, imageModel: value } : item,
+    );
+    window.$message.success("已切换本项目出图模型");
+  } catch (err: any) {
+    localProjectImageModel.value = currentProjectImageModel.value;
+    window.$message.error(err?.message || "出图模型切换失败");
+  } finally {
+    imageModelSaving.value = false;
+  }
+}
+
 function openSettings() {
   setting.showSetting = true;
   showSettingPopup.value = false;
@@ -1209,7 +1265,8 @@ function openSettings() {
 }
 
 .model-menu {
-  min-width: 200px;
+  min-width: 320px;
+  max-width: 360px;
 
   .model-info {
     padding: 8px 12px;
@@ -1227,8 +1284,17 @@ function openSettings() {
       .info-value {
         color: var(--td-text-color-primary);
         font-weight: 500;
+        max-width: 190px;
+        overflow: hidden;
+        text-align: right;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
+  }
+
+  .model-select-row {
+    padding: 4px 12px 10px;
   }
 }
 
