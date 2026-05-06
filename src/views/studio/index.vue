@@ -504,10 +504,29 @@ function registerWorkspacePlanDataHandler() {
   });
 }
 
+function syncWorkspaceAgentContext() {
+  const s = workspaceRefs.socket.value;
+  const projectId = project.value?.id;
+  if (!s || !projectId) return;
+  s.emit("updateContext", {
+    isolationKey: `${projectId}:workspaceAgent`,
+    projectId,
+    scriptId: episodesId.value ?? null,
+  });
+}
+
 watch(
   () => workspaceRefs.socket.value,
-  () => registerWorkspacePlanDataHandler(),
+  () => {
+    registerWorkspacePlanDataHandler();
+    syncWorkspaceAgentContext();
+  },
   { immediate: true },
+);
+
+watch(
+  () => [project.value?.id, episodesId.value, workspaceRefs.connected.value] as const,
+  () => syncWorkspaceAgentContext(),
 );
 
 watch(
