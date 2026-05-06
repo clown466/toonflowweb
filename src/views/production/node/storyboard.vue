@@ -126,6 +126,18 @@
           :key="board.id"
           @click.stop="previewDirectorBoard(board)">
           <div class="directorBoardBadge">B{{ String(index + 1).padStart(2, "0") }}</div>
+          <t-button
+            class="directorBoardRedraw"
+            size="small"
+            theme="primary"
+            variant="base"
+            :loading="board.state === '生成中'"
+            :disabled="board.state === '生成中'"
+            @click.stop="redrawDirectorBoard(board)"
+          >
+            <template #icon><i-refresh size="13" /></template>
+            重绘
+          </t-button>
           <t-image v-if="board.src && board.state === '已完成'" :src="board.src" fit="cover" class="directorBoardImg" />
           <div v-else class="directorBoardPlaceholder">
             <t-loading v-if="board.state === '生成中'" size="small" />
@@ -383,6 +395,29 @@ function previewDirectorBoard(board: DirectorBoardItem) {
   previewImages.value = [previewSrc];
   previewDownloadUrl.value = previewSrc;
   previewVisible.value = true;
+}
+
+async function redrawDirectorBoard(board: DirectorBoardItem) {
+  if (!project.value?.id || !episodesId.value) return;
+  if (board.state === "生成中") return window.$message.info("该章节导演板正在生成中");
+  board.state = "生成中";
+  board.reason = "";
+  board.src = "";
+  board.previewSrc = "";
+  try {
+    await axios.post("/production/directorBoard/regenerate", {
+      projectId: project.value.id,
+      scriptId: episodesId.value,
+      boardId: board.id,
+    });
+    window.$message.success("已提交该章节导演板重绘任务");
+    await loadDirectorBoards();
+    startDirectorBoardPoll();
+  } catch (e) {
+    board.state = "生成失败";
+    board.reason = (e as any)?.message || "章节导演板重绘失败";
+    window.$message.error(board.reason);
+  }
 }
 
 async function batchGenerateImage() {
@@ -885,6 +920,15 @@ onUnmounted(() => {
     background: rgba(0, 0, 0, 0.62);
     color: #fff;
     font-size: 11px;
+  }
+  .directorBoardRedraw {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    height: 22px;
+    padding: 0 6px;
+    font-size: 12px;
   }
   .directorBoardName {
     padding: 5px 6px;
