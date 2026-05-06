@@ -112,6 +112,7 @@ const props = defineProps<{
   id: string;
   data: GeneratedNodeData;
   projectId: number;
+  contextType?: string;
 }>();
 
 function selectedFn() {
@@ -196,12 +197,12 @@ async function handleGenerate() {
 
 function handleKeep() {
   if (!props.data.generatedImage) return window.$message.error($t("workbench.production.editImage.generateFirst"));
-  emit("keep", props.data.generatedImage);
+  emit("keep", props.data.generatedImage, props.data.prompt);
 }
 onMounted(() => {
   props.data.model = project.value?.imageModel ?? "";
   props.data.quality = project.value?.imageQuality ?? "";
-  props.data.ratio = project.value?.videoRatio ?? "16:9";
+  props.data.ratio = props.contextType === "directorBoard" ? "16:9" : project.value?.videoRatio ?? "16:9";
 });
 </script>
 

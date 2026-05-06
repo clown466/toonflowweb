@@ -25,7 +25,7 @@
       </template>
 
       <template #node-generated="{ id, data }">
-        <generatedNode :id="id" :data="data" :projectId="+project!.id" @keep="sureNode" />
+        <generatedNode :id="id" :data="data" :projectId="+project!.id" :context-type="type" @keep="sureNode" />
       </template>
       <template #edge-removeLine="edgeProps">
         <removeLine v-bind="edgeProps" />
@@ -233,7 +233,7 @@ const addUploadNode = (type: string, image: string = "", prompt: string = "") =>
   return newNodeId;
 };
 //保存节点
-async function sureNode(imageUrl: string) {
+async function sureNode(imageUrl: string, prompt?: string) {
   try {
     const payload = {
       nodes: cleanNodes(getNodes.value as NodeType[]),
@@ -242,10 +242,10 @@ async function sureNode(imageUrl: string) {
 
     if (props.flowData.flowId) {
       await axios.post("/production/editImage/updateImageFlow", { ...payload, flowId: props.flowData.flowId });
-      emit("save", { imageUrl, flowId: props.flowData.flowId });
+      emit("save", { imageUrl, flowId: props.flowData.flowId, prompt });
     } else {
       const { data } = await axios.post("/production/editImage/saveImageFlow", { ...payload });
-      emit("save", { imageUrl, flowId: data?.id });
+      emit("save", { imageUrl, flowId: data?.id, prompt });
     }
     visible.value = false;
   } catch (e) {

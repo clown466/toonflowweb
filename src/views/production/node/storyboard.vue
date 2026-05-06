@@ -126,18 +126,24 @@
           :key="board.id"
           @click.stop="previewDirectorBoard(board)">
           <div class="directorBoardBadge">B{{ String(index + 1).padStart(2, "0") }}</div>
-          <t-button
-            class="directorBoardRedraw"
-            size="small"
-            theme="primary"
-            variant="base"
-            :loading="board.state === '生成中'"
-            :disabled="board.state === '生成中'"
-            @click.stop="redrawDirectorBoard(board)"
-          >
-            <template #icon><i-refresh size="13" /></template>
-            重绘
-          </t-button>
+          <div class="directorBoardActions">
+            <t-button class="directorBoardCanvas" size="small" theme="default" variant="base" @click.stop="editDirectorBoardImage(board)">
+              <template #icon><i-edit size="13" /></template>
+              画布
+            </t-button>
+            <t-button
+              class="directorBoardRedraw"
+              size="small"
+              theme="primary"
+              variant="base"
+              :loading="board.state === '生成中'"
+              :disabled="board.state === '生成中'"
+              @click.stop="redrawDirectorBoard(board)"
+            >
+              <template #icon><i-refresh size="13" /></template>
+              重绘
+            </t-button>
+          </div>
           <t-image v-if="board.src && board.state === '已完成'" :src="board.src" fit="cover" class="directorBoardImg" />
           <div v-else class="directorBoardPlaceholder">
             <t-loading v-if="board.state === '生成中'" size="small" />
@@ -150,7 +156,7 @@
         </div>
       </div>
     </div>
-    <editImage v-model="visible" v-if="visible" :flowData="currentRow" type="storyboard" @save="save" />
+    <editImage v-model="visible" v-if="visible" :flowData="currentRow" :type="currentEditMode" @save="save" />
     <t-image-viewer
       v-model:visible="previewVisible"
       :images="previewImages"
@@ -245,6 +251,8 @@ const currentRow = ref<{
   resultImages: [],
   referanceImages: [],
 });
+const currentEditMode = ref<"storyboard" | "directorBoard">("storyboard");
+const currentDirectorBoardId = ref<number | null>(null);
 
 const tagColors = ["#5bccb3", "#9c7cfc", "#fbbf24", "#5b9afc", "#e86b6b", "#7cb8fc", "#e8a855", "#34d399"];
 
@@ -326,6 +334,9 @@ interface DirectorBoardItem {
   previewSrc?: string;
   state?: string | null;
   reason?: string | null;
+  prompt?: string | null;
+  assetIds?: string | number[] | null;
+  flowId?: number | null;
 }
 const directorBoards = ref<DirectorBoardItem[]>([]);
 const directorBoardLoading = ref(false);
@@ -397,6 +408,40 @@ function previewDirectorBoard(board: DirectorBoardItem) {
   previewVisible.value = true;
 }
 
+function parseDirectorBoardAssetIds(value: DirectorBoardItem["assetIds"]) {
+  if (Array.isArray(value)) return value.map(Number).filter((id) => Number.isFinite(id));
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(Number).filter((id) => Number.isFinite(id));
+  } catch {
+    return [];
+  }
+}
+
+function findAssetImage(assetId: number) {
+  const asset = props.assetsData.find((item) => item.id === assetId);
+  if (asset?.src) return asset.src;
+  for (const item of props.assetsData) {
+    const derive = item.derive?.find((child) => child.id === assetId);
+    if (derive?.src) return derive.src;
+  }
+  return "";
+}
+
+function editDirectorBoardImage(board: DirectorBoardItem) {
+  currentEditMode.value = "directorBoard";
+  currentDirectorBoardId.value = board.id;
+  currentRowStoryboardInfo.value = { id: null, insertAfterIndex: null };
+  const referenceImages = parseDirectorBoardAssetIds(board.assetIds).map(findAssetImage).filter(Boolean);
+  currentRow.value = {
+    flowId: board.flowId ?? null,
+    resultImages: [{ src: board.previewSrc || board.src || "", prompt: board.prompt || "" }],
+    referanceImages: referenceImages,
+  };
+  visible.value = true;
+}
+
 async function redrawDirectorBoard(board: DirectorBoardItem) {
   if (!project.value?.id || !episodesId.value) return;
   if (board.state === "生成中") return window.$message.info("该章节导演板正在生成中");
@@ -449,6 +494,8 @@ async function redrawStoryboardImage(item: Storyboard) {
 }
 
 function editStoryboaryImage(item: Storyboard, images: string[], insertAfterIndex: number | null = null) {
+  currentEditMode.value = "storyboard";
+  currentDirectorBoardId.value = null;
   currentRowStoryboardInfo.value = {
     id: insertAfterIndex == null ? item?.id! : null,
     insertAfterIndex,
@@ -497,8 +544,32 @@ function editStoryboaryImage(item: Storyboard, images: string[], insertAfterInde
   visible.value = true;
 }
 
-async function save({ imageUrl, flowId }: { imageUrl: string; flowId: number }) {
+async function save({ imageUrl, flowId, prompt }: { imageUrl: string; flowId: number; prompt?: string }) {
   if (!imageUrl) return;
+
+  if (currentEditMode.value === "directorBoard") {
+    const id = currentDirectorBoardId.value;
+    if (!id || !project.value?.id || !episodesId.value) return;
+    const target = directorBoards.value.find((board) => board.id === id);
+    if (target) {
+      target.src = imageUrl;
+      target.previewSrc = imageUrl;
+      target.state = "已完成";
+      target.reason = "";
+      target.flowId = flowId;
+      if (typeof prompt === "string") target.prompt = prompt;
+    }
+    await axios.post("/production/directorBoard/updateUrl", {
+      id,
+      projectId: project.value.id,
+      scriptId: episodesId.value,
+      url: imageUrl,
+      flowId,
+      prompt,
+    });
+    await loadDirectorBoards();
+    return;
+  }
 
   const { id, insertAfterIndex } = currentRowStoryboardInfo.value;
 
@@ -921,11 +992,16 @@ onUnmounted(() => {
     color: #fff;
     font-size: 11px;
   }
-  .directorBoardRedraw {
+  .directorBoardActions {
     position: absolute;
     top: 4px;
     right: 4px;
     z-index: 2;
+    display: flex;
+    gap: 4px;
+  }
+  .directorBoardCanvas,
+  .directorBoardRedraw {
     height: 22px;
     padding: 0 6px;
     font-size: 12px;
