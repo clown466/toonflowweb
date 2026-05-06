@@ -39,8 +39,7 @@ const router = createRouter({
         },
         {
           path: "/script",
-          meta: { projectScoped: true },
-          component: () => import("@/views/script/index.vue"),
+          redirect: "/studio",
         },
         {
           path: "/scriptAgent",

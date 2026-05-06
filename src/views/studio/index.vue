@@ -228,7 +228,7 @@ let projectAssetsPollingTimer: number | null = null;
 
 function ensureProductionEpisode(showMessage = true) {
   if (episodesId.value) return true;
-  if (showMessage) window.$message.warning("当前项目还没有可生产的剧集，请先生成或选择剧集");
+  if (showMessage) window.$message.warning("当前项目还没有章节工作区，请先生成分镜表或选择章节工作区");
   return false;
 }
 
@@ -499,7 +499,7 @@ function registerWorkspacePlanDataHandler() {
       const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
       selectedStoryboardId.value = firstStoryboardId ?? null;
       selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
-      window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有分镜剧集");
+      window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有章节工作区");
     }
   });
 }

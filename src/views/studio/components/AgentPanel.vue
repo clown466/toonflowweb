@@ -270,7 +270,7 @@
                 </template>
                 <template v-if="activeElementTab === 'episodes'">
                   <div class="element-item disabled">
-                    <span>剧集列表（即将支持）</span>
+                    <span>章节工作区列表（即将支持）</span>
                   </div>
                 </template>
               </div>
@@ -536,7 +536,7 @@ function storyboardSkillDisplayDescription(skill: StoryboardSkillMeta) {
   if (skill.id.includes("storyboard_generation_method")) return "从章节事件生成分镜表和生产镜头";
   if (skill.id.includes("storyboard_table_techniques")) return "分镜字段、拆镜粒度与表格规则";
   if (skill.id.includes("storyboard_prompt_techniques")) return "提示词结构、参考图标注与画质规则";
-  if (/构建分镜表/.test(desc)) return "把剧本拆成结构化分镜表";
+  if (/构建分镜表/.test(desc)) return "把小说章节拆成结构化分镜表";
   if (/分镜面板写入/.test(desc)) return "把分镜表写入分镜面板";
   if (/分镜图生成/.test(desc)) return "按分镜面板生成分镜图";
   if (/^导演分镜提示词技法/.test(desc)) return "生成分镜图提示词的风格规则";
@@ -564,7 +564,7 @@ const panelTitle = computed(() => props.mode === "workspace" ? "项目总控" : 
 // 输入框占位符
 const inputPlaceholder = computed(() => {
   if (!props.connected) return "未连接，请检查设置...";
-  return props.mode === "workspace" ? "直接说目标：写剧本、提资产、做分镜，总控会自动判断调用..." : "输入指令生成分镜或处理资产...";
+  return props.mode === "workspace" ? "直接说目标：提资产、做分镜、生成视频，总控会自动判断调用..." : "输入指令生成分镜或处理资产...";
 });
 
 // 调整大小逻辑
@@ -781,14 +781,14 @@ onUnmounted(() => {
 
 // 技能列表
 const workspaceSkills = [
-  { name: "检查项目状态", desc: "分析小说、剧本、资产、生产进度", prompt: "请检查当前项目的整体状态，并判断下一步应该走小说、剧本、资产还是生产流程。" },
-  { name: "生成/改编剧本", desc: "由总控转交编剧能力", prompt: "请根据当前项目内容生成或改编剧本；你先检查小说和已有剧本状态，再决定是否调用编剧能力。" },
-  { name: "提取角色场景", desc: "从小说/剧本提取资产清单", prompt: "请从当前项目的小说或剧本中提取角色、场景和道具，并写入资产库；先查重，避免重复创建。" },
-  { name: "进入生产准备", desc: "由总控判断资产/剧本是否就绪", prompt: "请检查当前项目是否具备生产条件；如果可以，协助规划分镜、导演方案和资产生成步骤。" },
+  { name: "检查项目状态", desc: "分析小说、资产、分镜、视频进度", prompt: "请检查当前项目的整体状态，并判断下一步应该走小说事件、资产、分镜表、分镜图还是视频生产。" },
+  { name: "提取角色场景", desc: "从小说提取资产清单", prompt: "请从当前项目的小说章节中提取角色、场景和道具，并写入资产库；先查重，避免重复创建。" },
+  { name: "生成分镜表", desc: "按小说章节拆分镜", prompt: "请基于当前小说章节和资产库生成分镜表，直接进入分镜流程。" },
+  { name: "进入生产准备", desc: "由总控判断资产/分镜是否就绪", prompt: "请检查当前项目是否具备生产条件；如果可以，协助规划分镜、导演方案和资产生成步骤。" },
 ];
 
 const productionSkills = [
-  { name: "生成分镜", desc: "批量生成分镜图片", prompt: "请为当前剧集的所有分镜生成图片。" },
+  { name: "生成分镜", desc: "批量生成分镜图片", prompt: "请为当前章节工作区的所有分镜生成图片。" },
   { name: "重试失败镜头", desc: "重新生成失败项", prompt: "请重新生成所有生成失败的分镜。" },
   { name: "整理生产资产", desc: "检查和优化资产", prompt: "请检查当前生产资产，优化提示词。" },
 ];
@@ -804,7 +804,7 @@ const filteredSkills = computed(() => {
 
 function resolveSkillPrompt(skill: { prompt: string }) {
   const lines = [skill.prompt];
-  if (props.currentEpisode) lines.push(`当前剧集：${props.currentEpisode.name || props.currentEpisode.id} (#${props.currentEpisode.id})`);
+  if (props.currentEpisode) lines.push(`当前章节工作区：${props.currentEpisode.name || props.currentEpisode.id} (#${props.currentEpisode.id})`);
   if (props.selectedStoryboardId) lines.push(`当前分镜：#${props.selectedStoryboardId}`);
   if (props.selectedStoryboardIds?.length) lines.push(`当前多选分镜：${props.selectedStoryboardIds.map(id => `#${id}`).join('、')}`);
   if (props.selectedAsset) lines.push(`当前资产：${props.selectedAsset.name || props.selectedAsset.id} (#${props.selectedAsset.id})`);
@@ -815,7 +815,7 @@ function resolveSkillPrompt(skill: { prompt: string }) {
 const elementTabs = [
   { key: "storyboard", label: "分镜" },
   { key: "assets", label: "资产" },
-  { key: "episodes", label: "剧集" },
+  { key: "episodes", label: "章节" },
 ];
 
 const filteredElementStoryboards = computed(() => {
@@ -836,14 +836,14 @@ const filteredElementAssets = computed(() => {
 
 // 建议列表
 const workspaceSuggestions = [
-  { text: "检查项目", prompt: "请检查当前项目状态，并告诉我下一步该做剧本、资产还是生产。" },
-  { text: "写剧本", prompt: "请根据当前项目内容生成或改编剧本；由你判断是否需要调用编剧能力。" },
-  { text: "提资产", prompt: "请从小说或剧本中提取角色、场景和道具，并写入资产库。" },
+  { text: "检查项目", prompt: "请检查当前项目状态，并告诉我下一步该做小说事件、资产、分镜还是视频。" },
+  { text: "提资产", prompt: "请从小说章节中提取角色、场景和道具，并写入资产库。" },
+  { text: "做分镜表", prompt: "请基于当前小说章节和资产库生成分镜表。" },
   { text: "准备生产", prompt: "请判断项目是否具备生产条件，并规划分镜、导演方案和资产生成步骤。" },
 ];
 
 const productionSuggestions = [
-  { text: "生成分镜", prompt: "请为当前剧集生成所有分镜图片。" },
+  { text: "生成分镜", prompt: "请为当前章节工作区生成所有分镜图片。" },
   { text: "重试失败", prompt: "请重新生成所有失败的分镜。" },
   { text: "整理资产", prompt: "请检查和优化当前生产资产。" },
 ];
@@ -946,7 +946,7 @@ function applySuggestion(prompt: string) {
 function insertCurrentSelection() {
   const parts: string[] = [];
   if (props.currentEpisode) {
-    parts.push(`当前剧集：${props.currentEpisode.name || `第${props.currentEpisode.id}集`} (#${props.currentEpisode.id})`);
+    parts.push(`当前章节工作区：${props.currentEpisode.name || `工作区${props.currentEpisode.id}`} (#${props.currentEpisode.id})`);
   }
   if (props.selectedStoryboardId) {
     const storyboard = props.flowData?.storyboard?.find(item => item.id === props.selectedStoryboardId);
@@ -960,7 +960,7 @@ function insertCurrentSelection() {
     parts.push(`当前选中资产：${props.selectedAsset.name || props.selectedAssetId} (#${props.selectedAsset.id})${parent ? `，父资产：${parent.name} (#${parent.id})` : ''}`);
   }
   if (parts.length === 0) {
-    window.$message.info("请先选择分镜、资产或剧集");
+    window.$message.info("请先选择分镜、资产或章节工作区");
     return;
   }
   inputValue.value = inputValue.value + (inputValue.value ? "\n" : "") + parts.join("\n");

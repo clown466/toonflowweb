@@ -9,7 +9,7 @@
       <div class="episode-selector">
         <t-select
           :value="currentEpisode?.id"
-          :placeholder="'选择剧集'"
+          :placeholder="'选择章节工作区'"
           size="small"
           auto-width
           :options="episodeOptions"

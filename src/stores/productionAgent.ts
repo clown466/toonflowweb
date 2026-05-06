@@ -36,7 +36,7 @@ function makeProductionAgentStore(projectId: string) {
     });
 
     const flowData = ref<FlowData>({
-      script: "", // 剧本
+      script: "", // 小说章节内容（后端兼容字段名）
       scriptPlan: "", //导演计划
       storyboardTable: "", //分镜表
       assets: [], // 衍生资产

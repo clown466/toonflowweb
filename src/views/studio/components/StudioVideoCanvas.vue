@@ -23,7 +23,7 @@
 
     <div class="canvas-content">
       <div v-if="!episodesId" class="canvas-empty">
-        <t-empty title="暂无生产容器" description="请先让项目总控生成分镜或选择一个生产剧集" />
+        <t-empty title="暂无章节工作区" description="请先让项目总控生成分镜表或选择一个章节工作区" />
       </div>
 
       <template v-else>

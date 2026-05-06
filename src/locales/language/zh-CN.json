@@ -449,9 +449,9 @@
         "productionDecision": "视频生产-执行导演",
         "productionExecution": "视频生产-摄影指导",
         "productionSupervision": "视频生产-监制",
-        "scriptDecision": "剧本Agent-统筹",
-        "scriptExecution": "剧本Agent-编剧",
-        "scriptSupervision": "剧本Agent-编辑",
+        "scriptDecision": "章节分析-统筹",
+        "scriptExecution": "章节分析-执行",
+        "scriptSupervision": "章节分析-校对",
         "universalAgent": "制片助理"
       },
       "msg": {
@@ -492,7 +492,7 @@
       "isInteracting": "生产页无限画布拖拽性能优化",
       "closeIsInteracting": "关闭",
       "openIsInteracting": "开启",
-      "scriptEpisodeLength": "剧本单集长度限制",
+      "scriptEpisodeLength": "章节单元长度参考",
       "chars": "字",
       "inputChars": "请输入字数"
     },
@@ -639,8 +639,8 @@
       "myProject": "我的项目",
       "taskCenter": "任务中心",
       "novel": "小说原文",
-      "scriptAgent": "剧本Agent",
-      "scriptManage": "剧本管理",
+      "scriptAgent": "章节分析",
+      "scriptManage": "章节工作区",
       "cornerScape": "塑角造景",
       "production": "视频生产",
       "assetCenter": "资产中心",
@@ -699,7 +699,7 @@
           "saveSuccess": "更新成功",
           "title": "提示词"
         },
-        "basedOnScript": "基于剧本",
+        "basedOnScript": "基于章节内容",
         "mdFile": "视觉手册文件",
         "directorManual": "导演手册",
         "addDirectorManual": "新建导演手册",
@@ -757,7 +757,7 @@
       },
       "type": {
         "novel": "基于小说原文",
-        "script": "基于小说剧本"
+        "script": "基于章节工作区"
       }
     },
     "novel": {
@@ -894,7 +894,7 @@
       "selectAssets": "选择资产",
       "noAssets": "暂未关联资产",
       "selectAssetsTitle": "选择关联资产",
-      "welcomeMsg": "你好！我是 Toonflow 智能助手，需要我开始为您生成剧本吗？",
+      "welcomeMsg": "你好！我是 Toonflow 智能助手，需要我帮你分析章节、整理资产或生成分镜吗？",
       "start": "开始",
       "memoryType": {
         "message": "消息记忆",
@@ -960,7 +960,7 @@
       "typeTool": "工具",
       "typeUnknown": "未知",
       "descriptionSuffix": "描述：",
-      "operateScriptFirst": "请先操作剧本",
+      "operateScriptFirst": "请先选择章节工作区",
       "individualConfig": "单独配置",
       "noImage": "暂无图片",
       "promptLabel": "提示词",
@@ -1206,12 +1206,12 @@
       "sure": "确定"
     },
     "production": {
-      "selectPlaceholder": "请选择剧集",
+      "selectPlaceholder": "请选择章节工作区",
       "edit": "编辑",
       "node": {
         "script": {
-          "title": "剧本",
-          "editDialog": "编辑剧本"
+          "title": "小说章节",
+          "editDialog": "编辑小说章节内容"
         },
         "scriptPlan": {
           "title": "导演计划",
@@ -1552,8 +1552,8 @@
         "invert": "反色",
         "semiTransparent": "半透明"
       },
-      "guideSwitchEpisode": "切换剧集",
-      "guideSwitchEpisodeBody": "切换剧集挪移到这里了哦",
+      "guideSwitchEpisode": "切换章节工作区",
+      "guideSwitchEpisodeBody": "章节工作区切换已移到这里",
       "guideRefresh": "刷新数据",
       "guideRefreshBody": "点击刷新按钮重新获取工作区数据",
       "guideCanvasNav": "画布操作",
@@ -1565,8 +1565,8 @@
       "autoLayoutLR": "自动排版-左右布局",
       "autoLayoutTB": "自动排版-上下布局",
       "getFlowData": "刷新工作区",
-      "confirm": "切换剧集确认",
-      "confirmEpisodesSwitch": "当前任务仍在进行中，切换剧集会重连会话，是否继续切换？"
+      "confirm": "切换章节工作区确认",
+      "confirmEpisodesSwitch": "当前任务仍在进行中，切换章节工作区会重连会话，是否继续切换？"
     },
     "task": {
       "title": "任务列表",
@@ -1648,7 +1648,7 @@
       "modeChangeConfirm": "切换模式将会清空当前选中的图片和提示词"
     },
     "workspaceAgent": {
-      "welcomeMsg": "我是项目总控 Agent，可以帮你检查小说状态、提取角色/场景/道具、整理项目资产库，并协调剧本和生产流程。",
+      "welcomeMsg": "我是项目总控 Agent，可以帮你检查小说状态、提取角色/场景/道具、整理项目资产库，并协调分镜和视频生产流程。",
       "start": "根据当前小说提取角色、场景和道具，准备项目资产库",
       "msg": {
         "memoryCleared": "记忆已清除",

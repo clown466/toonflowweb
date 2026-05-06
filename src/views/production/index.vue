@@ -323,7 +323,7 @@ function handleEpisodesChange(value: unknown) {
 }
 
 async function getScriptData() {
-  //获取剧本
+  // 获取章节工作区
   const { data: scriptRes } = await axios.post("/script/getScrptApi", {
     projectId: project.value?.id,
     name: "",
