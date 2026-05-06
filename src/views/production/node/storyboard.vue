@@ -300,6 +300,7 @@ interface DirectorBoardItem {
   id: number;
   name?: string | null;
   src?: string;
+  previewSrc?: string;
   state?: string | null;
   reason?: string | null;
 }
@@ -363,12 +364,13 @@ function previewDirectorBoard(board: DirectorBoardItem) {
     window.$message.error(board.reason || "章节导演板生成失败");
     return;
   }
-  if (!board.src) {
+  const previewSrc = board.previewSrc || board.src;
+  if (!previewSrc) {
     window.$message.info("当前章节导演板还没有可预览图片");
     return;
   }
-  previewImages.value = [board.src];
-  previewDownloadUrl.value = board.src;
+  previewImages.value = [previewSrc];
+  previewDownloadUrl.value = previewSrc;
   previewVisible.value = true;
 }
 
