@@ -69,6 +69,20 @@
             <div class="info-prompt" :title="item.prompt">{{ item.prompt || $t('studio.storyboard.noPrompt') }}</div>
           </div>
 
+          <div class="item-actions">
+            <t-tooltip content="重绘该分镜">
+              <t-button
+                variant="text"
+                shape="square"
+                size="small"
+                :disabled="!item.id || item.state === '生成中'"
+                @click.stop="onRepaintClick(item)"
+              >
+                <template #icon><i-refresh size="15" /></template>
+              </t-button>
+            </t-tooltip>
+          </div>
+
           <div class="item-status-dot" :class="stateDotClass(item.state)" />
         </div>
       </div>
@@ -168,6 +182,18 @@ function onSelect(item: StoryboardItem) {
 
 function onFailedClick(e: Event, item: StoryboardItem) {
   e.stopPropagation();
+  emit("retry", item);
+}
+
+function onRepaintClick(item: StoryboardItem) {
+  if (!item.id) {
+    window.$message.warning("当前分镜还没有保存，不能重绘");
+    return;
+  }
+  if (item.state === "生成中") {
+    window.$message.info("当前分镜正在生成中");
+    return;
+  }
   emit("retry", item);
 }
 
@@ -417,6 +443,12 @@ if (typeof window !== "undefined") {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.item-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .item-status-dot {

@@ -63,6 +63,16 @@
                       <i-edit theme="outline" size="18" fill="#fff" />
                     </div>
                   </t-tooltip>
+                  <t-tooltip theme="primary" content="重绘该分镜">
+                    <div
+                      class="redrawNode ac"
+                      :class="{ disabled: item.state === '生成中' }"
+                      :style="{ transform: `scale(${styleMaxSize})` }"
+                      @click.stop="redrawStoryboardImage(item)"
+                    >
+                      <i-refresh theme="outline" size="18" fill="#fff" />
+                    </div>
+                  </t-tooltip>
                 </div>
               </div>
               <div
@@ -387,6 +397,21 @@ async function batchGenerateImage() {
     generateLoading.value = false;
   }
 }
+
+async function redrawStoryboardImage(item: Storyboard) {
+  if (!item.id) return window.$message.warning("当前分镜还没有保存，不能重绘");
+  if (item.state === "生成中") return window.$message.info("当前分镜正在生成中");
+  try {
+    item.state = "生成中";
+    item.reason = "";
+    item.src = "";
+    await productionAgentStore().batchGenerateStoryboard([item.id], true);
+    window.$message.success("已提交该分镜重绘任务");
+  } catch (e) {
+    window.$message.error((e as any)?.message || "该分镜重绘失败");
+  }
+}
+
 function editStoryboaryImage(item: Storyboard, images: string[], insertAfterIndex: number | null = null) {
   currentRowStoryboardInfo.value = {
     id: insertAfterIndex == null ? item?.id! : null,
@@ -683,7 +708,8 @@ onUnmounted(() => {
     transition: opacity 0.2s ease;
     &:hover {
       .remove,
-      .editNode {
+      .editNode,
+      .redrawNode {
         opacity: 1;
       }
     }
@@ -715,6 +741,26 @@ onUnmounted(() => {
       opacity: 0;
       &:hover {
         background-color: rgba(24, 144, 255, 1);
+      }
+    }
+    .redrawNode {
+      position: absolute;
+      top: 38px;
+      right: 3px;
+      z-index: 9999;
+      padding: 5px;
+      border-radius: 10px;
+      background-color: rgba(24, 144, 255, 0.72);
+      cursor: pointer;
+      transform-origin: top right;
+      opacity: 0;
+      &:hover {
+        background-color: rgba(24, 144, 255, 1);
+      }
+      &.disabled {
+        cursor: not-allowed;
+        opacity: 0.55;
+        background-color: rgba(100, 116, 139, 0.72);
       }
     }
   }

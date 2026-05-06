@@ -223,6 +223,13 @@ function makeProductionAgentStore(projectId: string) {
       return data;
     }
     async function batchGenerateStoryboard(allIds: number[], compulsory: boolean = false) {
+      const targetIds = new Set(allIds);
+      const pendingStoryboards = flowData.value.storyboard.filter((item) => item.id && targetIds.has(item.id));
+      pendingStoryboards.forEach((item) => {
+        item.state = "生成中";
+        item.reason = "";
+        if (compulsory) item.src = "";
+      });
       try {
         const { data } = await axios.post("/production/storyboard/batchGenerateImage", {
           scriptId: episodesId.value,
@@ -247,7 +254,12 @@ function makeProductionAgentStore(projectId: string) {
         }
         return data;
       } catch (e) {
-        window.$message.error((e as any)?.message);
+        const message = (e as any)?.message || "分镜图片生成失败";
+        pendingStoryboards.forEach((item) => {
+          item.state = "生成失败";
+          item.reason = message;
+        });
+        window.$message.error(message);
       }
     }
     async function batchGenerateAssets(allIds: number[]) {
