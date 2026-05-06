@@ -516,6 +516,7 @@ function storyboardSkillDisplayName(skill: StoryboardSkillMeta) {
   const desc = cleanStoryboardSkillDescription(skill);
   const styleName = storyboardSkillStyleName(skill);
 
+  if (skill.id.includes("storyboard_generation_method")) return "Flova 结构化分镜";
   if (skill.id.includes("storyboard_table_techniques")) return "通用分镜表技法";
   if (skill.id.includes("storyboard_prompt_techniques")) return "通用提示词技法";
   if (/构建分镜表/.test(desc)) return "构建分镜表";
@@ -532,6 +533,7 @@ function storyboardSkillDisplayDescription(skill: StoryboardSkillMeta) {
   const desc = cleanStoryboardSkillDescription(skill);
 
   if (skill.source === "user") return compactText(desc || "用户自定义分镜生成规则", 26);
+  if (skill.id.includes("storyboard_generation_method")) return "从章节事件生成分镜表和生产镜头";
   if (skill.id.includes("storyboard_table_techniques")) return "分镜字段、拆镜粒度与表格规则";
   if (skill.id.includes("storyboard_prompt_techniques")) return "提示词结构、参考图标注与画质规则";
   if (/构建分镜表/.test(desc)) return "把剧本拆成结构化分镜表";
