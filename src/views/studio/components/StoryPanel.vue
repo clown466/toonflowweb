@@ -72,13 +72,15 @@
           <div class="item-actions">
             <t-tooltip content="重绘该分镜">
               <t-button
-                variant="text"
-                shape="square"
+                variant="outline"
+                theme="primary"
+                class="repaint-button"
                 size="small"
                 :disabled="!item.id || item.state === '生成中'"
                 @click.stop="onRepaintClick(item)"
               >
                 <template #icon><i-refresh size="15" /></template>
+                重绘
               </t-button>
             </t-tooltip>
           </div>
@@ -449,6 +451,11 @@ if (typeof window !== "undefined") {
   flex-shrink: 0;
   display: flex;
   align-items: center;
+
+  .repaint-button {
+    height: 24px;
+    padding: 0 7px;
+  }
 }
 
 .item-status-dot {

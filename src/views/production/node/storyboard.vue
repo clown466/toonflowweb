@@ -71,6 +71,7 @@
                       @click.stop="redrawStoryboardImage(item)"
                     >
                       <i-refresh theme="outline" size="18" fill="#fff" />
+                      <span>重绘</span>
                     </div>
                   </t-tooltip>
                 </div>
@@ -708,8 +709,7 @@ onUnmounted(() => {
     transition: opacity 0.2s ease;
     &:hover {
       .remove,
-      .editNode,
-      .redrawNode {
+      .editNode {
         opacity: 1;
       }
     }
@@ -745,15 +745,19 @@ onUnmounted(() => {
     }
     .redrawNode {
       position: absolute;
-      top: 38px;
-      right: 3px;
+      top: 3px;
+      right: 34px;
       z-index: 9999;
-      padding: 5px;
-      border-radius: 10px;
-      background-color: rgba(24, 144, 255, 0.72);
+      gap: 3px;
+      padding: 4px 7px;
+      border-radius: 6px;
+      background-color: rgba(24, 144, 255, 0.86);
+      color: #fff;
+      font-size: 12px;
+      line-height: 18px;
       cursor: pointer;
       transform-origin: top right;
-      opacity: 0;
+      opacity: 1;
       &:hover {
         background-color: rgba(24, 144, 255, 1);
       }
