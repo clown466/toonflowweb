@@ -25,12 +25,15 @@
         <div class="imageToolsWrap" v-if="item.sources == 'storyboard' && item.index != null">
           {{ `P${item.index + 1}` }}
         </div>
+        <div class="imageToolsWrap" v-else-if="item.sources == 'directorBoard'">
+          {{ formatDirectorBoardLabel(item) }}
+        </div>
         <div class="clearBtn" @click="splitImage(index)">
           <i-close size="12" />
         </div>
         <div class="source">
           <t-tag size="small">
-            {{ item.sources == "storyboard" ? $t("workbench.generate.storyboard") : $t("workbench.generate.assets") }}
+            {{ getSourceLabel(item.sources) }}
           </t-tag>
         </div>
       </div>
@@ -58,12 +61,15 @@
           <div class="imageToolsWrap" v-if="imageList?.[index]?.sources == 'storyboard' && imageList?.[index]?.index != null">
             {{ `P${imageList[index]?.index + 1}` }}
           </div>
+          <div class="imageToolsWrap" v-else-if="imageList?.[index]?.sources == 'directorBoard'">
+            {{ formatDirectorBoardLabel(imageList[index]) }}
+          </div>
           <div class="clearBtn" @click.stop="clearImage(index)">
             <i-close size="12" />
           </div>
           <div class="source">
             <t-tag size="small">
-              {{ imageList?.[index]?.sources == "storyboard" ? $t("workbench.generate.storyboard") : $t("workbench.generate.assets") }}
+              {{ getSourceLabel(imageList?.[index]?.sources) }}
             </t-tag>
           </div>
         </div>
@@ -86,6 +92,21 @@
       width="800px"
       placement="center">
       <div class="storyboardGrid">
+        <template v-if="directorBoardList.length">
+          <div class="sectionTitle">章节导演板</div>
+          <div class="storyboardItem directorBoardItem" v-for="board in directorBoardList" :key="'board-' + board.id" @click="pickDirectorBoard(board)">
+            <div class="imageToolsWrap">
+              {{ board.name || `导演板 ${(board.index ?? 0) + 1}` }}
+            </div>
+            <img v-if="board.src" :src="board.src" />
+            <div v-else class="textBox ac jc">
+              <t-tooltip theme="primary" :content="board?.reason || board?.prompt || ''">
+                <span style="font-size: 14px">{{ board.state || "未生成" }}</span>
+              </t-tooltip>
+            </div>
+          </div>
+          <div class="sectionTitle">分镜首帧图</div>
+        </template>
         <div class="storyboardItem" v-for="sb in storyboardList" :key="sb.id" @click="pickStoryboard(sb)">
           <div class="imageToolsWrap" v-if="sb?.index != null">
             {{ `P${sb?.index + 1}` }}
@@ -111,6 +132,7 @@ import axios from "@/utils/axios";
 const props = defineProps<{
   mode: VideoMode;
   storyboardList: StoryboardItem[];
+  directorBoardList: DirectorBoardItem[];
 }>();
 const imageList = defineModel<UploadItem[]>({
   default: () => [],
@@ -179,6 +201,15 @@ function getFileTypeByExt(src: string | undefined): "image" | "video" | "audio" 
   if (["mp4", "webm", "mov", "avi", "mkv"].includes(ext)) return "video";
   if (["mp3", "wav", "ogg", "aac", "flac", "m4a"].includes(ext)) return "audio";
   return "image";
+}
+function getSourceLabel(source: string | undefined) {
+  if (source === "directorBoard") return "章节导演板";
+  if (source === "storyboard") return $t("workbench.generate.storyboard");
+  return $t("workbench.generate.assets");
+}
+function formatDirectorBoardLabel(item: UploadItem | undefined) {
+  if (!item || item.sources !== "directorBoard") return "章节导演板";
+  return item.label || `导演板${item.index != null ? item.index + 1 : ""}`;
 }
 /** 根据混合模式推导当前允许的 clip 媒体类型 */
 const mixedClipMediaTypes = computed<ClipMediaType[]>(() => {
@@ -260,6 +291,24 @@ function pickStoryboard(sb: StoryboardItem) {
     id: sb.id,
     prompt: sb.videoDesc ?? undefined,
     index: sb.index,
+  } as UploadItem;
+
+  if (currentSlot === "start" || currentSlot === "end") {
+    setFrameSlot(currentSlot, newItem);
+  } else {
+    imageList.value = [...imageList.value, newItem];
+  }
+}
+function pickDirectorBoard(board: DirectorBoardItem) {
+  storyboardDialogVisible.value = false;
+  const newItem = {
+    fileType: "image",
+    sources: "directorBoard",
+    src: board.src,
+    id: board.id,
+    prompt: board.prompt ?? undefined,
+    label: board.name ?? undefined,
+    index: board.index ?? undefined,
   } as UploadItem;
 
   if (currentSlot === "start" || currentSlot === "end") {
@@ -395,6 +444,13 @@ function splitImage(index: number) {
     max-height: 60vh;
     overflow-y: auto;
     padding: 4px;
+    .sectionTitle {
+      grid-column: 1 / -1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--td-text-color-secondary);
+      padding: 2px 0;
+    }
     .storyboardItem {
       cursor: pointer;
       position: relative;
@@ -420,6 +476,9 @@ function splitImage(index: number) {
         text-align: center;
         border: 1px solid #ccc;
       }
+    }
+    .directorBoardItem {
+      border-color: rgba(0, 82, 217, 0.24);
     }
   }
 }

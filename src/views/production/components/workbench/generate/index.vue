@@ -2,7 +2,7 @@
   <div class="index fc">
     <div class="referenceImage">
       <div class="uploadBtn">
-        <imageSelect :mode="modelParmas.mode as VideoMode" v-model="imageList" :storyboard-list="storyboardList" />
+        <imageSelect :mode="modelParmas.mode as VideoMode" v-model="imageList" :storyboard-list="storyboardList" :director-board-list="directorBoardList" />
       </div>
     </div>
     <div class="modelSelect">
@@ -85,11 +85,13 @@ const modelParmas = ref<ModelSetting>({
 });
 
 const storyboardList = ref<StoryboardItem[]>([]); // 分镜列表
+const directorBoardList = ref<DirectorBoardItem[]>([]); // 章节导演板列表
 
-/** 排序优先级：assets有图=0，storyboard有图=1，无图=2 */
+/** 排序优先级：导演板=0，assets有图=1，storyboard有图=2，无图=3 */
 function getImageItemPriority(item: UploadItem): number {
-  if (item.src) return item.sources === "assets" ? 0 : 1;
-  return 2;
+  if (item.src && item.sources === "directorBoard") return 0;
+  if (item.src) return item.sources === "assets" ? 1 : 2;
+  return 3;
 }
 
 const imageList = computed({
@@ -272,6 +274,7 @@ async function getGenerateData() {
   });
 
   storyboardList.value = data.storyboardList;
+  directorBoardList.value = data.directorBoardList ?? [];
   // 优先使用本地缓存，没有缓存则用后端数据并写入缓存
   const pid = project.value?.id;
   const sid = episodesId.value;
@@ -285,7 +288,12 @@ async function getGenerateData() {
       if (track.id == null) return;
       const cached = getCache(pid, sid, track.id);
       if (cached?.length) {
-        track.medias = cached as unknown as TrackMedia[];
+        const boardMedias = (track.medias ?? []).filter((item) => item.sources === "directorBoard");
+        const cachedKeys = new Set(cached.map((item) => `${item.id}:${item.sources}`));
+        const missingBoards = boardMedias.filter((item) => !cachedKeys.has(`${item.id}:${item.sources}`));
+        const merged = missingBoards.length ? ([...missingBoards, ...cached] as unknown as UploadItem[]) : cached;
+        if (missingBoards.length) setCache(pid, sid, track.id, merged);
+        track.medias = merged as unknown as TrackMedia[];
       }
     });
     // 整体赋值触发响应式

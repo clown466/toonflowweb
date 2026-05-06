@@ -26,7 +26,13 @@ interface UploadItemAssets extends UploadItemBase {
   sources: "assets";
 }
 
-type UploadItem = UploadItemStoryboard | UploadItemAssets;
+interface UploadItemDirectorBoard extends UploadItemBase {
+  sources: "directorBoard";
+  label?: string;
+  index?: number;
+}
+
+type UploadItem = UploadItemStoryboard | UploadItemAssets | UploadItemDirectorBoard;
 
 interface StoryboardItem {
   src: string;
@@ -42,6 +48,21 @@ interface StoryboardItem {
   state?: string | null;
   trackId?: number | null;
   videoDesc?: string | null;
+}
+
+interface DirectorBoardItem {
+  id: number;
+  projectId?: number | null;
+  scriptId?: number | null;
+  name?: string | null;
+  prompt?: string | null;
+  src?: string;
+  filePath?: string | null;
+  state?: string | null;
+  reason?: string | null;
+  model?: string | null;
+  storyboardIds?: string | null;
+  index?: number | null;
 }
 
 interface TrackItem {
@@ -79,11 +100,16 @@ interface TrackMediaAssets extends TrackMediaBase {
   sources: "assets";
 }
 
+interface TrackMediaDirectorBoard extends TrackMediaBase {
+  sources: "directorBoard";
+  label?: string;
+}
+
 interface TrackMediaUnknown extends TrackMediaBase {
   sources?: string;
 }
 
-type TrackMedia = TrackMediaStoryboard | TrackMediaAssets | TrackMediaUnknown;
+type TrackMedia = TrackMediaStoryboard | TrackMediaAssets | TrackMediaDirectorBoard | TrackMediaUnknown;
 
 interface HistoryVideoItem {
   errorReason?: string | null;

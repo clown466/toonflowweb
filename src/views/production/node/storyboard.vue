@@ -99,10 +99,27 @@
         <t-button block @click="batchGenerateImage" :disabled="!storyboard.length || !selectedIds.length" :loading="generateLoading">
           {{ $t("workbench.production.node.storyboard.generateImage") }}
         </t-button>
+        <t-button block theme="primary" variant="outline" @click="generateDirectorBoard" :disabled="!storyboard.length" :loading="directorBoardLoading">
+          生成章节导演板
+        </t-button>
 
         <!-- <t-button block @click="batchGenerateImage" :disabled="!storyboard.length" :loading="generateLoading">
           {{ $t("workbench.production.node.storyboard.batchGenerateImage") }}
         </t-button> -->
+      </div>
+      <div v-if="directorBoards.length" class="directorBoardStrip">
+        <div class="directorBoardItem" v-for="(board, index) in directorBoards" :key="board.id">
+          <div class="directorBoardBadge">B{{ String(index + 1).padStart(2, "0") }}</div>
+          <t-image v-if="board.src && board.state === '已完成'" :src="board.src" fit="cover" class="directorBoardImg" />
+          <div v-else class="directorBoardPlaceholder">
+            <t-loading v-if="board.state === '生成中'" size="small" />
+            <t-tooltip v-else-if="board.state === '生成失败'" :content="board.reason || ''">
+              <span class="directorBoardError">生成失败</span>
+            </t-tooltip>
+            <span v-else>{{ board.state || "未生成" }}</span>
+          </div>
+          <div class="directorBoardName">{{ board.name || "章节导演板" }}</div>
+        </div>
       </div>
     </div>
     <editImage v-model="visible" v-if="visible" :flowData="currentRow" type="storyboard" @save="save" />
@@ -264,6 +281,64 @@ const styleMaxSize = computed(() => {
   else 1;
 });
 const generateLoading = ref(false);
+interface DirectorBoardItem {
+  id: number;
+  name?: string | null;
+  src?: string;
+  state?: string | null;
+  reason?: string | null;
+}
+const directorBoards = ref<DirectorBoardItem[]>([]);
+const directorBoardLoading = ref(false);
+let directorBoardPollTimer: ReturnType<typeof setInterval> | null = null;
+
+async function loadDirectorBoards() {
+  if (!project.value?.id || !episodesId.value) return;
+  const { data } = await axios.post("/production/directorBoard/list", {
+    projectId: project.value.id,
+    scriptId: episodesId.value,
+  });
+  directorBoards.value = data ?? [];
+  if (directorBoards.value.some((board) => board.state === "生成中")) startDirectorBoardPoll();
+  else stopDirectorBoardPoll();
+}
+
+function startDirectorBoardPoll() {
+  if (directorBoardPollTimer) return;
+  directorBoardPollTimer = setInterval(() => {
+    loadDirectorBoards().catch(() => {});
+  }, 3000);
+}
+
+function stopDirectorBoardPoll() {
+  if (!directorBoardPollTimer) return;
+  clearInterval(directorBoardPollTimer);
+  directorBoardPollTimer = null;
+}
+
+async function generateDirectorBoard() {
+  if (!project.value?.id || !episodesId.value) return;
+  const ids = selectedIds.value.length ? selectedIds.value : storyboard.value.map((item) => item.id!).filter(Boolean);
+  directorBoardLoading.value = true;
+  try {
+    const { data } = await axios.post("/production/directorBoard/generate", {
+      projectId: project.value.id,
+      scriptId: episodesId.value,
+      storyboardIds: ids,
+      shotsPerBoard: 6,
+      replace: true,
+    });
+    directorBoards.value = data ?? [];
+    selectedIds.value = [];
+    window.$message.success("章节导演板已提交生成");
+    startDirectorBoardPoll();
+  } catch (e) {
+    window.$message.error((e as any)?.message || "章节导演板生成失败");
+  } finally {
+    directorBoardLoading.value = false;
+  }
+}
+
 async function batchGenerateImage() {
   if (!selectedIds.value.length) return window.$message.warning("请先选择分镜面板");
   generateLoading.value = true;
@@ -458,6 +533,16 @@ function editInfo(item: Storyboard) {
     },
   });
 }
+
+watch(
+  () => [project.value?.id, episodesId.value],
+  () => {
+    loadDirectorBoards().catch(() => {});
+  },
+  { immediate: true },
+);
+
+onUnmounted(() => stopDirectorBoardPoll());
 </script>
 
 <style lang="scss" scoped>
@@ -651,6 +736,55 @@ function editInfo(item: Storyboard) {
     margin-bottom: 8px;
     font-size: 13px;
     color: var(--td-text-color-primary, #333);
+  }
+
+  .directorBoardStrip {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .directorBoardItem {
+    position: relative;
+    border: 1px solid var(--td-component-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--td-bg-color-container);
+    min-height: 112px;
+  }
+  .directorBoardImg,
+  .directorBoardPlaceholder {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+  .directorBoardPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--td-text-color-secondary);
+    background: var(--td-bg-color-secondarycontainer);
+  }
+  .directorBoardBadge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.62);
+    color: #fff;
+    font-size: 11px;
+  }
+  .directorBoardName {
+    padding: 5px 6px;
+    font-size: 12px;
+    color: var(--td-text-color-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .directorBoardError {
+    color: var(--td-error-color);
   }
 
   .frameInfo {
