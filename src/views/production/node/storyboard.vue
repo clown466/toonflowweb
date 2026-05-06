@@ -108,7 +108,12 @@
         </t-button> -->
       </div>
       <div v-if="directorBoards.length" class="directorBoardStrip">
-        <div class="directorBoardItem" v-for="(board, index) in directorBoards" :key="board.id">
+        <div
+          class="directorBoardItem"
+          :class="{ clickable: board.src && board.state === '已完成' }"
+          v-for="(board, index) in directorBoards"
+          :key="board.id"
+          @click.stop="previewDirectorBoard(board)">
           <div class="directorBoardBadge">B{{ String(index + 1).padStart(2, "0") }}</div>
           <t-image v-if="board.src && board.state === '已完成'" :src="board.src" fit="cover" class="directorBoardImg" />
           <div v-else class="directorBoardPlaceholder">
@@ -158,6 +163,7 @@ const storyboard = defineModel<Storyboard[]>({ required: true });
 const visible = ref(false);
 const previewVisible = ref(false);
 const previewImages = ref<string[]>([]);
+const previewDownloadUrl = ref("");
 const gridScale = useLocalStorage("storyboardGridScale", 1);
 
 const hoveredIndex = ref<number | null>(null);
@@ -221,8 +227,16 @@ const tagColors = ["#5bccb3", "#9c7cfc", "#fbbf24", "#5b9afc", "#e86b6b", "#7cb8
 
 function closePreview() {
   previewImages.value = [];
+  previewDownloadUrl.value = "";
 }
 async function downLoadImage() {
+  if (previewDownloadUrl.value) {
+    const a = document.createElement("a");
+    a.href = previewDownloadUrl.value;
+    a.download = `directorBoard-${Date.now()}.jpg`;
+    a.click();
+    return;
+  }
   LoadingPlugin(true);
   const allIds = (storyboard.value ?? []).filter((s) => s.src).map((s) => s.id!);
   if (!allIds.length) {
@@ -265,6 +279,7 @@ async function previewAll() {
       projectId: project.value?.id,
     });
     previewImages.value = [data];
+    previewDownloadUrl.value = "";
     previewVisible.value = true;
   } catch {
     window.$message.error($t("workbench.production.node.storyboard.imageLoadFailed"));
@@ -337,6 +352,24 @@ async function generateDirectorBoard() {
   } finally {
     directorBoardLoading.value = false;
   }
+}
+
+function previewDirectorBoard(board: DirectorBoardItem) {
+  if (board.state === "生成中") {
+    window.$message.info("章节导演板还在生成中");
+    return;
+  }
+  if (board.state === "生成失败") {
+    window.$message.error(board.reason || "章节导演板生成失败");
+    return;
+  }
+  if (!board.src) {
+    window.$message.info("当前章节导演板还没有可预览图片");
+    return;
+  }
+  previewImages.value = [board.src];
+  previewDownloadUrl.value = board.src;
+  previewVisible.value = true;
 }
 
 async function batchGenerateImage() {
@@ -765,6 +798,18 @@ onUnmounted(() => {
     overflow: hidden;
     background: var(--td-bg-color-container);
     min-height: 112px;
+    transition:
+      border-color 0.16s ease,
+      transform 0.16s ease;
+
+    &.clickable {
+      cursor: zoom-in;
+
+      &:hover {
+        border-color: var(--td-brand-color);
+        transform: translateY(-1px);
+      }
+    }
   }
   .directorBoardImg,
   .directorBoardPlaceholder {
