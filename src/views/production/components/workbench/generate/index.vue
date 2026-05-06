@@ -87,10 +87,11 @@ const modelParmas = ref<ModelSetting>({
 const storyboardList = ref<StoryboardItem[]>([]); // 分镜列表
 const directorBoardList = ref<DirectorBoardItem[]>([]); // 章节导演板列表
 
-/** 排序优先级：导演板=0，assets有图=1，storyboard有图=2，无图=3 */
+/** 排序优先级：角色资产=0，其他资产=1，导演板=2，storyboard有图=3，无图=4 */
 function getImageItemPriority(item: UploadItem): number {
-  if (item.src && item.sources === "directorBoard") return 0;
-  if (item.src) return item.sources === "assets" ? 1 : 2;
+  if (!item.src) return 4;
+  if (item.sources === "assets") return (item as UploadItem & { type?: string }).type === "role" ? 0 : 1;
+  if (item.sources === "directorBoard") return 2;
   return 3;
 }
 
