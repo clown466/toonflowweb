@@ -126,12 +126,12 @@
           clearable
           :loading="storyboardSkillLoading"
           :popup-props="{ overlayClassName: 'storyboard-skill-popup' }"
-          placeholder="分镜 Skill"
+          placeholder="分镜方法"
           @popup-visible-change="handleStoryboardSkillPopup"
         >
-          <t-option key="default" value="" label="默认分镜 Skill">
+          <t-option key="default" value="" label="默认分镜方法">
             <div class="storyboard-skill-option">
-              <span class="skill-name">默认分镜 Skill</span>
+              <span class="skill-name">默认分镜方法</span>
               <span class="skill-desc">使用系统默认分镜生成逻辑</span>
             </div>
           </t-option>
