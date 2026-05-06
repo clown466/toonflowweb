@@ -80,9 +80,13 @@
         <t-link theme="primary" size="small" @click="selectedIds = []">清除</t-link>
       </div>
       <div class="footer-actions">
-        <t-button block variant="outline" size="small" @click="onGenerateAll">
+        <t-button block theme="primary" size="small" @click="onGenerateDirectorBoard">
           <template #icon><i-play size="14" /></template>
-          {{ selectedIds.length > 0 ? `生成选中(${selectedIds.length})` : "生成全部" }}
+          {{ selectedIds.length > 0 ? `生成章节导演板(${selectedIds.length})` : "生成章节导演板" }}
+        </t-button>
+        <t-button block variant="outline" size="small" @click="onGenerateAll">
+          <template #icon><i-pic size="14" /></template>
+          {{ selectedIds.length > 0 ? `生成首帧图(${selectedIds.length})` : "生成首帧图" }}
         </t-button>
         <t-button block variant="outline" theme="danger" size="small" :disabled="failedItems.length === 0" @click="onRetryFailed">
           <template #icon><i-refresh size="14" /></template>
@@ -121,6 +125,7 @@ const emit = defineEmits<{
   (e: "preview", items: StoryboardItem[]): void;
   (e: "selectAll", ids: number[]): void;
   (e: "generateAll", items: StoryboardItem[]): void;
+  (e: "generateDirectorBoard", items: StoryboardItem[]): void;
   (e: "retry", item: StoryboardItem): void;
   (e: "retryFailed", ids: number[]): void;
 }>();
@@ -193,6 +198,19 @@ function onGenerateAll() {
     return;
   }
   emit("generateAll", candidates);
+}
+
+function onGenerateDirectorBoard() {
+  const selectedIdSet = new Set(selectedIds.value);
+  const candidates = selectedIds.value.length > 0
+    ? props.storyboard.filter(s => s.id && selectedIdSet.has(s.id))
+    : props.storyboard.filter(s => s.id);
+
+  if (candidates.length === 0) {
+    window.$message.info("没有可用于生成章节导演板的分镜");
+    return;
+  }
+  emit("generateDirectorBoard", candidates);
 }
 
 function onRetryFailed() {

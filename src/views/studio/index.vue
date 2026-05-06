@@ -42,6 +42,7 @@
           @preview="onPreviewStoryboard"
           @select-all="onSelectAll"
           @generate-all="onGenerateAll"
+          @generate-director-board="onGenerateDirectorBoard"
           @retry="onRetryStoryboard"
           @retry-failed="onRetryFailedStoryboards"
         />
@@ -627,10 +628,39 @@ async function onGenerateAll(items: any[]) {
   generating.value = true;
   try {
     await prodStore.batchGenerateStoryboard(ids);
-    window.$message.success(`已提交 ${ids.length} 个分镜生成任务`);
+    window.$message.success(`已提交 ${ids.length} 个首帧分镜图生成任务`);
   } catch (err: any) {
     console.error("[studio] generate storyboard failed:", err);
-    window.$message.error(err?.message || "分镜生成失败");
+    window.$message.error(err?.message || "首帧分镜图生成失败");
+  } finally {
+    generating.value = false;
+  }
+}
+
+async function onGenerateDirectorBoard(items: any[]) {
+  if (!ensureProductionEpisode()) return;
+  const ids = items.map((i: any) => Number(i.id)).filter((id: number) => Number.isFinite(id) && id > 0);
+  if (ids.length === 0 || !project.value?.id || !episodesId.value) return;
+
+  generating.value = true;
+  try {
+    await axios.post("/production/directorBoard/generate", {
+      projectId: Number(project.value.id),
+      scriptId: Number(episodesId.value),
+      storyboardIds: ids,
+      shotsPerBoard: 6,
+      replace: true,
+    });
+    window.dispatchEvent(new CustomEvent("toonflow-director-boards-updated", {
+      detail: {
+        projectId: Number(project.value.id),
+        scriptId: Number(episodesId.value),
+      },
+    }));
+    window.$message.success(`已提交 ${Math.ceil(ids.length / 6)} 张章节导演板生成任务`);
+  } catch (err: any) {
+    console.error("[studio] generate director board failed:", err);
+    window.$message.error(err?.message || "章节导演板生成失败");
   } finally {
     generating.value = false;
   }

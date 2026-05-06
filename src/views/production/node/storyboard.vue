@@ -542,7 +542,21 @@ watch(
   { immediate: true },
 );
 
-onUnmounted(() => stopDirectorBoardPoll());
+function handleDirectorBoardsUpdated(event: Event) {
+  const detail = (event as CustomEvent<{ projectId?: number; scriptId?: number }>).detail;
+  if (detail?.projectId && Number(detail.projectId) !== Number(project.value?.id)) return;
+  if (detail?.scriptId && Number(detail.scriptId) !== Number(episodesId.value)) return;
+  loadDirectorBoards().catch(() => {});
+}
+
+onMounted(() => {
+  window.addEventListener("toonflow-director-boards-updated", handleDirectorBoardsUpdated);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("toonflow-director-boards-updated", handleDirectorBoardsUpdated);
+  stopDirectorBoardPoll();
+});
 </script>
 
 <style lang="scss" scoped>
