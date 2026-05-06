@@ -34,7 +34,13 @@
                   :class="columnClass(header)"
                 >
                   <span v-if="isShotNumberColumn(header)" class="shotNo">{{ row[colIndex] || rowIndex + 1 }}</span>
-                  <span v-else>{{ row[colIndex] || "-" }}</span>
+                  <div v-else-if="cellParts(row[colIndex]).length" class="cellRich">
+                    <template v-for="(part, partIndex) in cellParts(row[colIndex])" :key="`${rowIndex}-${colIndex}-${partIndex}`">
+                      <img v-if="part.type === 'image'" class="tableImage" :src="part.src" :alt="part.alt" loading="lazy" decoding="async" />
+                      <span v-else class="cellText">{{ part.text }}</span>
+                    </template>
+                  </div>
+                  <span v-else>-</span>
                 </td>
               </tr>
             </tbody>
@@ -206,6 +212,43 @@ function parseMarkdownTable(markdown: string) {
   return { headers: [] as string[], rows: [] as string[][] };
 }
 
+type CellPart =
+  | { type: "text"; text: string }
+  | { type: "image"; src: string; alt: string };
+
+function isImageUrl(value: string) {
+  return /^(https?:)?\/\//i.test(value) || /^\/(?:oss|smallImage)\//i.test(value) || /\.(?:png|jpe?g|webp|gif|avif)(?:[?#].*)?$/i.test(value);
+}
+
+function normalizeCellImageUrl(value: string) {
+  const url = value.trim();
+  if (!url) return "";
+  if (/^\/smallImage\//i.test(url)) return `/oss${url}`;
+  return url;
+}
+
+function pushTextPart(parts: CellPart[], text: string) {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned && cleaned !== "-") parts.push({ type: "text", text: cleaned });
+}
+
+function cellParts(value: string | undefined) {
+  const text = String(value ?? "").trim();
+  if (!text || text === "-") return [];
+  const parts: CellPart[] = [];
+  const imagePattern = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  for (const match of text.matchAll(imagePattern)) {
+    pushTextPart(parts, text.slice(lastIndex, match.index));
+    const src = normalizeCellImageUrl(match[2] ?? "");
+    if (src) parts.push({ type: "image", src, alt: match[1] || "asset" });
+    lastIndex = (match.index ?? 0) + match[0].length;
+  }
+  pushTextPart(parts, text.slice(lastIndex));
+  if (!parts.length && isImageUrl(text)) parts.push({ type: "image", src: normalizeCellImageUrl(text), alt: "asset" });
+  return parts;
+}
+
 function isShotNumberColumn(header: string) {
   return /镜号|序号|编号|shot|no\.?/i.test(header);
 }
@@ -213,13 +256,17 @@ function isShotNumberColumn(header: string) {
 function columnClass(header: string) {
   if (isShotNumberColumn(header)) return "col-shot";
   if (/时长|duration/i.test(header)) return "col-duration";
+  if (/角色图|参考图|图片|image/i.test(header)) return "col-image";
+  if (/角色\d?$|角色[12]|role\d?/i.test(header)) return "col-role";
+  if (/角色描述|role.*desc/i.test(header)) return "col-role-desc";
   if (/景别|shotSize|镜别/i.test(header)) return "col-shot-size";
   if (/运镜|camera/i.test(header)) return "col-camera";
   if (/场景|scene/i.test(header)) return "col-scene";
   if (/叙事功能|功能|beat/i.test(header)) return "col-beat";
+  if (/分镜提示词|视频运动提示词|prompt/i.test(header)) return "col-prompt";
   if (/画面|动作|描述|videoDesc|action/i.test(header)) return "col-description";
   if (/情绪|emotion|光影|lighting/i.test(header)) return "col-mood";
-  if (/台词|声音|sound|line/i.test(header)) return "col-sound";
+  if (/台词|对白|声音|音效|sound|line/i.test(header)) return "col-sound";
   if (/资产|asset/i.test(header)) return "col-assets";
   return "";
 }
@@ -228,7 +275,7 @@ function columnClass(header: string) {
 <style lang="scss" scoped>
 .storyboardTable {
   max-width: 100vw;
-  width: min(980px, calc(100vw - 48px));
+  width: min(1280px, calc(100vw - 48px));
   min-width: 420px;
   user-select: text;
   cursor: default;
@@ -369,6 +416,21 @@ function columnClass(header: string) {
     max-width: 86px;
   }
 
+  .col-image {
+    min-width: 96px;
+    max-width: 120px;
+  }
+
+  .col-role {
+    min-width: 88px;
+    max-width: 130px;
+  }
+
+  .col-role-desc {
+    min-width: 180px;
+    max-width: 260px;
+  }
+
   .col-shot-size,
   .col-camera,
   .col-scene,
@@ -382,6 +444,11 @@ function columnClass(header: string) {
     max-width: 420px;
   }
 
+  .col-prompt {
+    min-width: 320px;
+    max-width: 460px;
+  }
+
   .col-mood,
   .col-sound {
     min-width: 150px;
@@ -391,6 +458,26 @@ function columnClass(header: string) {
   .col-assets {
     min-width: 140px;
     max-width: 220px;
+  }
+
+  .cellRich {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  .cellText {
+    white-space: pre-wrap;
+  }
+
+  .tableImage {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--td-border-level-1-color, #e7e7e7);
+    background: var(--td-bg-color-secondarycontainer, #f5f5f5);
   }
 
   .storyboardItem {
