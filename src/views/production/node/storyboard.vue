@@ -105,6 +105,10 @@
         </t-button>
         <t-button theme="danger" size="small" :disabled="!storyboard.length || !selectedIds.length" @click="handleDeleteSelected">批量删除</t-button>
       </div>
+      <div class="directorBoardModelRow">
+        <span class="directorBoardModelLabel">导演板出图模型</span>
+        <modelSelect v-model="directorBoardImageModel" type="image" size="small" placeholder="默认使用本项目出图模型" />
+      </div>
       <div class="ac" style="gap: 10px">
         <t-button block @click="previewAll" :disabled="!storyboard.length">{{ $t("workbench.production.node.storyboard.gridPreview") }}</t-button>
         <t-button block @click="batchGenerateImage" :disabled="!storyboard.length || !selectedIds.length" :loading="generateLoading">
@@ -169,6 +173,7 @@
 <script setup lang="ts">
 import { useLocalStorage } from "@vueuse/core";
 import editImage from "../components/editImage/index.vue";
+import modelSelect from "@/components/modelSelect.vue";
 import { LoadingPlugin } from "tdesign-vue-next";
 import { Handle, Position, type Edge } from "@vue-flow/core";
 import axios from "@/utils/axios";
@@ -327,6 +332,7 @@ const styleMaxSize = computed(() => {
   else 1;
 });
 const generateLoading = ref(false);
+const directorBoardImageModel = ref(project.value?.imageModel || "");
 interface DirectorBoardItem {
   id: number;
   name?: string | null;
@@ -337,6 +343,7 @@ interface DirectorBoardItem {
   prompt?: string | null;
   assetIds?: string | number[] | null;
   flowId?: number | null;
+  model?: string | null;
 }
 const directorBoards = ref<DirectorBoardItem[]>([]);
 const directorBoardLoading = ref(false);
@@ -369,12 +376,15 @@ function stopDirectorBoardPoll() {
 async function generateDirectorBoard() {
   if (!project.value?.id || !episodesId.value) return;
   const ids = selectedIds.value.length ? selectedIds.value : storyboard.value.map((item) => item.id!).filter(Boolean);
+  const model = directorBoardImageModel.value || project.value.imageModel || "";
+  if (!model) return window.$message.warning("请先选择导演板出图模型");
   directorBoardLoading.value = true;
   try {
     const { data } = await axios.post("/production/directorBoard/generate", {
       projectId: project.value.id,
       scriptId: episodesId.value,
       storyboardIds: ids,
+      model,
       shotsPerBoard: 6,
       replace: true,
     });
@@ -445,6 +455,8 @@ function editDirectorBoardImage(board: DirectorBoardItem) {
 async function redrawDirectorBoard(board: DirectorBoardItem) {
   if (!project.value?.id || !episodesId.value) return;
   if (board.state === "生成中") return window.$message.info("该章节导演板正在生成中");
+  const model = directorBoardImageModel.value || project.value.imageModel || "";
+  if (!model) return window.$message.warning("请先选择导演板出图模型");
   board.state = "生成中";
   board.reason = "";
   board.src = "";
@@ -454,16 +466,25 @@ async function redrawDirectorBoard(board: DirectorBoardItem) {
       projectId: project.value.id,
       scriptId: episodesId.value,
       boardId: board.id,
+      model,
     });
     window.$message.success("已提交该章节导演板重绘任务");
     await loadDirectorBoards();
     startDirectorBoardPoll();
   } catch (e) {
+    const reason = (e as any)?.message || "章节导演板重绘失败";
     board.state = "生成失败";
-    board.reason = (e as any)?.message || "章节导演板重绘失败";
-    window.$message.error(board.reason);
+    board.reason = reason;
+    window.$message.error(reason);
   }
 }
+
+watch(
+  () => project.value?.imageModel,
+  (value) => {
+    directorBoardImageModel.value = value || "";
+  },
+);
 
 async function batchGenerateImage() {
   if (!selectedIds.value.length) return window.$message.warning("请先选择分镜面板");
@@ -941,6 +962,20 @@ onUnmounted(() => {
     margin-bottom: 8px;
     font-size: 13px;
     color: var(--td-text-color-primary, #333);
+  }
+
+  .directorBoardModelRow {
+    display: grid;
+    grid-template-columns: max-content minmax(220px, 360px);
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .directorBoardModelLabel {
+    font-size: 13px;
+    color: var(--td-text-color-secondary);
+    white-space: nowrap;
   }
 
   .directorBoardStrip {
