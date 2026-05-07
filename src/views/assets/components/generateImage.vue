@@ -181,7 +181,12 @@ const selectValue = ref(""); //选择的模型
 const value2 = ref("");
 //智能生成提示词
 const promptLoading = ref(false);
-async function generatePrompt() {
+const promptPolishedSkillId = ref<string | null>(null);
+const promptNeedsSkillRefresh = computed(() =>
+  Boolean(selectedSkillId.value && props.formData.prompt && promptPolishedSkillId.value !== selectedSkillId.value),
+);
+
+async function generatePrompt(options: { silent?: boolean } = {}) {
   promptLoading.value = true;
   try {
     const { data } = await axios.post("/assetsGenerate/polishAssetsPrompt", {
@@ -190,14 +195,18 @@ async function generatePrompt() {
       type: props.formData.type ?? "props",
       name: props.formData.name,
       describe: props.formData.describe ? props.formData.describe : $t("workbench.assets.noDescription"),
+      currentPrompt: props.formData.prompt || null,
       skillId: selectedSkillId.value || null,
     });
-    window.$message.success($t("workbench.assets.gen.promptSuccess"));
     if (data.assetsId === props.formData.id) {
       props.formData.prompt = data.prompt;
+      promptPolishedSkillId.value = selectedSkillId.value || null;
     }
+    if (!options.silent) window.$message.success($t("workbench.assets.gen.promptSuccess"));
+    return data.prompt as string;
   } catch (e: any) {
     window.$message.error(e.message ?? $t("workbench.assets.gen.promptFail"));
+    throw e;
   } finally {
     promptLoading.value = false;
   }
@@ -268,6 +277,10 @@ async function handleGenerate() {
   }
   generateLoading.value = true;
   try {
+    if (promptNeedsSkillRefresh.value) {
+      await generatePrompt({ silent: true });
+      window.$message.success("已按当前生图预设重新推理提示词");
+    }
     let referenceImageBase64 = "";
     if (referenceFileList.value.length > 0) {
       const file = referenceFileList.value[0].raw;
@@ -346,11 +359,21 @@ watch(
       referenceFileList.value = [];
       value2.value = "";
       selectedSkillId.value = "";
+      promptPolishedSkillId.value = null;
       selectedImageIndex.value = null;
       hoveredImageIndex.value = null;
       generateLoading.value = false;
       fetchImageGenerationSkills();
       fetchGeneratedImages();
+    }
+  },
+);
+
+watch(
+  () => props.formData.prompt,
+  () => {
+    if (!selectedSkillId.value) {
+      promptPolishedSkillId.value = null;
     }
   },
 );
