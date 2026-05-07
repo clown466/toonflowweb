@@ -437,6 +437,14 @@
       <div class="batch">
         <span>{{ $t("workbench.assets.confirmBatch", { type: batchType }) }}</span>
         <t-form labelAlign="top">
+          <t-form-item label="生图预设" name="selectedImageSkillId" v-if="['role', 'tool', 'scene'].includes(assetOptions)">
+            <t-select
+              v-model="selectedImageSkillId"
+              :options="batchImageSkillOptions"
+              :loading="imageSkillLoading"
+              clearable
+              placeholder="默认：视觉手册标准生图" />
+          </t-form-item>
           <t-form-item :label="$t('workbench.assets.model')" name="selectValue" v-if="batchType === $t('workbench.assets.batchGenImage')">
             <modelSelect v-model="selectValue" :type="`image`" />
           </t-form-item>
@@ -492,6 +500,7 @@ const audioFormData = ref({
 
 onMounted(() => {
   loadCurrentTabData();
+  fetchImageGenerationSkills();
 });
 
 onUnmounted(() => {
@@ -630,6 +639,7 @@ function selectAssetOptions(value: TabValue) {
   selectedRowKeys.value = [];
   selectedSubRowKeys.value = [];
   expandedRowKeys.value = [];
+  selectedImageSkillId.value = "";
   pagination.value.page = 1;
   loadCurrentTabData();
 }
@@ -690,9 +700,52 @@ const batchGenerationShow = ref(false);
 const selectValue = ref(""); //选择的模型
 const resolution = ref("1K"); //选择的分辨率
 const batchType = ref("");
+const selectedImageSkillId = ref("");
+const imageSkillLoading = ref(false);
+
+interface ImageGenerationSkillMeta {
+  id: string;
+  name: string;
+  description: string;
+  targetTypes: string[];
+  aspectRatio?: string;
+}
+
+const imageGenerationSkills = ref<ImageGenerationSkillMeta[]>([]);
+
+function compactLabel(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+const batchImageSkillOptions = computed(() => {
+  const currentType = assetOptions.value === "role" || assetOptions.value === "scene" || assetOptions.value === "tool" ? assetOptions.value : "";
+  const options = imageGenerationSkills.value
+    .filter((skill) => !currentType || skill.targetTypes.includes(currentType))
+    .map((skill) => ({
+      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
+        .filter(Boolean)
+        .join(" "),
+      value: skill.id,
+    }));
+  return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
+});
+
+async function fetchImageGenerationSkills() {
+  imageSkillLoading.value = true;
+  try {
+    const { data } = await axios.post("/setting/imageGenerationSkill/list");
+    imageGenerationSkills.value = Array.isArray(data) ? data : [];
+  } catch {
+    imageGenerationSkills.value = [];
+  } finally {
+    imageSkillLoading.value = false;
+  }
+}
+
 function batchGeneration(type: number) {
   batchType.value = type === 1 ? $t("workbench.assets.batchGenPrompt") : $t("workbench.assets.batchGenImage");
   batchGenerationShow.value = true;
+  fetchImageGenerationSkills();
 }
 function keep() {
   if (batchType.value === $t("workbench.assets.batchGenPrompt")) {
@@ -742,11 +795,13 @@ async function handleBatchGeneratePrompt() {
     await axios.post("/assetsGenerate/batchPolishAssetsPrompt", {
       projectId: project.value?.id,
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
+      skillId: selectedImageSkillId.value || null,
       items: selectedAssets.map((item: { id: number; name: string; type: string; describe: string }) => ({
         assetsId: item.id,
         type: item.type ?? "props",
         name: item.name,
         describe: item.describe ? item.describe : $t("workbench.assets.noDescription"),
+        skillId: selectedImageSkillId.value || null,
       })),
     });
   } catch (e: any) {
@@ -804,11 +859,14 @@ async function handleBatchGenerateImage() {
       model: selectValue.value,
       resolution: resolution.value,
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
+      skillId: selectedImageSkillId.value || null,
       items: validAssets.map((item) => ({
         id: item.id,
         type: item.type ?? "props",
         name: item.name ?? $t("workbench.cornerScape.unnamed"),
         prompt: item.prompt || item.describe,
+        describe: item.describe,
+        skillId: selectedImageSkillId.value || null,
       })),
     });
   } catch (e: any) {

@@ -47,7 +47,7 @@
             </div>
           </div>
           <div class="skillSelect">
-            <span style="font-size: 16px; font-weight: 900">生图 Skill</span>
+            <span style="font-size: 16px; font-weight: 900">生图预设</span>
             <t-select v-model="selectedSkillId" :options="skillOptions" :loading="skillLoading" clearable placeholder="默认：视觉手册标准生图" />
           </div>
           <div class="selectModel f">
@@ -190,6 +190,7 @@ async function generatePrompt() {
       type: props.formData.type ?? "props",
       name: props.formData.name,
       describe: props.formData.describe ? props.formData.describe : $t("workbench.assets.noDescription"),
+      skillId: selectedSkillId.value || null,
     });
     window.$message.success($t("workbench.assets.gen.promptSuccess"));
     if (data.assetsId === props.formData.id) {
@@ -227,11 +228,17 @@ const skillOptions = computed(() => {
   const options = imageGenerationSkills.value
     .filter((skill) => !currentType || skill.targetTypes.includes(currentType))
     .map((skill) => ({
-      label: skill.aspectRatio ? `${skill.name} (${skill.aspectRatio})` : skill.name,
+      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
+        .filter(Boolean)
+        .join(" "),
       value: skill.id,
     }));
   return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
 });
+
+function compactLabel(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
 
 async function fetchImageGenerationSkills() {
   skillLoading.value = true;

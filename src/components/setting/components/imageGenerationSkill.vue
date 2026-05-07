@@ -2,7 +2,7 @@
   <div class="imageGenerationSkill">
     <aside class="skillList">
       <div class="toolbar">
-        <t-input v-model="keyword" clearable placeholder="搜索生图 Skill" />
+        <t-input v-model="keyword" clearable placeholder="搜索生图预设" />
         <t-button theme="primary" @click="createSkill">
           <template #icon><t-icon name="add" /></template>
           新建
@@ -23,7 +23,7 @@
           </div>
           <div v-if="skill.description" class="itemDesc">{{ skill.description }}</div>
         </div>
-        <t-empty v-if="!filteredSkills.length" description="暂无生图 Skill" />
+        <t-empty v-if="!filteredSkills.length" description="暂无生图预设" />
       </div>
     </aside>
 
@@ -112,6 +112,8 @@ const variables = [
   "{{asset.describe}}",
   "{{asset.prompt}}",
   "{{userRequirement}}",
+  "{{timeEnvironmentContext}}",
+  "{{neutralAssetLighting}}",
 ];
 
 const skills = ref<ImageSkillMeta[]>([]);
@@ -139,7 +141,7 @@ function typeLabel(type: string) {
 function defaultContent(id: string) {
   return `---
 id: ${id}
-name: 自定义生图 Skill
+name: 自定义生图预设
 description: 按指定资产场景改写生图提示词
 targetTypes: role,scene,tool
 tags: 自定义
@@ -218,7 +220,7 @@ async function saveSkill() {
 function removeSkill() {
   if (!activeId.value) return;
   const dialog = DialogPlugin.confirm({
-    header: "删除生图 Skill",
+    header: "删除生图预设",
     body: `确认删除 ${activeId.value}.md？`,
     confirmBtn: "删除",
     cancelBtn: "取消",

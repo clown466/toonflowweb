@@ -44,7 +44,7 @@
                 { label: '4K', value: '4K' },
               ]"></t-select>
           </t-form-item>
-          <t-form-item label="生图 Skill">
+          <t-form-item label="生图预设">
             <t-select v-model="selectedImageSkillId" :options="imageSkillOptions" :loading="imageSkillLoading" clearable placeholder="默认：视觉手册标准生图" />
           </t-form-item>
           <t-form-item :label="$t('workbench.cornerScape.textPromptInput')">
@@ -198,7 +198,7 @@
           <t-form-item :label="$t('workbench.cornerScape.resolution')">
             <t-select v-model="editForm.resolution" :placeholder="$t('workbench.cornerScape.resolutionPh')" :options="resolutionOptions" />
           </t-form-item>
-          <t-form-item label="生图 Skill">
+          <t-form-item label="生图预设">
             <t-select v-model="selectedImageSkillId" :options="imageSkillOptions" :loading="imageSkillLoading" clearable placeholder="默认：视觉手册标准生图" />
           </t-form-item>
           <t-form-item :label="$t('workbench.cornerScape.promptLabel')">
@@ -330,10 +330,14 @@ function imageSkillTypeLabel(type: string) {
   return type;
 }
 
+function compactLabel(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
 const imageSkillOptions = computed(() => [
   { label: "默认：视觉手册标准生图", value: "" },
   ...imageGenerationSkills.value.map((skill) => ({
-    label: `${skill.name}${skill.aspectRatio ? ` (${skill.aspectRatio})` : ""} - ${skill.targetTypes.map(imageSkillTypeLabel).join("/")}`,
+    label: `${skill.name}${skill.aspectRatio ? ` (${skill.aspectRatio})` : ""} - ${compactLabel(skill.description || skill.targetTypes.map(imageSkillTypeLabel).join("/"), 24)}`,
     value: skill.id,
   })),
 ]);
@@ -708,6 +712,8 @@ async function polishPrompts() {
       type: editForm.type ?? "props",
       name: editForm.name,
       describe: editForm.describe,
+      skillId: selectedImageSkillId.value || null,
+      userRequirement: otherTextPrompt.value || null,
     });
     window.$message.success($t("workbench.cornerScape.msg.promptGenSuccess"));
     if (data.assetsId === editForm.assetsId) {
@@ -745,9 +751,13 @@ async function batchGenerationPrompt() {
         type: item.type ?? "props",
         name: item.name,
         describe: item.describe,
+        skillId: selectedImageSkillId.value || null,
+        userRequirement: otherTextPrompt.value || null,
       })),
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
       otherTextPrompt: otherTextPrompt.value,
+      skillId: selectedImageSkillId.value || null,
+      userRequirement: otherTextPrompt.value || null,
     });
   } catch (e: any) {
     window.$message.error(e.message ?? $t("workbench.cornerScape.msg.promptGenFail"));
