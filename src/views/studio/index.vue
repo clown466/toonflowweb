@@ -650,6 +650,7 @@ async function onGenerateDirectorBoard(items: any[]) {
       storyboardIds: ids,
       shotsPerBoard: 6,
       replace: true,
+      generateImages: false,
     });
     window.dispatchEvent(new CustomEvent("toonflow-director-boards-updated", {
       detail: {
@@ -657,7 +658,7 @@ async function onGenerateDirectorBoard(items: any[]) {
         scriptId: Number(episodesId.value),
       },
     }));
-    window.$message.success(`已提交 ${Math.ceil(ids.length / 6)} 张章节导演板生成任务`);
+    window.$message.success(`已创建 ${Math.ceil(ids.length / 6)} 张章节导演板草案，点击单张“生成”再出图`);
   } catch (err: any) {
     console.error("[studio] generate director board failed:", err);
     window.$message.error(err?.message || "章节导演板生成失败");

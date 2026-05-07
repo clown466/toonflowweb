@@ -115,7 +115,7 @@
           {{ $t("workbench.production.node.storyboard.generateImage") }}
         </t-button>
         <t-button block theme="primary" variant="outline" @click="generateDirectorBoard" :disabled="!storyboard.length" :loading="directorBoardLoading">
-          生成章节导演板
+          创建导演板草案
         </t-button>
 
         <!-- <t-button block @click="batchGenerateImage" :disabled="!storyboard.length" :loading="generateLoading">
@@ -145,7 +145,7 @@
               @click.stop="redrawDirectorBoard(board)"
             >
               <template #icon><i-refresh size="13" /></template>
-              重绘
+              {{ board.src && board.state === '已完成' ? '重绘' : '生成' }}
             </t-button>
           </div>
           <t-image v-if="board.src && board.state === '已完成'" :src="board.src" fit="cover" class="directorBoardImg" />
@@ -376,22 +376,22 @@ function stopDirectorBoardPoll() {
 async function generateDirectorBoard() {
   if (!project.value?.id || !episodesId.value) return;
   const ids = selectedIds.value.length ? selectedIds.value : storyboard.value.map((item) => item.id!).filter(Boolean);
-  const model = directorBoardImageModel.value || project.value.imageModel || "";
-  if (!model) return window.$message.warning("请先选择导演板出图模型");
   directorBoardLoading.value = true;
   try {
     const { data } = await axios.post("/production/directorBoard/generate", {
       projectId: project.value.id,
       scriptId: episodesId.value,
       storyboardIds: ids,
-      model,
+      model: directorBoardImageModel.value || project.value.imageModel || "",
       shotsPerBoard: 6,
       replace: true,
+      generateImages: false,
     });
     directorBoards.value = data ?? [];
     selectedIds.value = [];
-    window.$message.success("章节导演板已提交生成");
-    startDirectorBoardPoll();
+    window.$message.success(`已创建 ${directorBoards.value.length} 张导演板草案，点击单张“生成”再出图`);
+    if (directorBoards.value.some((board) => board.state === "生成中")) startDirectorBoardPoll();
+    else stopDirectorBoardPoll();
   } catch (e) {
     window.$message.error((e as any)?.message || "章节导演板生成失败");
   } finally {
