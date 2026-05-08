@@ -105,9 +105,15 @@
         </t-button>
         <t-button theme="danger" size="small" :disabled="!storyboard.length || !selectedIds.length" @click="handleDeleteSelected">批量删除</t-button>
       </div>
-      <div class="directorBoardModelRow">
-        <span class="directorBoardModelLabel">导演板出图模型</span>
-        <modelSelect v-model="directorBoardImageModel" type="image" size="small" placeholder="默认使用本项目出图模型" />
+      <div class="directorBoardControlRow">
+        <div class="directorBoardControlItem">
+          <span class="directorBoardControlLabel">导演板类型</span>
+          <t-select v-model="directorBoardType" size="small" :options="directorBoardTypeOptions" />
+        </div>
+        <div class="directorBoardControlItem">
+          <span class="directorBoardControlLabel">出图模型</span>
+          <modelSelect v-model="directorBoardImageModel" type="image" size="small" placeholder="默认使用本项目出图模型" />
+        </div>
       </div>
       <div class="ac" style="gap: 10px">
         <t-button block @click="previewAll" :disabled="!storyboard.length">{{ $t("workbench.production.node.storyboard.gridPreview") }}</t-button>
@@ -156,7 +162,10 @@
             </t-tooltip>
             <span v-else>{{ board.state || "未生成" }}</span>
           </div>
-          <div class="directorBoardName">{{ board.name || "章节导演板" }}</div>
+          <div class="directorBoardName">
+            <span>{{ board.name || "章节导演板" }}</span>
+            <t-tag size="small" variant="light">{{ directorBoardTypeLabel(board.boardType) }}</t-tag>
+          </div>
         </div>
       </div>
     </div>
@@ -333,6 +342,12 @@ const styleMaxSize = computed(() => {
 });
 const generateLoading = ref(false);
 const directorBoardImageModel = ref(project.value?.imageModel || "");
+type DirectorBoardType = "continuity" | "textStoryboard";
+const directorBoardType = useLocalStorage<DirectorBoardType>("directorBoardType", "continuity");
+const directorBoardTypeOptions = [
+  { label: "空间连续性导演板", value: "continuity" },
+  { label: "文字分镜导演板", value: "textStoryboard" },
+];
 interface DirectorBoardItem {
   id: number;
   name?: string | null;
@@ -344,6 +359,7 @@ interface DirectorBoardItem {
   assetIds?: string | number[] | null;
   flowId?: number | null;
   model?: string | null;
+  boardType?: DirectorBoardType | string | null;
 }
 const directorBoards = ref<DirectorBoardItem[]>([]);
 const directorBoardLoading = ref(false);
@@ -383,13 +399,14 @@ async function generateDirectorBoard() {
       scriptId: episodesId.value,
       storyboardIds: ids,
       model: directorBoardImageModel.value || project.value.imageModel || "",
+      boardType: directorBoardType.value,
       shotsPerBoard: 6,
       replace: true,
       generateImages: false,
     });
     directorBoards.value = data ?? [];
     selectedIds.value = [];
-    window.$message.success(`已创建 ${directorBoards.value.length} 张导演板草案，点击单张“生成”再出图`);
+    window.$message.success(`已创建 ${directorBoards.value.length} 张${directorBoardTypeLabel(directorBoardType.value)}草案，点击单张“生成”再出图`);
     if (directorBoards.value.some((board) => board.state === "生成中")) startDirectorBoardPoll();
     else stopDirectorBoardPoll();
   } catch (e) {
@@ -397,6 +414,14 @@ async function generateDirectorBoard() {
   } finally {
     directorBoardLoading.value = false;
   }
+}
+
+function normalizeDirectorBoardType(value?: DirectorBoardItem["boardType"]): DirectorBoardType {
+  return value === "textStoryboard" ? "textStoryboard" : "continuity";
+}
+
+function directorBoardTypeLabel(value?: DirectorBoardItem["boardType"]) {
+  return normalizeDirectorBoardType(value) === "textStoryboard" ? "文字分镜" : "连续性";
 }
 
 function previewDirectorBoard(board: DirectorBoardItem) {
@@ -467,6 +492,7 @@ async function redrawDirectorBoard(board: DirectorBoardItem) {
       scriptId: episodesId.value,
       boardId: board.id,
       model,
+      boardType: normalizeDirectorBoardType(board.boardType),
     });
     window.$message.success("已提交该章节导演板重绘任务");
     await loadDirectorBoards();
@@ -964,15 +990,22 @@ onUnmounted(() => {
     color: var(--td-text-color-primary, #333);
   }
 
-  .directorBoardModelRow {
+  .directorBoardControlRow {
     display: grid;
-    grid-template-columns: max-content minmax(220px, 360px);
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
   }
 
-  .directorBoardModelLabel {
+  .directorBoardControlItem {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .directorBoardControlLabel {
     font-size: 13px;
     color: var(--td-text-color-secondary);
     white-space: nowrap;
@@ -1042,9 +1075,16 @@ onUnmounted(() => {
     font-size: 12px;
   }
   .directorBoardName {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
     padding: 5px 6px;
     font-size: 12px;
     color: var(--td-text-color-secondary);
+  }
+  .directorBoardName span:first-child {
+    min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
