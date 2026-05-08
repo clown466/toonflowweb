@@ -83,6 +83,10 @@
       <i-plus size="24"></i-plus>
       {{ $t("workbench.generate.addReference") }}
     </div>
+    <div class="uploadBtn c fc directorBoardAddBtn" v-if="isShowAddImage" @click="openStoryboardDialog()">
+      <i-blackboard size="24"></i-blackboard>
+      选择导演板
+    </div>
 
     <!-- 分镜选择弹窗 -->
     <t-dialog
@@ -219,6 +223,11 @@ const mixedClipMediaTypes = computed<ClipMediaType[]>(() => {
   return mode.filter((m) => m in map).map((m) => map[m]);
 });
 let currentSlot: "start" | "end" | "" = "";
+function openStoryboardDialog(slot: "start" | "end" | "" = "") {
+  if (!props.mode) return window.$message.error($t("workbench.generate.notSelectMode"));
+  currentSlot = slot;
+  storyboardDialogVisible.value = true;
+}
 function handleMixedAdd(slot: "start" | "end" | "" = "") {
   if (!props.mode) return window.$message.error($t("workbench.generate.notSelectMode"));
   currentSlot = slot;
@@ -271,7 +280,7 @@ function handleMixedAdd(slot: "start" | "end" | "" = "") {
     },
     onCancel: () => {
       dlg.destroy();
-      storyboardDialogVisible.value = true;
+      openStoryboardDialog(slot);
     },
   });
 }
@@ -367,6 +376,12 @@ function splitImage(index: number) {
     &:hover {
       border-color: var(--td-text-color);
       cursor: pointer;
+    }
+    &.directorBoardAddBtn {
+      border-color: var(--td-brand-color);
+      color: var(--td-brand-color);
+      background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
+      font-weight: 600;
     }
 
     .uploadPreview {
