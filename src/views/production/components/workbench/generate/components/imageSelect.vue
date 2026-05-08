@@ -315,6 +315,36 @@ function pickStoryboard(sb: StoryboardItem) {
     imageList.value = [...imageList.value, newItem];
   }
 }
+function itemKey(item: Pick<UploadItem, "id"> & { sources?: string }) {
+  return `${item.id}:${item.sources ?? "assets"}`;
+}
+function mergeUniqueItems(current: UploadItem[], append: UploadItem[]) {
+  const seen = new Set(current.filter((item) => item.id).map(itemKey));
+  const result = [...current];
+  append.forEach((item) => {
+    if (!item.id) return;
+    const key = itemKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push(item);
+  });
+  return result;
+}
+function buildDirectorBoardAssetItems(board: DirectorBoardItem): UploadItem[] {
+  return (board.assetRefs ?? [])
+    .filter((asset) => asset?.id && asset?.src)
+    .map((asset) => {
+      const src = asset.src || "";
+      return {
+        fileType: asset.fileType || getFileTypeByExt(src),
+        sources: "assets",
+        src,
+        id: asset.id,
+        type: asset.type || undefined,
+        prompt: asset.prompt || asset.describe || asset.name || undefined,
+      } as UploadItem;
+    });
+}
 function pickDirectorBoard(board: DirectorBoardItem) {
   storyboardDialogVisible.value = false;
   const newItem = {
@@ -329,8 +359,12 @@ function pickDirectorBoard(board: DirectorBoardItem) {
 
   if (currentSlot === "start" || currentSlot === "end") {
     setFrameSlot(currentSlot, newItem);
+  } else if (props.mode === "singleImage") {
+    imageList.value = [newItem];
   } else {
-    imageList.value = [...imageList.value, newItem];
+    const assetItems = buildDirectorBoardAssetItems(board);
+    imageList.value = mergeUniqueItems(imageList.value, [...assetItems, newItem]);
+    if (assetItems.length) window.$message.success(`已自动加入 ${assetItems.length} 个导演板资产参考`);
   }
 }
 function splitImage(index: number) {

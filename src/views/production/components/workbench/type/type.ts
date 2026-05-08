@@ -63,6 +63,17 @@ interface DirectorBoardItem {
   reason?: string | null;
   model?: string | null;
   storyboardIds?: string | null;
+  assetIds?: string | number[] | null;
+  assetRefs?: {
+    id: number;
+    name?: string | null;
+    describe?: string | null;
+    prompt?: string | null;
+    type?: string | null;
+    src?: string;
+    fileType?: "image" | "video" | "audio";
+    sources?: "assets";
+  }[];
   index?: number | null;
 }
 
