@@ -262,6 +262,7 @@ function batchGenText() {
         info,
         model: props.modelParmas.model,
         mode: props.modelParmas.mode,
+        duration: props.clampDuration(track.duration || props.modelParmas.duration),
       })
       .then(({ data }) => {
         const targetTrack = trackList.value.find((item) => item.id === trackId);

@@ -344,6 +344,7 @@ async function genText() {
       info: info,
       model: modelParmas.value.model,
       mode: modelParmas.value.mode,
+      duration: modelParmas.value.duration,
     });
     changeTrack.prompt = data;
   } catch (e) {
