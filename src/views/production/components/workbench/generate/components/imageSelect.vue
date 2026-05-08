@@ -272,10 +272,17 @@ function handleMixedAdd(slot: "start" | "end" | "" = "") {
         imageList.value = [newItems[0]];
       } else {
         const assetsNotAudioIds = newItems.filter((i) => i.fileType !== "audio");
-        const { data } = await axios.post("/production/workbench/getAudioBindAssetsList", {
-          assetsIds: assetsNotAudioIds.map((i) => i.id),
-        });
-        imageList.value = [...imageList.value, ...newItems, ...(data ?? [])];
+        imageList.value = [...imageList.value, ...newItems];
+        if (assetsNotAudioIds.length) {
+          try {
+            const { data } = await axios.post("/production/workbench/getAudioBindAssetsList", {
+              assetsIds: assetsNotAudioIds.map((i) => i.id),
+            });
+            if (Array.isArray(data) && data.length) imageList.value = [...imageList.value, ...data];
+          } catch {
+            // Audio-bound references are optional. Keep the assets the user selected.
+          }
+        }
       }
     },
     onCancel: () => {
