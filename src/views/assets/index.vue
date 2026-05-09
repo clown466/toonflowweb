@@ -139,6 +139,18 @@
                             </template>
                             上传图片
                           </t-button>
+                          <t-button
+                            v-if="subRow.type === 'role'"
+                            theme="primary"
+                            variant="text"
+                            :loading="isRoleCardRefreshing(subRow.id)"
+                            :disabled="isGenerating(subRow.id)"
+                            @click="handleRefreshRoleFactCard(subRow)">
+                            <template #icon>
+                              <t-icon name="scan" />
+                            </template>
+                            角色卡
+                          </t-button>
                           <t-button theme="danger" variant="text" :disabled="isGenerating(subRow.id)" @click="handleDelete(subRow)">
                             <template #icon>
                               <t-icon name="delete" />
@@ -223,6 +235,18 @@
                         <t-icon name="upload" />
                       </template>
                       上传图片
+                    </t-button>
+                    <t-button
+                      v-if="row.type === 'role'"
+                      theme="primary"
+                      variant="text"
+                      :loading="isRoleCardRefreshing(row.id)"
+                      :disabled="isGenerating(row.id)"
+                      @click="handleRefreshRoleFactCard(row)">
+                      <template #icon>
+                        <t-icon name="scan" />
+                      </template>
+                      角色卡
                     </t-button>
                     <t-button theme="danger" variant="text" :disabled="isGenerating(row.id)" @click="handleDelete(row)">
                       <template #icon>
@@ -555,12 +579,14 @@ const selectedSubRowKeys = ref<Array<string | number>>([]);
 const expandedRowKeys = ref<Array<string | number>>([]);
 const loading = ref(false);
 const uploadingAssetIds = ref<Set<number>>(new Set());
+const refreshingRoleCardIds = ref<Set<number>>(new Set());
 // 是否正在处于任意生成中（提示词或图片），基于 item 的实际 state/promptState 判断
 const isGenerating = (id: number) => {
   const item = findAssetById(id);
   return item?.promptState === "生成中" || item?.state === "生成中";
 };
 const isAssetImageUploading = (id: number) => uploadingAssetIds.value.has(id);
+const isRoleCardRefreshing = (id: number) => refreshingRoleCardIds.value.has(id);
 //表格数据类型定义
 interface Asset {
   id: number;
@@ -963,7 +989,7 @@ const columns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 360,
+    width: 420,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -1018,7 +1044,7 @@ const subColumns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 360,
+    width: 420,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -1202,6 +1228,13 @@ function setAssetImageUploading(id: number, value: boolean) {
   uploadingAssetIds.value = next;
 }
 
+function setRoleCardRefreshing(id: number, value: boolean) {
+  const next = new Set(refreshingRoleCardIds.value);
+  if (value) next.add(id);
+  else next.delete(id);
+  refreshingRoleCardIds.value = next;
+}
+
 function normalizeUploadAssetType(type?: string): "role" | "scene" | "tool" | null {
   if (type === "role" || type === "scene" || type === "tool") return type;
   if (assetOptions.value === "role" || assetOptions.value === "scene" || assetOptions.value === "tool") return assetOptions.value;
@@ -1269,13 +1302,36 @@ async function handleUploadAssetImage(row: Asset) {
       prompt: row.prompt ?? "",
       projectId: project.value.id,
     });
-    window.$message.success("图片已上传并绑定到资产");
+    window.$message.success(type === "role" ? "图片已上传，角色卡已同步并开始后台看图识别" : "图片已上传并绑定到资产");
     window.dispatchEvent(new CustomEvent("toonflow-assets-updated", { detail: { projectId: project.value.id, assetId: row.id } }));
     await getFilteredData(assetOptions.value);
   } catch (error: any) {
     window.$message.error(error?.message || "图片上传失败");
   } finally {
     setAssetImageUploading(row.id, false);
+  }
+}
+
+async function handleRefreshRoleFactCard(row: Asset) {
+  if (row.type !== "role") {
+    window.$message.warning("只有角色资产需要角色卡");
+    return;
+  }
+  if (!project.value?.id) {
+    window.$message.warning("当前项目不存在，无法同步角色卡");
+    return;
+  }
+  setRoleCardRefreshing(row.id, true);
+  try {
+    await axios.post("/assets/refreshRoleFactCard", {
+      id: row.id,
+      projectId: project.value.id,
+    });
+    window.$message.success("角色卡已同步，后台会继续尝试看图识别");
+  } catch (error: any) {
+    window.$message.error(error?.message || "角色卡同步失败");
+  } finally {
+    setRoleCardRefreshing(row.id, false);
   }
 }
 // 编辑
