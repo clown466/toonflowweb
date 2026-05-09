@@ -81,6 +81,8 @@
       "updateConfig": "Update Config",
       "addModel": "Add Model",
       "editModel": "Edit Model",
+      "vendorName": "Provider Name",
+      "vendorNamePlaceholder": "e.g., apiyi, uocode, custom image route",
       "displayName": "Display Name",
       "displayNamePlaceholder": "e.g., GPT-4o",
       "modelId": "Model ID",
@@ -127,6 +129,7 @@
       "msg": {
         "getVendorListFailed": "Failed to fetch provider list",
         "vendorConfigUpdated": "Provider config updated",
+        "vendorNameUpdated": "Provider name updated",
         "updateFailed": "Update failed",
         "highRiskConfirm": "⚠️ High-Risk Operation Confirmation",
         "addVendorRiskBody": "Adding a new AI provider grants it access to system APIs. Please ensure you trust the code source of this provider!",

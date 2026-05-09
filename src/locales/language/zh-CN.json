@@ -162,6 +162,8 @@
       "updateConfig": "更新配置",
       "addModel": "添加模型",
       "editModel": "编辑模型",
+      "vendorName": "供应商名称",
+      "vendorNamePlaceholder": "例如：apiyi、uocode、自定义图像通道",
       "displayName": "显示名称",
       "displayNamePlaceholder": "例如：GPT-4o",
       "modelId": "模型标识",
@@ -208,6 +210,7 @@
       "msg": {
         "getVendorListFailed": "获取供应商列表失败",
         "vendorConfigUpdated": "供应商配置已更新",
+        "vendorNameUpdated": "供应商名称已更新",
         "updateFailed": "更新失败",
         "highRiskConfirm": "⚠️ 高风险操作确认",
         "addVendorRiskBody": "添加新的 AI 供应商将赋予其访问系统 API 的权限，请确认您信任该供应商的代码来源！",

@@ -40,6 +40,19 @@
             theme="warning"
             :message="$t('settings.vendor.msg.vendorNeedsUpdate')"
             style="margin-bottom: 12px" />
+          <t-form-item name="name" :label="$t('settings.vendor.vendorName')">
+            <t-input
+              v-model="currentVendor.name"
+              :placeholder="$t('settings.vendor.vendorNamePlaceholder')"
+              clearable
+              :disabled="renamingVendor"
+              @blur="handleRenameVendor"
+              @keyup.enter="handleRenameVendor">
+              <template #prefix-icon>
+                <t-icon name="edit-1" />
+              </template>
+            </t-input>
+          </t-form-item>
           <t-form-item>
             <MdPreview v-model="currentVendor.description" :theme="themeSetting.mode" />
           </t-form-item>
@@ -532,6 +545,7 @@ const vendorCode = ref(VENDOR_CODE_TEMPLATE);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const updating = ref(false);
 const autoUpdating = ref(false);
+const renamingVendor = ref(false);
 const autoSaveReady = ref(false);
 const lastSavedSnapshot = ref("");
 const AUTO_SAVE_DELAY = 700;
@@ -620,6 +634,32 @@ async function handleAutoUpdateVendor() {
       pendingAutoSave = false;
       scheduleAutoSave();
     }
+  }
+}
+
+async function handleRenameVendor() {
+  const vendor = currentVendor.value;
+  const nextName = vendor?.name?.trim();
+  if (!vendor || !nextName) {
+    window.$message.warning($t("settings.vendor.msg.fillDisplayName"));
+    getVendorList();
+    return;
+  }
+
+  renamingVendor.value = true;
+  try {
+    await axios.post("/setting/vendorConfig/updateVendorName", {
+      id: vendor.id,
+      name: nextName,
+    });
+    vendor.name = nextName;
+    window.$message.success($t("settings.vendor.msg.vendorNameUpdated"));
+    getVendorList();
+  } catch (err: any) {
+    window.$message.error(`${$t("settings.vendor.msg.updateFailed")}${err.message}`);
+    getVendorList();
+  } finally {
+    renamingVendor.value = false;
   }
 }
 
