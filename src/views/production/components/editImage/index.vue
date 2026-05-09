@@ -261,6 +261,7 @@ onMounted(async () => {
     if (!data) return buildFlow();
     edges.value = data.edges.map((e: any) => ({ ...e, ...DEFAULT_EDGE_OPTIONS }));
     nodes.value = data.nodes;
+    refreshDirectorBoardFlowFromProps();
     await nextTick();
     setTimeout(() => fitView({ duration: 300 }), 100);
   } catch (e) {
@@ -292,6 +293,50 @@ function buildFlow() {
     syncReferences();
     setTimeout(() => fitView({ duration: 300 }), 100);
   });
+}
+
+function comparableImageUrl(value: string) {
+  return String(value || "")
+    .replace(/^\/oss\/smallImage\//, "/")
+    .replace(/^\/oss\//, "/")
+    .replace(/\/smallImage\//, "/");
+}
+
+function refreshDirectorBoardFlowFromProps() {
+  if (props.type !== "directorBoard") return;
+
+  const result = props.flowData.resultImages?.[0];
+  const generatedNode = nodes.value.find((node) => node.type === "generated") as NodeType | undefined;
+  if (!generatedNode || generatedNode.type !== "generated") return;
+
+  if (typeof result?.prompt === "string") {
+    generatedNode.data.prompt = result.prompt;
+  }
+  if (result?.src) {
+    generatedNode.data.generatedImage = result.src;
+  }
+
+  const existingUploadImages = new Set(
+    nodes.value
+      .filter((node) => node.type === "upload")
+      .map((node) => comparableImageUrl((node.data as UploadNodeData).image))
+      .filter(Boolean),
+  );
+
+  for (const image of props.flowData.referanceImages || []) {
+    const key = comparableImageUrl(image);
+    if (!key || existingUploadImages.has(key)) continue;
+    const sourceId = addUploadNode("upload", image);
+    edges.value.push({
+      id: uuid(),
+      source: sourceId,
+      target: generatedNode.id,
+      ...DEFAULT_EDGE_OPTIONS,
+    });
+    existingUploadImages.add(key);
+  }
+
+  nextTick(syncReferences);
 }
 
 function closeFn() {
