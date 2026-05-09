@@ -482,17 +482,19 @@ async function redrawDirectorBoard(board: DirectorBoardItem) {
   if (board.state === "生成中") return window.$message.info("该章节导演板正在生成中");
   const model = directorBoardImageModel.value || project.value.imageModel || "";
   if (!model) return window.$message.warning("请先选择导演板出图模型");
+  const requestedBoardType = directorBoardType.value;
   board.state = "生成中";
   board.reason = "";
   board.src = "";
   board.previewSrc = "";
+  board.boardType = requestedBoardType;
   try {
     await axios.post("/production/directorBoard/regenerate", {
       projectId: project.value.id,
       scriptId: episodesId.value,
       boardId: board.id,
       model,
-      boardType: normalizeDirectorBoardType(board.boardType),
+      boardType: requestedBoardType,
     });
     window.$message.success("已提交该章节导演板重绘任务");
     await loadDirectorBoards();
