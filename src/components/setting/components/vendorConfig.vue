@@ -64,7 +64,13 @@
                 <span class="requiredText">{{ $t("settings.vendor.required") }}</span>
               </span>
             </template>
-            <t-input v-model="currentVendor.inputValues[input.key]" :type="input.type" clearable @blur="onBlurFn">
+            <t-select
+              v-if="input.type === 'select'"
+              v-model="currentVendor.inputValues[input.key]"
+              :options="getSelectOptions(input)"
+              clearable
+              @change="onBlurFn" />
+            <t-input v-else v-model="currentVendor.inputValues[input.key]" :type="input.type" clearable @blur="onBlurFn">
               <template #prefix-icon>
                 <t-icon :name="getInputIcon(input.type)" />
               </template>
@@ -78,7 +84,13 @@
             <t-collapse>
               <t-collapse-panel value="optional-inputs" :header="$t('settings.vendor.optionalSection')">
                 <t-form-item v-for="input in optionalInputs" :key="input.key" :name="input.key" :label="input.label">
-                  <t-input v-model="currentVendor.inputValues[input.key]" :type="input.type" clearable @blur="onBlurFn">
+                  <t-select
+                    v-if="input.type === 'select'"
+                    v-model="currentVendor.inputValues[input.key]"
+                    :options="getSelectOptions(input)"
+                    clearable
+                    @change="onBlurFn" />
+                  <t-input v-else v-model="currentVendor.inputValues[input.key]" :type="input.type" clearable @blur="onBlurFn">
                     <template #prefix-icon>
                       <t-icon :name="getInputIcon(input.type)" />
                     </template>
@@ -401,9 +413,10 @@ type VendorModel = TextModel | ImageModel | VideoModel;
 interface VendorInput {
   key: string;
   label: string;
-  type: "text" | "password" | "url";
+  type: "text" | "password" | "url" | "select";
   required: boolean;
   placeholder?: string;
+  options?: { label: string; value: string }[];
 }
 
 interface VendorItem {
@@ -561,11 +574,19 @@ const videoTestVisible = ref(false);
 function getInputIcon(type: VendorInput["type"]) {
   if (type === "password") return "secured";
   if (type === "url") return "link";
+  if (type === "select") return "list";
   return "edit-1";
 }
 
 function getInputPlaceholder(input: VendorInput) {
   return input.placeholder?.trim() || "";
+}
+
+function getSelectOptions(input: VendorInput) {
+  return (input.options ?? []).map((option) => ({
+    label: option.label,
+    value: option.value,
+  }));
 }
 
 /**

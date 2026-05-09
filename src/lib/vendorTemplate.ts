@@ -54,7 +54,14 @@ interface VendorConfig {
   author: string; //作者
   description?: string; //描述，支持Markdown格式
   icon?: string; //图标，仅支持Base64格式，建议尺寸为128x128像素
-  inputs: { key: string; label: string; type: "text" | "password" | "url"; required: boolean; placeholder?: string }[];
+  inputs: {
+    key: string;
+    label: string;
+    type: "text" | "password" | "url" | "select";
+    required: boolean;
+    placeholder?: string;
+    options?: { label: string; value: string }[];
+  }[];
   inputValues: Record<string, string>;
   models: (TextModel | ImageModel | VideoModel | TTSModel)[];
 }
