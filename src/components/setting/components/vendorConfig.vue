@@ -286,7 +286,7 @@
 
     <!-- 添加供应商弹窗 -->
     <t-dialog
-      width="30vw"
+      width="56vw"
       placement="center"
       top="10vh"
       :footer="false"
@@ -295,10 +295,82 @@
       :maskClosable="false">
       <div class="data">
         <t-radio-group variant="default-filled" v-model="addMode">
+          <t-radio-button value="quickAdd">快速添加</t-radio-button>
           <t-radio-button value="importAdd">通过文件导入</t-radio-button>
           <t-radio-button value="linkAdd">通过链接添加</t-radio-button>
           <t-radio-button value="codeAdd">通过代码添加</t-radio-button>
         </t-radio-group>
+        <div class="quickAdd" v-if="addMode == 'quickAdd'">
+          <t-alert theme="info" style="margin-bottom: 16px">
+            选择接口类型后填写基础信息即可创建供应商。添加后仍可在右侧继续修改 API Key、Base URL 和模型列表。
+          </t-alert>
+          <t-form :data="quickVendorForm" labelAlign="top">
+            <div class="quickGrid">
+              <t-form-item label="接口类型">
+                <t-select v-model="quickVendorForm.providerType">
+                  <t-option value="openaiCompatible">OpenAI 兼容接口</t-option>
+                  <t-option value="volcengineArk">火山引擎 Ark 接口</t-option>
+                </t-select>
+              </t-form-item>
+              <t-form-item label="供应商名称">
+                <t-input v-model="quickVendorForm.name" placeholder="例如：我的中转站 / 火山引擎" clearable />
+              </t-form-item>
+              <t-form-item label="供应商 ID">
+                <t-input
+                  v-model="quickVendorForm.vendorId"
+                  placeholder="英文、数字、下划线或短横线，例如 my_openai"
+                  clearable
+                  @blur="quickVendorForm.vendorId = normalizeQuickVendorId(quickVendorForm.vendorId)" />
+              </t-form-item>
+              <t-form-item label="请求地址">
+                <t-input v-model="quickVendorForm.baseUrl" placeholder="例如：https://api.openai.com/v1" clearable />
+              </t-form-item>
+            </div>
+            <t-form-item label="API Key">
+              <t-input v-model="quickVendorForm.apiKey" type="password" placeholder="可先留空，添加后在右侧配置中填写" clearable />
+            </t-form-item>
+            <div class="quickGrid">
+              <t-form-item label="文本模型">
+                <t-textarea v-model="quickVendorForm.textModels" :autosize="{ minRows: 2, maxRows: 4 }" placeholder="一行一个：显示名=模型ID；只填模型ID也可以" />
+              </t-form-item>
+              <t-form-item label="图片模型">
+                <t-textarea v-model="quickVendorForm.imageModels" :autosize="{ minRows: 2, maxRows: 4 }" placeholder="一行一个：显示名=模型ID；不需要图片模型可留空" />
+              </t-form-item>
+            </div>
+            <t-form-item v-if="quickVendorForm.providerType === 'volcengineArk'" label="视频模型">
+              <t-textarea
+                v-model="quickVendorForm.videoModels"
+                :autosize="{ minRows: 2, maxRows: 4 }"
+                placeholder="一行一个：显示名=模型ID；不需要视频模型可留空" />
+            </t-form-item>
+            <t-form-item v-if="quickVendorForm.providerType === 'openaiCompatible'" label="图片参考图传输方式">
+              <t-radio-group v-model="quickVendorForm.imageReferenceTransport">
+                <t-radio value="multipart">文件上传 multipart</t-radio>
+                <t-radio value="publicUrlJson">公开 URL JSON</t-radio>
+                <t-radio value="publicUrlForm">公开 URL 表单</t-radio>
+              </t-radio-group>
+            </t-form-item>
+            <t-form-item v-if="quickVendorForm.providerType === 'openaiCompatible'" label="GPT Image 质量">
+              <t-select v-model="quickVendorForm.imageQuality">
+                <t-option value="default">默认/不传</t-option>
+                <t-option value="auto">自动 auto</t-option>
+                <t-option value="low">低 low</t-option>
+                <t-option value="medium">中 medium</t-option>
+                <t-option value="high">高 high</t-option>
+              </t-select>
+            </t-form-item>
+          </t-form>
+          <div class="quickActions">
+            <t-button variant="outline" @click="handlePreviewQuickVendor">
+              <template #icon><t-icon name="code" /></template>
+              预览代码
+            </t-button>
+            <t-button theme="primary" @click="handleQuickAddVendor">
+              <template #icon><t-icon name="add" /></template>
+              添加供应商
+            </t-button>
+          </div>
+        </div>
         <div class="linkAdd" v-if="addMode == 'linkAdd'">
           <t-alert theme="warning" style="margin-bottom: 20px">
             请填写 TypeScript 代码文件的链接（.ts 文件），不要填 API 地址或其他无关链接。 确认后 Toonflow 会自动加载该代码，请确保链接来源可信。
@@ -512,6 +584,49 @@ const audioOptions: { label: string; value: "optional" | false | true }[] = [
   { label: "settings.vendor.noAudio", value: false },
 ];
 
+type QuickProviderType = "openaiCompatible" | "volcengineArk";
+
+interface QuickVendorDefaults {
+  name: string;
+  vendorId: string;
+  baseUrl: string;
+  textModels: string;
+  imageModels: string;
+  videoModels: string;
+}
+
+const quickVendorDefaults: Record<QuickProviderType, QuickVendorDefaults> = {
+  openaiCompatible: {
+    name: "OpenAI 兼容供应商",
+    vendorId: "my_openai",
+    baseUrl: "https://api.openai.com/v1",
+    textModels: "GPT-4.1=gpt-4.1",
+    imageModels: "GPT Image 2=gpt-image-2",
+    videoModels: "",
+  },
+  volcengineArk: {
+    name: "火山引擎 Ark",
+    vendorId: "my_volcengine",
+    baseUrl: "https://ark.cn-beijing.volces.com/api/v3",
+    textModels: "Doubao Seed 2.0 Pro=doubao-seed-2-0-pro-260215",
+    imageModels: "Seedream 5.0=doubao-seedream-5-0-260128",
+    videoModels: "Seedance 2.0=doubao-seedance-2-0-260128",
+  },
+};
+
+const quickVendorForm = ref({
+  providerType: "openaiCompatible" as QuickProviderType,
+  name: quickVendorDefaults.openaiCompatible.name,
+  vendorId: quickVendorDefaults.openaiCompatible.vendorId,
+  baseUrl: quickVendorDefaults.openaiCompatible.baseUrl,
+  apiKey: "",
+  textModels: quickVendorDefaults.openaiCompatible.textModels,
+  imageModels: quickVendorDefaults.openaiCompatible.imageModels,
+  videoModels: quickVendorDefaults.openaiCompatible.videoModels,
+  imageQuality: "default",
+  imageReferenceTransport: "multipart",
+});
+
 // ── 供应商列表 ──
 const vendorList = ref<VendorItem[]>([]);
 
@@ -708,11 +823,599 @@ watch(
   },
   { flush: "post" },
 );
+
+function normalizeQuickVendorId(value: string) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 64);
+}
+
+function resetQuickVendorForm(type: QuickProviderType = "openaiCompatible") {
+  const defaults = quickVendorDefaults[type];
+  quickVendorForm.value = {
+    providerType: type,
+    name: defaults.name,
+    vendorId: defaults.vendorId,
+    baseUrl: defaults.baseUrl,
+    apiKey: "",
+    textModels: defaults.textModels,
+    imageModels: defaults.imageModels,
+    videoModels: defaults.videoModels,
+    imageQuality: "default",
+    imageReferenceTransport: "multipart",
+  };
+}
+
+watch(
+  () => quickVendorForm.value.providerType,
+  (type) => {
+    const defaults = quickVendorDefaults[type];
+    quickVendorForm.value.name = defaults.name;
+    quickVendorForm.value.vendorId = defaults.vendorId;
+    quickVendorForm.value.baseUrl = defaults.baseUrl;
+    quickVendorForm.value.textModels = defaults.textModels;
+    quickVendorForm.value.imageModels = defaults.imageModels;
+    quickVendorForm.value.videoModels = defaults.videoModels;
+  },
+);
+
+function parseQuickModelRows(raw: string) {
+  return String(raw || "")
+    .split(/[\n,，]+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const splitIndex = line.search(/[=＝]/);
+      if (splitIndex > 0) {
+        const name = line.slice(0, splitIndex).trim();
+        const modelName = line.slice(splitIndex + 1).trim();
+        return { name: name || modelName, modelName };
+      }
+      return { name: line, modelName: line };
+    })
+    .filter((item) => item.modelName);
+}
+
+function buildQuickOpenAiAdapterCode() {
+  return String.raw`
+const getApiKey = () => {
+  const apiKey = String(vendor.inputValues.apiKey || "").replace(/^Bearer\s+/i, "");
+  if (!apiKey) throw new Error("缺少API Key");
+  return apiKey;
+};
+
+const getBaseUrl = () => String(vendor.inputValues.baseUrl || "").replace(/\/+$/, "");
+
+const textRequest = (model) => {
+  const client = createOpenAICompatible({
+    baseURL: getBaseUrl(),
+    apiKey: getApiKey(),
+  });
+  return client.chatModel ? client.chatModel(model.modelName) : client.chat(model.modelName);
+};
+
+const imageRequest = async (config, model) => {
+  const apiKey = getApiKey();
+  const baseUrl = getBaseUrl();
+  const imageBase64List = (config.referenceList || []).map((ref) => ref.base64).filter(Boolean);
+  const sizeMap = {
+    "1:1": { "1K": "1024x1024", "2K": "2048x2048", "4K": "2880x2880" },
+    "16:9": { "1K": "1536x864", "2K": "2048x1152", "4K": "3840x2160" },
+    "9:16": { "1K": "864x1536", "2K": "1152x2048", "4K": "2160x3840" },
+  };
+  const resolvedSize = sizeMap[config.aspectRatio]?.[config.size] || (config.aspectRatio === "9:16" ? "1024x1536" : "1536x1024");
+  const qualityValue = String(vendor.inputValues.imageQuality || "default").trim().toLowerCase();
+  const shouldSendQuality = ["low", "medium", "high", "auto"].includes(qualityValue);
+  const referenceTransport = String(vendor.inputValues.imageReferenceTransport || "multipart");
+
+  const pickImageResult = (data) => {
+    const first = data?.data?.[0] || data?.data || data;
+    return first?.b64_json || first?.base64 || first?.url || first?.image_url || data?.b64_json || data?.base64 || data?.url;
+  };
+
+  const normalizeImageResult = async (raw) => {
+    if (raw.startsWith("http")) return await urlToBase64(raw);
+    if (raw.startsWith("data:image/")) return raw;
+    return "data:image/png;base64," + raw;
+  };
+
+  const parseDataUrlImage = (base64, index) => {
+    const match = String(base64).match(/^data:(image\/[-+.\w]+);base64,(.+)$/);
+    const mime = match?.[1] || "image/png";
+    const payload = match?.[2] || String(base64).replace(/^data:[^;]+;base64,/, "");
+    const ext = mime.includes("jpeg") ? "jpg" : (mime.split("/")[1] || "png").replace(/\W+/g, "");
+    return {
+      buffer: Buffer.from(payload, "base64"),
+      filename: "reference-" + (index + 1) + "." + ext,
+      contentType: mime,
+    };
+  };
+
+  const parseAxiosResponse = async (response, endpoint) => {
+    if (response.status < 200 || response.status >= 300) {
+      throw new Error("图片请求失败，接口: " + endpoint + ", 状态码: " + response.status + ", 错误信息: " + (typeof response.data === "string" ? response.data : JSON.stringify(response.data)));
+    }
+    const raw = pickImageResult(response.data);
+    if (!raw || typeof raw !== "string") {
+      throw new Error("图片响应中未找到图片URL/base64: " + JSON.stringify(response.data).slice(0, 800));
+    }
+    return await normalizeImageResult(raw);
+  };
+
+  if (imageBase64List.length && referenceTransport === "publicUrlJson") {
+    const imageUrls = await Promise.all(imageBase64List.map((base64) => base64ToPublicUrl(base64, "image", vendor.inputValues.publicOssBaseUrl || "")));
+    const body = {
+      model: model.modelName,
+      prompt: config.prompt,
+      size: resolvedSize,
+      n: 1,
+      images: imageUrls.map((imageUrl) => ({ image_url: imageUrl })),
+    };
+    if (shouldSendQuality) body.quality = qualityValue;
+    logger("[quick openai imageRequest] POST /images/edits refs=" + imageUrls.length + " transport=publicUrlJson");
+    const response = await axios.post(baseUrl + "/images/edits", body, {
+      headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      validateStatus: () => true,
+    });
+    return await parseAxiosResponse(response, "/images/edits");
+  }
+
+  if (imageBase64List.length && referenceTransport === "publicUrlForm") {
+    const imageUrls = await Promise.all(imageBase64List.map((base64) => base64ToPublicUrl(base64, "image", vendor.inputValues.publicOssBaseUrl || "")));
+    const form = new FormData();
+    form.append("model", model.modelName);
+    form.append("prompt", config.prompt);
+    form.append("size", resolvedSize);
+    form.append("n", "1");
+    if (shouldSendQuality) form.append("quality", qualityValue);
+    imageUrls.forEach((imageUrl) => form.append("image[]", imageUrl));
+    logger("[quick openai imageRequest] POST /images/edits refs=" + imageUrls.length + " transport=publicUrlForm");
+    const response = await axios.post(baseUrl + "/images/edits", form, {
+      headers: { Authorization: "Bearer " + apiKey, ...form.getHeaders() },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      validateStatus: () => true,
+    });
+    return await parseAxiosResponse(response, "/images/edits");
+  }
+
+  if (imageBase64List.length) {
+    const form = new FormData();
+    form.append("model", model.modelName);
+    form.append("prompt", config.prompt);
+    form.append("size", resolvedSize);
+    form.append("n", "1");
+    if (shouldSendQuality) form.append("quality", qualityValue);
+    imageBase64List.forEach((base64, index) => {
+      const imageFile = parseDataUrlImage(base64, index);
+      form.append("image[]", imageFile.buffer, { filename: imageFile.filename, contentType: imageFile.contentType });
+    });
+    logger("[quick openai imageRequest] POST /images/edits refs=" + imageBase64List.length + " transport=multipart");
+    const response = await axios.post(baseUrl + "/images/edits", form, {
+      headers: { Authorization: "Bearer " + apiKey, ...form.getHeaders() },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      validateStatus: () => true,
+    });
+    return await parseAxiosResponse(response, "/images/edits");
+  }
+
+  const body = {
+    model: model.modelName,
+    prompt: config.prompt,
+    size: resolvedSize,
+    n: 1,
+  };
+  if (shouldSendQuality) body.quality = qualityValue;
+  logger("[quick openai imageRequest] POST /images/generations refs=0");
+  const response = await axios.post(baseUrl + "/images/generations", body, {
+    headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
+    validateStatus: () => true,
+  });
+  return await parseAxiosResponse(response, "/images/generations");
+};
+
+const videoRequest = async () => "";
+
+const ttsRequest = async () => "";
+`;
+}
+
+function buildQuickVolcengineAdapterCode() {
+  return String.raw`
+const getApiKey = () => {
+  const apiKey = String(vendor.inputValues.apiKey || "").replace(/^Bearer\s+/i, "");
+  if (!apiKey) throw new Error("缺少API Key");
+  return apiKey;
+};
+
+const getBaseUrl = () => String(vendor.inputValues.baseUrl || "").replace(/\/+$/, "");
+
+const getHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: "Bearer " + getApiKey(),
+});
+
+const textRequest = (model, think, thinkLevel) => {
+  const effortMap = {
+    0: "minimal",
+    1: "low",
+    2: "medium",
+    3: "high",
+  };
+  const client = createOpenAICompatible({
+    name: "volcengine",
+    baseURL: getBaseUrl(),
+    apiKey: getApiKey(),
+    fetch: async (url, options) => {
+      const rawBody = JSON.parse((options?.body) || "{}");
+      const modifiedBody = {
+        ...rawBody,
+        thinking: { type: think ? "enabled" : "disabled" },
+        reasoning_effort: effortMap[thinkLevel] || "medium",
+      };
+      return await fetch(url, { ...options, body: JSON.stringify(modifiedBody) });
+    },
+  });
+  return client.chatModel ? client.chatModel(model.modelName) : client.chat(model.modelName);
+};
+
+const imageRequest = async (config, model) => {
+  const body = {
+    model: model.modelName,
+    prompt: config.prompt || "",
+    response_format: "url",
+    watermark: false,
+  };
+
+  const isOldModel = model.modelName.includes("seedream-3-0");
+  const is5Lite = model.modelName.includes("seedream-5-0-lite");
+
+  if (!isOldModel) {
+    body.sequential_image_generation = "disabled";
+  }
+
+  if (!isOldModel && config.referenceList && config.referenceList.length > 0) {
+    const images = config.referenceList.map((ref) => ref.base64);
+    body.image = images.length === 1 ? images[0] : images;
+  }
+
+  const sizeTable = {
+    "1K": {
+      "1:1": "1024x1024",
+      "4:3": "1152x864",
+      "3:4": "864x1152",
+      "16:9": "1280x720",
+      "9:16": "720x1280",
+      "3:2": "1248x832",
+      "2:3": "832x1248",
+      "21:9": "1512x648",
+    },
+    "2K": {
+      "1:1": "2048x2048",
+      "4:3": "2304x1728",
+      "3:4": "1728x2304",
+      "16:9": "2848x1600",
+      "9:16": "1600x2848",
+      "3:2": "2496x1664",
+      "2:3": "1664x2496",
+      "21:9": "3136x1344",
+    },
+    "4K": {
+      "1:1": "4096x4096",
+      "4:3": "4704x3520",
+      "3:4": "3520x4704",
+      "16:9": "5504x3040",
+      "9:16": "3040x5504",
+      "3:2": "4992x3328",
+      "2:3": "3328x4992",
+      "21:9": "6240x2656",
+    },
+  };
+
+  const sizeKey = config.size || "2K";
+  const ratioKey = config.aspectRatio;
+  const table = sizeTable[sizeKey];
+
+  if (table && table[ratioKey]) {
+    const [pw, ph] = table[ratioKey].split("x").map(Number);
+    const totalPixels = pw * ph;
+    if (isOldModel) {
+      body.size = table[ratioKey];
+    } else if (totalPixels < 3686400) {
+      body.size = "2K";
+    } else if (is5Lite && totalPixels > 10404496) {
+      body.size = "2K";
+    } else {
+      body.size = table[ratioKey];
+    }
+  } else {
+    body.size = is5Lite && sizeKey === "4K" ? "3K" : sizeKey === "1K" ? "2K" : sizeKey;
+  }
+
+  logger("[quick volcengine imageRequest] POST /images/generations model=" + model.modelName + " size=" + body.size);
+  const response = await axios.post(getBaseUrl() + "/images/generations", body, { headers: getHeaders() });
+  const data = response.data;
+
+  if (data?.error) {
+    throw new Error("图片生成失败：" + (data.error.message || data.error.code));
+  }
+
+  if (data?.data && data.data.length > 0) {
+    for (const item of data.data) {
+      if (item.url) return await urlToBase64(item.url);
+      if (item.b64_json) return item.b64_json.startsWith("data:image/") ? item.b64_json : "data:image/png;base64," + item.b64_json;
+      if (item.error) throw new Error("图片生成失败：" + (item.error.message || item.error.code));
+    }
+  }
+
+  throw new Error("图片生成失败：未返回有效结果");
+};
+
+const videoRequest = async (config, model) => {
+  const content = [];
+
+  if (config.prompt) {
+    content.push({ type: "text", text: config.prompt });
+  }
+
+  if (typeof config.mode === "string") {
+    const images = (config.referenceList || []).filter((ref) => ref.type === "image");
+    if (config.mode === "singleImage" && images[0]) {
+      content.push({ type: "image_url", image_url: { url: images[0].base64 }, role: "first_frame" });
+    }
+    if ((config.mode === "startFrameOptional" || config.mode === "endFrameOptional") && images[0]) {
+      content.push({ type: "image_url", image_url: { url: images[0].base64 }, role: "first_frame" });
+      if (images[1]) content.push({ type: "image_url", image_url: { url: images[1].base64 }, role: "last_frame" });
+    }
+    if (config.mode === "startEndRequired") {
+      if (!images[0] || !images[1]) throw new Error("首尾帧模式需要至少两张图片参考");
+      content.push({ type: "image_url", image_url: { url: images[0].base64 }, role: "first_frame" });
+      content.push({ type: "image_url", image_url: { url: images[1].base64 }, role: "last_frame" });
+    }
+  } else if (Array.isArray(config.mode)) {
+    const imageRefs = (config.referenceList || []).filter((ref) => ref.type === "image");
+    const videoRefs = (config.referenceList || []).filter((ref) => ref.type === "video");
+    const audioRefs = (config.referenceList || []).filter((ref) => ref.type === "audio");
+    for (const refDef of config.mode) {
+      if (typeof refDef !== "string") continue;
+      if (refDef.startsWith("imageReference:")) {
+        const maxCount = parseInt(refDef.split(":")[1], 10);
+        for (const ref of imageRefs.slice(0, maxCount)) {
+          content.push({ type: "image_url", image_url: { url: ref.base64 }, role: "reference_image" });
+        }
+      }
+      if (refDef.startsWith("videoReference:")) {
+        const maxCount = parseInt(refDef.split(":")[1], 10);
+        for (const ref of videoRefs.slice(0, maxCount)) {
+          content.push({ type: "video_url", video_url: { url: ref.base64 }, role: "reference_video" });
+        }
+      }
+      if (refDef.startsWith("audioReference:")) {
+        const maxCount = parseInt(refDef.split(":")[1], 10);
+        for (const ref of audioRefs.slice(0, maxCount)) {
+          content.push({ type: "audio_url", audio_url: { url: ref.base64 }, role: "reference_audio" });
+        }
+      }
+    }
+  }
+
+  const body = {
+    model: model.modelName,
+    content,
+    ratio: config.aspectRatio,
+    duration: config.duration,
+    resolution: config.resolution || "720p",
+    watermark: false,
+  };
+
+  if (model.audio === "optional") {
+    body.generate_audio = config.audio !== false;
+  } else {
+    body.generate_audio = Boolean(model.audio);
+  }
+
+  logger("[quick volcengine videoRequest] create task model=" + model.modelName + " duration=" + config.duration + "s");
+  const createResponse = await axios.post(getBaseUrl() + "/contents/generations/tasks", body, { headers: getHeaders() });
+  const taskId = createResponse.data?.id;
+  if (!taskId) {
+    throw new Error("视频生成任务创建失败：未返回任务ID");
+  }
+
+  const result = await pollTask(
+    async () => {
+      const queryResponse = await axios.get(getBaseUrl() + "/contents/generations/tasks/" + taskId, { headers: getHeaders() });
+      const task = queryResponse.data;
+      logger("[quick volcengine videoRequest] task status=" + task.status);
+      if (task.status === "succeeded") {
+        if (task.content?.video_url) return { completed: true, data: task.content.video_url };
+        return { completed: true, error: "任务成功但未返回视频URL" };
+      }
+      if (task.status === "failed") return { completed: true, error: task.error?.message || "视频生成失败" };
+      if (task.status === "expired") return { completed: true, error: "视频生成任务超时" };
+      if (task.status === "cancelled") return { completed: true, error: "视频生成任务已取消" };
+      return { completed: false };
+    },
+    10000,
+    1800000,
+  );
+
+  if (result.error) throw new Error(result.error);
+  return await urlToBase64(result.data);
+};
+
+const ttsRequest = async () => "";
+`;
+}
+
+function buildQuickVendorCode() {
+  const providerType = quickVendorForm.value.providerType;
+  const vendorId = normalizeQuickVendorId(quickVendorForm.value.vendorId);
+  const name = quickVendorForm.value.name.trim();
+  const baseUrl = quickVendorForm.value.baseUrl.trim().replace(/\/+$/, "");
+
+  quickVendorForm.value.vendorId = vendorId;
+
+  if (!vendorId) {
+    window.$message.error("请填写供应商 ID");
+    return "";
+  }
+  if (vendorList.value.some((vendor) => vendor.id === vendorId)) {
+    window.$message.error("供应商 ID 已存在，请换一个 ID");
+    return "";
+  }
+  if (!name) {
+    window.$message.error("请填写供应商名称");
+    return "";
+  }
+  if (!baseUrl) {
+    window.$message.error("请填写请求地址");
+    return "";
+  }
+
+  const models: any[] = [];
+  for (const item of parseQuickModelRows(quickVendorForm.value.textModels)) {
+    models.push({
+      name: item.name,
+      modelName: item.modelName,
+      type: "text",
+      think: providerType === "volcengineArk",
+    });
+  }
+  for (const item of parseQuickModelRows(quickVendorForm.value.imageModels)) {
+    models.push({
+      name: item.name,
+      modelName: item.modelName,
+      type: "image",
+      mode: ["text", "singleImage", "multiReference"],
+    });
+  }
+  if (providerType === "volcengineArk") {
+    for (const item of parseQuickModelRows(quickVendorForm.value.videoModels)) {
+      models.push({
+        name: item.name,
+        modelName: item.modelName,
+        type: "video",
+        mode: ["text", "startFrameOptional", ["imageReference:9", "videoReference:3", "audioReference:3"]],
+        audio: "optional",
+        durationResolutionMap: [{ duration: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], resolution: ["480p", "720p"] }],
+      });
+    }
+  }
+
+  if (models.length === 0) {
+    window.$message.error("请至少填写一个模型");
+    return "";
+  }
+
+  const isOpenAi = providerType === "openaiCompatible";
+  const vendor = {
+    id: vendorId,
+    version: "2.0",
+    author: "Toonflow",
+    name,
+    description: isOpenAi
+      ? "## OpenAI 兼容接口供应商\n\n由设置页快速添加生成，支持文本模型和 GPT Image 兼容图片接口。"
+      : "## 火山引擎 Ark 接口供应商\n\n由设置页快速添加生成，支持 Ark 文本、Seedream 图片和 Seedance 视频接口。",
+    icon: "",
+    inputs: isOpenAi
+      ? [
+          { key: "apiKey", label: "API密钥", type: "password", required: true },
+          { key: "baseUrl", label: "请求地址", type: "url", required: true, placeholder: "示例：https://api.openai.com/v1" },
+          {
+            key: "imageQuality",
+            label: "GPT Image 质量",
+            type: "select",
+            required: false,
+            placeholder: "OpenAI 兼容 GPT Image：auto / low / medium / high",
+            options: [
+              { label: "默认/不传", value: "default" },
+              { label: "自动 auto", value: "auto" },
+              { label: "低 low", value: "low" },
+              { label: "中 medium", value: "medium" },
+              { label: "高 high", value: "high" },
+            ],
+          },
+          {
+            key: "imageReferenceTransport",
+            label: "参考图传输方式",
+            type: "select",
+            required: false,
+            placeholder: "中转站要求公网图链时选择公开 URL",
+            options: [
+              { label: "文件上传 multipart", value: "multipart" },
+              { label: "公开 URL JSON", value: "publicUrlJson" },
+              { label: "公开 URL 表单", value: "publicUrlForm" },
+            ],
+          },
+          { key: "publicOssBaseUrl", label: "公开资源地址", type: "url", required: false, placeholder: "示例：http://你的域名或IP:10588" },
+        ]
+      : [
+          { key: "apiKey", label: "API密钥", type: "password", required: true, placeholder: "火山引擎 API Key" },
+          { key: "baseUrl", label: "请求地址", type: "url", required: true, placeholder: "以 v3 结束，示例：https://ark.cn-beijing.volces.com/api/v3" },
+        ],
+    inputValues: isOpenAi
+      ? {
+          apiKey: quickVendorForm.value.apiKey.trim(),
+          baseUrl,
+          imageQuality: quickVendorForm.value.imageQuality,
+          imageReferenceTransport: quickVendorForm.value.imageReferenceTransport,
+          publicOssBaseUrl: "",
+        }
+      : {
+          apiKey: quickVendorForm.value.apiKey.trim(),
+          baseUrl,
+        },
+    models,
+  };
+
+  const adapterCode = isOpenAi ? buildQuickOpenAiAdapterCode() : buildQuickVolcengineAdapterCode();
+  return `/**
+ * Toonflow quick vendor
+ * Generated by settings quick add.
+ */
+
+const vendor = ${JSON.stringify(vendor, null, 2)};
+${adapterCode}
+exports.vendor = vendor;
+exports.textRequest = textRequest;
+exports.imageRequest = imageRequest;
+exports.videoRequest = videoRequest;
+exports.ttsRequest = ttsRequest;
+
+export {};
+`;
+}
+
+function handlePreviewQuickVendor() {
+  const code = buildQuickVendorCode();
+  if (!code) return;
+  id.value = undefined;
+  vendorCode.value = code;
+  codeDialogVisible.value = true;
+}
+
+function handleQuickAddVendor() {
+  const code = buildQuickVendorCode();
+  if (!code) return;
+  id.value = undefined;
+  vendorCode.value = code;
+  handleConfirmVendor();
+}
+
 const id = ref<string>();
 function handleAddVendor() {
-  addMode.value = "importAdd";
+  addMode.value = "quickAdd";
   id.value = undefined;
   vendorCode.value = VENDOR_CODE_TEMPLATE;
+  resetQuickVendorForm();
   vendorDialogVisible.value = true;
   codeDialogVisible.value = false;
 }
@@ -1461,8 +2164,23 @@ function handleFileChange(e: Event) {
   }
   .linkAdd,
   .importAdd,
-  .codeAdd {
+  .codeAdd,
+  .quickAdd {
     margin-top: 20px;
+
+    .quickGrid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 16px;
+    }
+
+    .quickActions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
     .uploadArea {
       margin-top: 20px;
       padding: 42px 20px;
@@ -1488,6 +2206,12 @@ function handleFileChange(e: Event) {
         font-size: 12px;
         margin: 0;
       }
+    }
+  }
+
+  @media (max-width: 900px) {
+    .quickAdd .quickGrid {
+      grid-template-columns: 1fr;
     }
   }
 }
