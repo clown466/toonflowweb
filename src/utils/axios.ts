@@ -3,6 +3,7 @@ import router from "@/router/index";
 import { storeToRefs } from "pinia";
 import { MessagePlugin } from "tdesign-vue-next";
 import settingStore from "@/stores/setting";
+import { normalizeErrorPayload } from "@/utils/errorMessage";
 
 const instance = axios.create();
 
@@ -27,7 +28,7 @@ instance.interceptors.response.use(
       router.push("/login");
       MessagePlugin.error(window.$t("common.sessionExpired"));
     }
-    return Promise.reject(error?.response?.data ?? error);
+    return Promise.reject(normalizeErrorPayload(error?.response?.data ?? error));
   },
 );
 
