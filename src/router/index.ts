@@ -28,6 +28,10 @@ const router = createRouter({
           path: "/task",
           component: () => import("@/views/task/index.vue"),
         },
+        {
+          path: "/imageHistory",
+          component: () => import("@/views/imageHistory/index.vue"),
+        },
         // {
         //   path: "/detail",
         //   component: () => import("@/views/detail/index.vue"),

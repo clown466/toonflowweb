@@ -77,6 +77,7 @@ const setting = defineAsyncComponent(() => import("@/components/setting/index.vu
 const menuList = ref([
   { type: "btn", path: "/project", labelKey: "workbench.menu.myProject", icon: "i-folder-close" },
   { type: "btn", path: "/task", labelKey: "workbench.menu.taskCenter", icon: "i-view-list" },
+  { type: "btn", path: "/imageHistory", labelKey: "workbench.menu.imageHistory", icon: "i-pic" },
   // { type: "divider" },
 ]);
 
