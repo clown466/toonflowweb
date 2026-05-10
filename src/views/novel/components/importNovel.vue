@@ -86,6 +86,7 @@ interface ChapterItem {
   chapter: string;
   chapterData: string;
   sourceFile?: string;
+  indexSource?: "filename" | "content" | "fallback";
 }
 
 const purgeNovelShow = defineModel<boolean>();
@@ -189,7 +190,7 @@ function parseFileChapterMeta(fileName: string) {
 }
 
 function parseContentRows(text: string, sourceKey: string, sourceFile?: string): ChapterItem[] {
-  return parseNovel(text).flatMap((reel, reelIndex) =>
+  const rows = parseNovel(text).flatMap((reel, reelIndex) =>
     reel.chapters.map((chapter, chapterIndex) => ({
       rowKey: `${sourceKey}:${reelIndex}:${chapterIndex}:${chapter.index}`,
       index: chapter.index,
@@ -199,6 +200,11 @@ function parseContentRows(text: string, sourceKey: string, sourceFile?: string):
       sourceFile,
     })),
   );
+  const isFallbackSingleChapter = rows.length === 1 && rows[0]?.index === 1 && !rows[0]?.chapter && rows[0]?.chapterData.trim() === text.trim();
+  return rows.map((row) => ({
+    ...row,
+    indexSource: isFallbackSingleChapter ? "fallback" : "content",
+  }));
 }
 
 function rowsFromFile(file: File, text: string, order: number) {
@@ -210,6 +216,7 @@ function rowsFromFile(file: File, text: string, order: number) {
     rowKey: `file:${order}:${fileMeta.chapter}:${fileMeta.index}`,
     index: fileMeta.index,
     chapter: fileMeta.chapter,
+    indexSource: "filename",
   }));
 }
 
