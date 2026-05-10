@@ -114,6 +114,10 @@
           <span class="directorBoardControlLabel">出图模型</span>
           <modelSelect v-model="directorBoardImageModel" type="image" size="small" placeholder="默认使用本项目出图模型" />
         </div>
+        <div class="directorBoardControlItem compact">
+          <span class="directorBoardControlLabel">连续性参考</span>
+          <t-checkbox v-model="usePreviousDirectorBoardReference">参考上一张导演板</t-checkbox>
+        </div>
       </div>
       <div class="ac" style="gap: 10px">
         <t-button block @click="previewAll" :disabled="!storyboard.length">{{ $t("workbench.production.node.storyboard.gridPreview") }}</t-button>
@@ -349,6 +353,7 @@ const directorBoardTypeOptions = [
   { label: "文字分镜导演板", value: "textStoryboard" },
   { label: "融合导演板", value: "hybridStoryboard" },
 ];
+const usePreviousDirectorBoardReference = useLocalStorage("directorBoardUsePreviousReference", false);
 interface DirectorBoardItem {
   id: number;
   name?: string | null;
@@ -404,6 +409,7 @@ async function generateDirectorBoard() {
       shotsPerBoard: 6,
       replace: true,
       generateImages: false,
+      usePreviousBoardReference: usePreviousDirectorBoardReference.value,
     });
     directorBoards.value = data ?? [];
     selectedIds.value = [];
@@ -500,6 +506,7 @@ async function redrawDirectorBoard(board: DirectorBoardItem) {
       boardId: board.id,
       model,
       boardType: requestedBoardType,
+      usePreviousBoardReference: usePreviousDirectorBoardReference.value,
     });
     window.$message.success("已提交该章节导演板重绘任务");
     await loadDirectorBoards();
@@ -999,7 +1006,7 @@ onUnmounted(() => {
 
   .directorBoardControlRow {
     display: grid;
-    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     align-items: center;
     gap: 8px;
     margin-bottom: 8px;
@@ -1010,6 +1017,11 @@ onUnmounted(() => {
     grid-template-columns: max-content minmax(0, 1fr);
     align-items: center;
     gap: 8px;
+
+    &.compact {
+      grid-template-columns: max-content max-content;
+      justify-content: start;
+    }
   }
 
   .directorBoardControlLabel {
