@@ -114,6 +114,10 @@
           <span class="directorBoardControlLabel">出图模型</span>
           <modelSelect v-model="directorBoardImageModel" type="image" size="small" placeholder="默认使用本项目出图模型" />
         </div>
+        <div class="directorBoardControlItem">
+          <span class="directorBoardControlLabel">图片大小</span>
+          <t-select v-model="directorBoardImageSize" size="small" :options="directorBoardImageSizeOptions" />
+        </div>
         <div class="directorBoardControlItem compact">
           <span class="directorBoardControlLabel">连续性参考</span>
           <t-checkbox v-model="usePreviousDirectorBoardReference">参考上一张导演板</t-checkbox>
@@ -346,6 +350,13 @@ const styleMaxSize = computed(() => {
 });
 const generateLoading = ref(false);
 const directorBoardImageModel = ref(project.value?.imageModel || "");
+type DirectorBoardImageSize = "1K" | "2K" | "4K";
+const directorBoardImageSize = useLocalStorage<DirectorBoardImageSize>("directorBoardImageSize", (project.value?.imageQuality as DirectorBoardImageSize) || "2K");
+const directorBoardImageSizeOptions = [
+  { label: "1K", value: "1K" },
+  { label: "2K", value: "2K" },
+  { label: "4K", value: "4K" },
+];
 type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
 const directorBoardType = useLocalStorage<DirectorBoardType>("directorBoardType", "continuity");
 const directorBoardTypeOptions = [
@@ -405,6 +416,7 @@ async function generateDirectorBoard() {
       scriptId: episodesId.value,
       storyboardIds: ids,
       model: directorBoardImageModel.value || project.value.imageModel || "",
+      imageSize: directorBoardImageSize.value,
       boardType: directorBoardType.value,
       shotsPerBoard: 6,
       replace: true,
@@ -505,6 +517,7 @@ async function redrawDirectorBoard(board: DirectorBoardItem) {
       scriptId: episodesId.value,
       boardId: board.id,
       model,
+      imageSize: directorBoardImageSize.value,
       boardType: requestedBoardType,
       usePreviousBoardReference: usePreviousDirectorBoardReference.value,
     });
@@ -524,6 +537,14 @@ watch(
   (value) => {
     directorBoardImageModel.value = value || "";
   },
+);
+
+watch(
+  () => project.value?.imageQuality,
+  (value) => {
+    if (value === "1K" || value === "2K" || value === "4K") directorBoardImageSize.value = value;
+  },
+  { immediate: true },
 );
 
 async function batchGenerateImage() {
