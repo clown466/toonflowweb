@@ -65,12 +65,14 @@
           v-for="asset in displayAssets"
           :key="asset.key"
           class="file-card"
-          :class="{ selected: selectedKey === asset.key }"
+          :class="{ selected: selectedKey === asset.key, draggable: !!asset.src }"
+          :draggable="!!asset.src"
+          @dragstart="onAssetDragStart($event, asset)"
           @click="onSelectAsset(asset)"
           @dblclick="onPreviewAsset(asset)"
         >
           <div class="card-thumb">
-            <img v-if="asset.src" :src="asset.src" />
+            <img v-if="asset.src" :src="asset.src" draggable="false" />
             <div v-else-if="asset.state === '生成中'" class="thumb-state generating">
               <t-loading size="small" />
             </div>
@@ -425,6 +427,25 @@ function onRepaintDerive(derive: DeriveAsset) {
   emit("repaintAsset", derive);
 }
 
+function onAssetDragStart(event: DragEvent, asset: Asset | DeriveAsset) {
+  const src = pickSrc(asset);
+  if (!src || !event.dataTransfer) return;
+  const payload = {
+    kind: "toonflow-asset-image",
+    id: asset.id,
+    imageId: asset.imageId ?? null,
+    name: asset.name || "",
+    type: asset.type || "",
+    src,
+    filePath: asset.filePath || "",
+    prompt: asset.prompt || "",
+    parentName: asset.parentName || "",
+  };
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData("application/x-toonflow-asset", JSON.stringify(payload));
+  event.dataTransfer.setData("text/plain", `引用资产 ID: ${asset.id}，名称：${asset.name || ""}，图片：${src}`);
+}
+
 function normalizeImageAssetType(type?: string): "role" | "scene" | "tool" | null {
   if (type === "role" || type === "character") return "role";
   if (type === "scene") return "scene";
@@ -649,6 +670,14 @@ if (typeof window !== "undefined") {
   &.selected {
     border-color: var(--td-brand-color);
     background-color: var(--td-brand-color-light);
+  }
+
+  &.draggable {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
   }
 
   &.compact {

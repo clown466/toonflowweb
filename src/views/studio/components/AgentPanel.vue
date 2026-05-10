@@ -310,7 +310,13 @@
         </t-popup>
       </div>
 
-      <div class="input-box">
+      <div
+        class="input-box"
+        :class="{ 'asset-drop-active': assetDropActive }"
+        @dragover.prevent="handleAssetDragOver"
+        @dragleave="handleAssetDragLeave"
+        @drop.prevent="handleAssetDrop"
+      >
         <t-textarea
           v-model="inputValue"
           :placeholder="inputPlaceholder"
@@ -485,6 +491,7 @@ const { project, allProject } = storeToRefs(projectState);
 
 // 输入状态
 const inputValue = ref("");
+const assetDropActive = ref(false);
 const showMoreMenu = ref(false);
 const showSettingPopup = ref(false);
 const showThink = ref(true);
@@ -943,6 +950,40 @@ function handleSend() {
   if (!text || !props.connected) return;
   emit("send", withSelectedSkillInstructions(text));
   inputValue.value = "";
+}
+
+function parseDraggedAsset(event: DragEvent) {
+  const raw = event.dataTransfer?.getData("application/x-toonflow-asset");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.kind !== "toonflow-asset-image" || !parsed?.id || !parsed?.src) return null;
+    return parsed as { id: number; name?: string; type?: string; src: string; imageId?: number | null; prompt?: string };
+  } catch {
+    return null;
+  }
+}
+
+function handleAssetDragOver(event: DragEvent) {
+  if (!event.dataTransfer?.types.includes("application/x-toonflow-asset")) return;
+  event.dataTransfer.dropEffect = "copy";
+  assetDropActive.value = true;
+}
+
+function handleAssetDragLeave(event: DragEvent) {
+  const current = event.currentTarget as HTMLElement | null;
+  if (current && event.relatedTarget instanceof Node && current.contains(event.relatedTarget)) return;
+  assetDropActive.value = false;
+}
+
+function handleAssetDrop(event: DragEvent) {
+  assetDropActive.value = false;
+  const asset = parseDraggedAsset(event);
+  if (!asset) return;
+  emit("selectAsset", Number(asset.id));
+  const typeText = asset.type ? `，类型：${asset.type}` : "";
+  const line = `引用资产 ID: ${asset.id}，名称：${asset.name || ""}${typeText}，图片：${asset.src}`;
+  inputValue.value = inputValue.value + (inputValue.value ? "\n" : "") + line;
 }
 
 function withSelectedSkillInstructions(text: string) {
@@ -1687,6 +1728,11 @@ function openSettings() {
 
   &:focus-within {
     border-color: var(--td-brand-color);
+  }
+
+  &.asset-drop-active {
+    border-color: var(--td-brand-color);
+    background-color: var(--td-brand-color-light);
   }
 
   :deep(.t-textarea__inner) {

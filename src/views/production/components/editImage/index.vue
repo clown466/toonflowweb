@@ -14,11 +14,15 @@
     <VueFlow
       id="editImage"
       class="editImageCls"
+      :class="{ 'asset-drop-active': assetDropActive }"
       v-model:nodes="nodes"
       v-model:edges="edges"
       :min-zoom="0.01"
       fit-view-on-init
       @connect="onConnect"
+      @dragover.prevent="handleAssetDragOver"
+      @dragleave="handleAssetDragLeave"
+      @drop.prevent="handleAssetDrop"
       @edges-change="syncReferences">
       <template #node-upload="{ id, data }">
         <uploadNode :id="id" :data="data" @upload="syncReferences" @keep="sureNode" />
@@ -90,7 +94,7 @@ let storyboardResolve: ((rows: Storyboard[]) => void) | null = null;
 
 provide("openStoryboardCheck", openStoryboardCheck);
 
-const { toObject, fromObject, fitView } = useVueFlow({ id: "editImage" });
+const { toObject, fromObject, fitView, screenToFlowCoordinate } = useVueFlow({ id: "editImage" });
 const { layout } = useLayout("editImage");
 
 const props = withDefaults(
@@ -120,6 +124,7 @@ const { addEdges, getNodes, getEdges, updateNodeData } = useVueFlow("editImage")
 
 const nodes = ref<NodeType[]>([]);
 const edges = ref<Edge<any, any, string>[]>([]);
+const assetDropActive = ref(false);
 
 // 防抖定时器
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -217,11 +222,11 @@ function clickHandler(value: any) {
   addUploadNode(type);
 }
 // 添加新的上传节点
-const addUploadNode = (type: string, image: string = "", prompt: string = "") => {
+const addUploadNode = (type: string, image: string = "", prompt: string = "", position?: { x: number; y: number }) => {
   const newNodeId = uuid();
   const lastNode = nodes.value.filter((n) => n.type === type).pop();
-  const newY = lastNode ? lastNode.position.y + 350 : 100;
-  const newX = type === "generated" ? 600 : 100;
+  const newY = position?.y ?? (lastNode ? lastNode.position.y + 350 : 100);
+  const newX = position?.x ?? (type === "generated" ? 600 : 100);
 
   nodes.value.push({
     id: newNodeId,
@@ -232,6 +237,52 @@ const addUploadNode = (type: string, image: string = "", prompt: string = "") =>
 
   return newNodeId;
 };
+
+function parseDraggedAsset(event: DragEvent) {
+  const raw = event.dataTransfer?.getData("application/x-toonflow-asset");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.kind !== "toonflow-asset-image" || !parsed?.src) return null;
+    return parsed as { id?: number; name?: string; src: string };
+  } catch {
+    return null;
+  }
+}
+
+function handleAssetDragOver(event: DragEvent) {
+  if (!event.dataTransfer?.types.includes("application/x-toonflow-asset")) return;
+  event.dataTransfer.dropEffect = "copy";
+  assetDropActive.value = true;
+}
+
+function handleAssetDragLeave(event: DragEvent) {
+  const current = event.currentTarget as HTMLElement | null;
+  if (current && event.relatedTarget instanceof Node && current.contains(event.relatedTarget)) return;
+  assetDropActive.value = false;
+}
+
+function handleAssetDrop(event: DragEvent) {
+  assetDropActive.value = false;
+  const asset = parseDraggedAsset(event);
+  if (!asset) return;
+  const position = screenToFlowCoordinate({
+    x: event.clientX,
+    y: event.clientY,
+  });
+  const sourceId = addUploadNode("upload", asset.src, "", position);
+  const generatedNodes = nodes.value.filter((node) => node.type === "generated");
+  for (const target of generatedNodes) {
+    edges.value.push({
+      id: uuid(),
+      source: sourceId,
+      target: target.id,
+      ...DEFAULT_EDGE_OPTIONS,
+    });
+  }
+  nextTick(syncReferences);
+  window.$message.success(`已加入参考图${asset.name ? `：${asset.name}` : ""}`);
+}
 //保存节点
 async function sureNode(imageUrl: string, prompt?: string) {
   try {
@@ -380,6 +431,12 @@ async function layoutGraph(direction: "LR" | "TB") {
   }
   .editImageCls {
     width: 100%;
+
+    &.asset-drop-active {
+      outline: 2px dashed var(--td-brand-color);
+      outline-offset: -12px;
+      background-color: rgba(0, 82, 217, 0.04);
+    }
   }
 }
 
