@@ -637,17 +637,20 @@ async function onGenerateAll(items: any[]) {
   }
 }
 
-async function onGenerateDirectorBoard(items: any[]) {
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
+
+async function onGenerateDirectorBoard(items: any[], boardType: DirectorBoardType = "hybridStoryboard") {
   if (!ensureProductionEpisode()) return;
   const ids = items.map((i: any) => Number(i.id)).filter((id: number) => Number.isFinite(id) && id > 0);
   if (ids.length === 0 || !project.value?.id || !episodesId.value) return;
 
   generating.value = true;
   try {
-    await axios.post("/production/directorBoard/generate", {
+    const { data } = await axios.post("/production/directorBoard/generate", {
       projectId: Number(project.value.id),
       scriptId: Number(episodesId.value),
       storyboardIds: ids,
+      boardType,
       shotsPerBoard: 6,
       replace: true,
       generateImages: false,
@@ -658,7 +661,7 @@ async function onGenerateDirectorBoard(items: any[]) {
         scriptId: Number(episodesId.value),
       },
     }));
-    window.$message.success(`已创建 ${Math.ceil(ids.length / 6)} 张章节导演板草案，点击单张“生成”再出图`);
+    window.$message.success(`已创建 ${(data ?? []).length || Math.ceil(ids.length / 6)} 张章节导演板草案，点击单张“生成”再出图`);
   } catch (err: any) {
     console.error("[studio] generate director board failed:", err);
     window.$message.error(err?.message || "章节导演板生成失败");

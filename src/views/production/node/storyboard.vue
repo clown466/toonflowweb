@@ -342,11 +342,12 @@ const styleMaxSize = computed(() => {
 });
 const generateLoading = ref(false);
 const directorBoardImageModel = ref(project.value?.imageModel || "");
-type DirectorBoardType = "continuity" | "textStoryboard";
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
 const directorBoardType = useLocalStorage<DirectorBoardType>("directorBoardType", "continuity");
 const directorBoardTypeOptions = [
   { label: "空间连续性导演板", value: "continuity" },
   { label: "文字分镜导演板", value: "textStoryboard" },
+  { label: "融合导演板", value: "hybridStoryboard" },
 ];
 interface DirectorBoardItem {
   id: number;
@@ -417,11 +418,15 @@ async function generateDirectorBoard() {
 }
 
 function normalizeDirectorBoardType(value?: DirectorBoardItem["boardType"]): DirectorBoardType {
+  if (value === "hybridStoryboard") return "hybridStoryboard";
   return value === "textStoryboard" ? "textStoryboard" : "continuity";
 }
 
 function directorBoardTypeLabel(value?: DirectorBoardItem["boardType"]) {
-  return normalizeDirectorBoardType(value) === "textStoryboard" ? "文字分镜" : "连续性";
+  const type = normalizeDirectorBoardType(value);
+  if (type === "textStoryboard") return "文字分镜";
+  if (type === "hybridStoryboard") return "融合";
+  return "连续性";
 }
 
 function previewDirectorBoard(board: DirectorBoardItem) {

@@ -96,6 +96,10 @@
         <t-link theme="primary" size="small" @click="selectedIds = []">清除</t-link>
       </div>
       <div class="footer-actions">
+        <div class="director-board-type-row">
+          <span>导演板类型</span>
+          <t-select v-model="directorBoardType" size="small" :options="directorBoardTypeOptions" />
+        </div>
         <t-button block theme="primary" size="small" @click="onGenerateDirectorBoard">
           <template #icon><i-play size="14" /></template>
           {{ selectedIds.length > 0 ? `生成章节导演板(${selectedIds.length})` : "生成章节导演板" }}
@@ -117,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { useMouse, useMousePressed } from "@vueuse/core";
+import { useLocalStorage, useMouse, useMousePressed } from "@vueuse/core";
 
 interface StoryboardItem {
   id?: number;
@@ -141,13 +145,20 @@ const emit = defineEmits<{
   (e: "preview", items: StoryboardItem[]): void;
   (e: "selectAll", ids: number[]): void;
   (e: "generateAll", items: StoryboardItem[]): void;
-  (e: "generateDirectorBoard", items: StoryboardItem[]): void;
+  (e: "generateDirectorBoard", items: StoryboardItem[], boardType: DirectorBoardType): void;
   (e: "retry", item: StoryboardItem): void;
   (e: "retryFailed", ids: number[]): void;
 }>();
 
 const collapsed = ref(false);
 const panelWidth = defineModel<number>("panelWidth", { default: 320 });
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
+const directorBoardType = useLocalStorage<DirectorBoardType>("studioDirectorBoardType", "hybridStoryboard");
+const directorBoardTypeOptions = [
+  { label: "融合导演板", value: "hybridStoryboard" },
+  { label: "空间连续性导演板", value: "continuity" },
+  { label: "文字分镜导演板", value: "textStoryboard" },
+];
 
 const failedItems = computed(() => props.storyboard.filter(s => s.id && s.state === "生成失败"));
 
@@ -238,7 +249,7 @@ function onGenerateDirectorBoard() {
     window.$message.info("没有可用于生成章节导演板的分镜");
     return;
   }
-  emit("generateDirectorBoard", candidates);
+  emit("generateDirectorBoard", candidates, directorBoardType.value);
 }
 
 function onRetryFailed() {
@@ -478,6 +489,15 @@ if (typeof window !== "undefined") {
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  .director-board-type-row {
+    display: grid;
+    grid-template-columns: 72px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--td-text-color-secondary);
   }
 
   .footer-stats {
