@@ -177,6 +177,7 @@ type ProductionDataUpdatedPayload = {
   type?: string;
   projectId?: number | string;
   episodesId?: number;
+  scriptName?: string;
   createdCount?: number;
   storyboardIds?: number[];
   stage?: "submitted" | "progress" | string;
@@ -494,13 +495,22 @@ function registerWorkspacePlanDataHandler() {
     }
     await loadEpisodes();
     if (payload?.episodesId) {
+      const switchedEpisode = Number(payload.episodesId) !== Number(episodesId.value ?? 0);
       prodStore.episodesId = payload.episodesId;
       prodStore.updateContext?.();
+      if (switchedEpisode) {
+        selectedStoryboardId.value = null;
+        selectedStoryboardIds.value = [];
+      }
       await prodStore.getFlowData();
       const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
       selectedStoryboardId.value = firstStoryboardId ?? null;
       selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
-      window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有章节工作区");
+      if (payload.stage === "workspace_resolved") {
+        window.$message.success(`已切换到${payload.scriptName ? `「${payload.scriptName}」` : "目标章节工作区"}，正在生成分镜`);
+      } else {
+        window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有章节工作区");
+      }
     }
   });
 }

@@ -462,6 +462,14 @@ export function useChat(options: UseChatOptions) {
 
       if (data.status) {
         msg.status = data.status;
+        if (data.status === "complete" || data.status === "error" || data.status === "stop") {
+          const aiMsg = msg as AIMessage;
+          aiMsg.content?.forEach((content) => {
+            if (content.status === "pending" || content.status === "streaming") {
+              content.status = data.status;
+            }
+          });
+        }
       }
 
       if (data.ext) {
