@@ -58,6 +58,24 @@
           </t-tooltip>
         </div>
       </Panel>
+      <Panel v-if="canvasAssets.length" position="bottom-left">
+        <div class="canvasAssetTray">
+          <div class="canvasAssetTrayTitle">资产</div>
+          <div class="canvasAssetTrayList">
+            <button
+              v-for="asset in canvasAssets"
+              :key="asset.key"
+              type="button"
+              class="canvasAssetItem"
+              draggable="true"
+              :title="asset.name"
+              @dragstart="onCanvasAssetDragStart($event, asset)"
+            >
+              <img :src="asset.src" :alt="asset.name" draggable="false" />
+            </button>
+          </div>
+        </div>
+      </Panel>
     </VueFlow>
     <storyboardImageCheck telepor v-model="storyboardVisible" :scriptId="episodesId!" @confirm="onStoryboardConfirm" @cancel="onStoryboardCancel" />
   </t-dialog>
@@ -105,6 +123,7 @@ const props = withDefaults(
       referanceImages: string[]; // 参考图url
     };
     type?: string;
+    assetsData?: any[];
   }>(),
   {
     flowData: () => ({
@@ -125,6 +144,30 @@ const { addEdges, getNodes, getEdges, updateNodeData } = useVueFlow("editImage")
 const nodes = ref<NodeType[]>([]);
 const edges = ref<Edge<any, any, string>[]>([]);
 const assetDropActive = ref(false);
+
+const canvasAssets = computed(() => {
+  const result: Array<{ key: string; id: number; imageId?: number | null; name: string; type?: string; src: string; filePath?: string; prompt?: string }> = [];
+  const addAsset = (asset: any, prefix: string, parent?: any) => {
+    const src = asset?.src || asset?.filePath || "";
+    if (!src || !asset?.id) return;
+    result.push({
+      key: `${prefix}-${asset.id}`,
+      id: Number(asset.id),
+      imageId: asset.imageId ?? null,
+      name: asset.name || parent?.name || `资产 #${asset.id}`,
+      type: asset.type || parent?.type || "",
+      src,
+      filePath: asset.filePath || "",
+      prompt: asset.prompt || parent?.prompt || "",
+    });
+  };
+  for (const asset of props.assetsData || []) {
+    addAsset(asset, "asset");
+    const derives = Array.isArray(asset?.derive) && asset.derive.length ? asset.derive : asset?.sonAssets || [];
+    for (const derive of derives) addAsset(derive, "derive", asset);
+  }
+  return result;
+});
 
 // 防抖定时器
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -248,6 +291,27 @@ function parseDraggedAsset(event: DragEvent) {
   } catch {
     return null;
   }
+}
+
+function writeAssetDragData(event: DragEvent, asset: { id: number; imageId?: number | null; name?: string; type?: string; src: string; filePath?: string; prompt?: string }) {
+  if (!event.dataTransfer) return;
+  const payload = {
+    kind: "toonflow-asset-image",
+    id: asset.id,
+    imageId: asset.imageId ?? null,
+    name: asset.name || "",
+    type: asset.type || "",
+    src: asset.src,
+    filePath: asset.filePath || "",
+    prompt: asset.prompt || "",
+  };
+  event.dataTransfer.effectAllowed = "copy";
+  event.dataTransfer.setData("application/x-toonflow-asset", JSON.stringify(payload));
+  event.dataTransfer.setData("text/plain", `引用资产 ID: ${asset.id}，名称：${asset.name || ""}，图片：${asset.src}`);
+}
+
+function onCanvasAssetDragStart(event: DragEvent, asset: { id: number; imageId?: number | null; name?: string; type?: string; src: string; filePath?: string; prompt?: string }) {
+  writeAssetDragData(event, asset);
 }
 
 function handleAssetDragOver(event: DragEvent) {
@@ -471,5 +535,50 @@ $handelSize: 12px;
 :deep(.target) {
   height: $handelSize;
   width: $handelSize;
+}
+
+.canvasAssetTray {
+  width: min(520px, calc(100vw - 48px));
+  padding: 8px;
+  border: 1px solid var(--td-border-level-2-color);
+  border-radius: 8px;
+  background: var(--td-bg-color-container);
+  box-shadow: var(--td-shadow-2);
+
+  .canvasAssetTrayTitle {
+    margin-bottom: 6px;
+    color: var(--td-text-color-secondary);
+    font-size: 12px;
+  }
+
+  .canvasAssetTrayList {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .canvasAssetItem {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 auto;
+    padding: 0;
+    border: 1px solid var(--td-border-level-2-color);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--td-bg-color-component);
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+  }
 }
 </style>

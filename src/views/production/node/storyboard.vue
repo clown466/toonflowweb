@@ -173,7 +173,7 @@
         </div>
       </div>
     </div>
-    <editImage v-model="visible" v-if="visible" :flowData="currentRow" :type="currentEditMode" @save="save" />
+    <editImage v-model="visible" v-if="visible" :flowData="currentRow" :type="currentEditMode" :assets-data="props.assetsData" @save="save" />
     <t-image-viewer
       v-model:visible="previewVisible"
       :images="previewImages"
