@@ -626,15 +626,16 @@ export function useChat(options: UseChatOptions) {
   };
 
   // 业务方法
-  const chat = (content: string, attachments?: any[]) => {
+  const chat = (content: string, attachments?: any[], displayContent?: string) => {
     if (!content.trim() && !attachments?.length) return false;
+    const visibleContent = displayContent ?? content;
 
     const userMessage: UserMessage = {
       id: `user_${Date.now()}`,
       role: "user",
       status: "complete",
       datetime: new Date().toISOString(),
-      content: [{ type: "text", data: content, status: "complete" }],
+      content: visibleContent.trim() ? [{ type: "text", data: visibleContent, status: "complete" }] : [],
     };
 
     if (attachments?.length) {

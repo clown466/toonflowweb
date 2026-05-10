@@ -317,6 +317,25 @@
         @dragleave="handleAssetDragLeave"
         @drop.prevent="handleAssetDrop"
       >
+        <div v-if="attachedAssetRefs.length" class="attached-assets">
+          <div
+            v-for="asset in attachedAssetRefs"
+            :key="asset.id"
+            class="attached-asset"
+            :title="asset.name || `资产 #${asset.id}`"
+          >
+            <img :src="asset.src" :alt="asset.name || `asset-${asset.id}`" />
+            <div class="attached-asset-info">
+              <span class="attached-asset-name">{{ asset.name || `资产 #${asset.id}` }}</span>
+              <span class="attached-asset-meta">{{ asset.type || '资产图片' }}</span>
+            </div>
+            <t-tooltip content="移除引用" placement="top">
+              <button class="attached-asset-remove" type="button" @click="removeAttachedAsset(asset.id)">
+                <i-close size="12" />
+              </button>
+            </t-tooltip>
+          </div>
+        </div>
         <t-textarea
           v-model="inputValue"
           :placeholder="inputPlaceholder"
@@ -369,7 +388,7 @@
               v-else
               theme="primary"
               size="small"
-              :disabled="!inputValue.trim() || !connected"
+              :disabled="!canSend"
               @click="handleSend"
             >
               <template #icon><i-send size="14" /></template>
@@ -476,7 +495,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:mode", mode: "workspace" | "production"): void;
-  (e: "send", text: string): void;
+  (e: "send", text: string, displayText?: string): void;
   (e: "stop"): void;
   (e: "clearMemory", type: "message" | "summary" | "all"): void;
   (e: "reconnect"): void;
@@ -505,6 +524,15 @@ const imageModelSaving = ref(false);
 let progressTimer: ReturnType<typeof setInterval> | null = null;
 const currentProjectImageModel = computed(() => project.value?.imageModel || props.imageModel || "");
 const localProjectImageModel = ref(currentProjectImageModel.value);
+
+interface AttachedAssetRef {
+  id: number;
+  imageId?: number | null;
+  name?: string;
+  type?: string;
+  src: string;
+  prompt?: string;
+}
 
 interface StoryboardSkillMeta {
   id: string;
@@ -921,6 +949,8 @@ const productionSuggestions = [
 ];
 
 const currentSuggestions = computed(() => props.mode === "workspace" ? workspaceSuggestions : productionSuggestions);
+const attachedAssetRefs = ref<AttachedAssetRef[]>([]);
+const canSend = computed(() => props.connected && (inputValue.value.trim().length > 0 || attachedAssetRefs.value.length > 0));
 
 // 思考级别选项
 const thinkLevelOptions = [
@@ -947,9 +977,12 @@ const handleActions = {
 // 方法
 function handleSend() {
   const text = inputValue.value.trim();
-  if (!text || !props.connected) return;
-  emit("send", withSelectedSkillInstructions(text));
+  if (!canSend.value) return;
+  const attachmentText = attachedAssetRefs.value.map(formatAssetReferenceLine).join("\n");
+  const messageText = [text, attachmentText].filter(Boolean).join("\n");
+  emit("send", withSelectedSkillInstructions(messageText), text || formatAttachedAssetDisplayText());
   inputValue.value = "";
+  attachedAssetRefs.value = [];
 }
 
 function parseDraggedAsset(event: DragEvent) {
@@ -958,7 +991,7 @@ function parseDraggedAsset(event: DragEvent) {
   try {
     const parsed = JSON.parse(raw);
     if (parsed?.kind !== "toonflow-asset-image" || !parsed?.id || !parsed?.src) return null;
-    return parsed as { id: number; name?: string; type?: string; src: string; imageId?: number | null; prompt?: string };
+    return parsed as AttachedAssetRef;
   } catch {
     return null;
   }
@@ -981,9 +1014,41 @@ function handleAssetDrop(event: DragEvent) {
   const asset = parseDraggedAsset(event);
   if (!asset) return;
   emit("selectAsset", Number(asset.id));
+  attachAssetRef(asset);
+}
+
+function attachAssetRef(asset: AttachedAssetRef) {
+  const normalized: AttachedAssetRef = {
+    id: Number(asset.id),
+    imageId: asset.imageId ?? null,
+    name: asset.name || "",
+    type: asset.type || "",
+    src: asset.src,
+    prompt: asset.prompt || "",
+  };
+  const index = attachedAssetRefs.value.findIndex(item => item.id === normalized.id);
+  if (index >= 0) {
+    attachedAssetRefs.value.splice(index, 1, normalized);
+    return;
+  }
+  attachedAssetRefs.value.push(normalized);
+}
+
+function removeAttachedAsset(id: number) {
+  attachedAssetRefs.value = attachedAssetRefs.value.filter(asset => asset.id !== id);
+}
+
+function formatAssetReferenceLine(asset: AttachedAssetRef) {
   const typeText = asset.type ? `，类型：${asset.type}` : "";
-  const line = `引用资产 ID: ${asset.id}，名称：${asset.name || ""}${typeText}，图片：${asset.src}`;
-  inputValue.value = inputValue.value + (inputValue.value ? "\n" : "") + line;
+  return `引用资产 ID: ${asset.id}，名称：${asset.name || ""}${typeText}，图片：${asset.src}`;
+}
+
+function formatAttachedAssetDisplayText() {
+  if (attachedAssetRefs.value.length === 1) {
+    const asset = attachedAssetRefs.value[0];
+    return `引用资产：${asset.name || `#${asset.id}`}`;
+  }
+  return `引用 ${attachedAssetRefs.value.length} 张资产图`;
 }
 
 function withSelectedSkillInstructions(text: string) {
@@ -1741,6 +1806,83 @@ function openSettings() {
     background: transparent;
     padding: 0;
     resize: none;
+  }
+}
+
+.attached-assets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.attached-asset {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: min(210px, 100%);
+  min-width: 0;
+  padding: 5px 26px 5px 5px;
+  border: 1px solid var(--td-border-level-2-color);
+  border-radius: 8px;
+  background: var(--td-bg-color-component);
+
+  img {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    object-fit: cover;
+    background: var(--td-bg-color-container);
+  }
+}
+
+.attached-asset-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attached-asset-name,
+.attached-asset-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attached-asset-name {
+  color: var(--td-text-color-primary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.attached-asset-meta {
+  color: var(--td-text-color-secondary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.attached-asset-remove {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  color: var(--td-text-color-secondary);
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--td-text-color-primary);
+    background: var(--td-bg-color-container-hover);
   }
 }
 

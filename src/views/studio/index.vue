@@ -749,9 +749,9 @@ function currentStore() {
   return agentMode.value === "workspace" ? workspaceStore : prodStore;
 }
 
-function handleAgentSend(text: string) {
+function handleAgentSend(text: string, displayText?: string) {
   if (agentMode.value === "production" && !ensureProductionEpisode()) return;
-  currentStore().chat(text);
+  currentStore().chat(text, undefined, displayText);
 }
 
 function handleAgentStop() {
