@@ -86,6 +86,30 @@ const modelParmas = ref<ModelSetting>({
 
 const storyboardList = ref<StoryboardItem[]>([]); // 分镜列表
 const directorBoardList = ref<DirectorBoardItem[]>([]); // 章节导演板列表
+const SEEDANCE_2_PRIMARY_MODEL = "doubao-seedance-2-0-260128";
+const SEEDANCE_2_PATTERN = /(?:seedance[-\s]*2(?:\.0)?|seedance-2-0|seedance-2\.0|doubao-seedance-2-0|bytedance\/seedance-2\.0)/i;
+
+function getSeedance2Priority(item: { label?: string; value?: string; type?: string }) {
+  if (item.type !== "video") return Number.POSITIVE_INFINITY;
+  const value = item.value || "";
+  const source = `${item.label || ""} ${value}`;
+  if (value === SEEDANCE_2_PRIMARY_MODEL) return 0;
+  if (/bytedance\/seedance-2\.0\/text-to-video/i.test(value)) return 1;
+  if (SEEDANCE_2_PATTERN.test(source) && !/fast/i.test(source)) return 2;
+  if (SEEDANCE_2_PATTERN.test(source)) return 3;
+  return Number.POSITIVE_INFINITY;
+}
+
+async function resolveDefaultVideoModel() {
+  const fallback = project.value?.videoModel || "";
+  try {
+    const { data } = await axios.post("/modelSelect/getModelList", { type: "video" });
+    const seedance2 = [...(data ?? [])].sort((a, b) => getSeedance2Priority(a) - getSeedance2Priority(b))[0];
+    return seedance2 && getSeedance2Priority(seedance2) < Number.POSITIVE_INFINITY ? `${seedance2.id}:${seedance2.value}` : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 /** 排序优先级：角色资产=0，其他资产=1，导演板=2，storyboard有图=3，无图=4 */
 function getImageItemPriority(item: UploadItem): number {
@@ -394,8 +418,8 @@ watch(
   { deep: true },
 );
 
-onMounted(() => {
-  modelParmas.value.model = project.value?.videoModel || "";
+onMounted(async () => {
+  modelParmas.value.model = await resolveDefaultVideoModel();
   modelParmas.value.mode = project.value?.mode || "";
   getGenerateData();
   if (hasGenerateVideoIds.value && hasGenerateVideoIds.value.length) {
