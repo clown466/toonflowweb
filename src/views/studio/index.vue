@@ -177,9 +177,13 @@ type ProductionDataUpdatedPayload = {
   type?: string;
   projectId?: number | string;
   episodesId?: number;
+  scriptId?: number;
   scriptName?: string;
   createdCount?: number;
   storyboardIds?: number[];
+  directorBoardIds?: number[];
+  trackId?: number;
+  videoId?: number;
   stage?: "submitted" | "progress" | string;
   submitted?: number;
   assetIds?: number[];
@@ -472,6 +476,44 @@ function updateAssetProgressNotice(payload: ProductionDataUpdatedPayload) {
   }
 }
 
+function isProductionToolUpdate(payload: ProductionDataUpdatedPayload) {
+  return ["director_boards", "video_prompt", "video_generation"].includes(String(payload.type || ""));
+}
+
+function productionToolUpdateMessage(payload: ProductionDataUpdatedPayload) {
+  if (payload.type === "director_boards") {
+    if (payload.stage === "director_boards_planned") return "章节导演板提示词已生成，画布数据已刷新。";
+    if (payload.stage === "director_board_regenerating") return `导演板${payload.directorBoardIds?.[0] ? ` #${payload.directorBoardIds[0]}` : ""}已提交重绘，画布数据已刷新。`;
+    return `章节导演板已提交生成${payload.directorBoardIds?.length ? `（${payload.directorBoardIds.length} 张）` : ""}，画布数据已刷新。`;
+  }
+  if (payload.type === "video_prompt") {
+    return `视频提示词已生成${payload.trackId ? `并写入轨道 #${payload.trackId}` : ""}，画布数据已刷新。`;
+  }
+  if (payload.type === "video_generation") {
+    return `视频生成任务已提交${payload.videoId ? `（视频 #${payload.videoId}）` : ""}，画布数据已刷新。`;
+  }
+  return "生产数据已刷新。";
+}
+
+async function refreshProductionWorkspace(payload: ProductionDataUpdatedPayload, options: { selectFirstStoryboard?: boolean } = {}) {
+  await loadEpisodes();
+  const targetEpisodeId = payload.episodesId ?? payload.scriptId;
+  if (!targetEpisodeId) return;
+  const switchedEpisode = Number(targetEpisodeId) !== Number(episodesId.value ?? 0);
+  prodStore.episodesId = targetEpisodeId;
+  prodStore.updateContext?.();
+  if (switchedEpisode) {
+    selectedStoryboardId.value = null;
+    selectedStoryboardIds.value = [];
+  }
+  await prodStore.getFlowData();
+  if (options.selectFirstStoryboard) {
+    const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
+    selectedStoryboardId.value = firstStoryboardId ?? null;
+    selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
+  }
+}
+
 function registerWorkspacePlanDataHandler() {
   const s = workspaceRefs.socket.value;
   if (!s) return;
@@ -493,19 +535,13 @@ function registerWorkspacePlanDataHandler() {
       }
       return;
     }
-    await loadEpisodes();
+    if (isProductionToolUpdate(payload)) {
+      await refreshProductionWorkspace(payload);
+      window.$message.success(productionToolUpdateMessage(payload));
+      return;
+    }
     if (payload?.episodesId) {
-      const switchedEpisode = Number(payload.episodesId) !== Number(episodesId.value ?? 0);
-      prodStore.episodesId = payload.episodesId;
-      prodStore.updateContext?.();
-      if (switchedEpisode) {
-        selectedStoryboardId.value = null;
-        selectedStoryboardIds.value = [];
-      }
-      await prodStore.getFlowData();
-      const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
-      selectedStoryboardId.value = firstStoryboardId ?? null;
-      selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
+      await refreshProductionWorkspace(payload, { selectFirstStoryboard: true });
       if (payload.stage === "workspace_resolved") {
         window.$message.success(`已切换到${payload.scriptName ? `「${payload.scriptName}」` : "目标章节工作区"}，正在生成分镜`);
       } else {
