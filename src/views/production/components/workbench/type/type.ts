@@ -25,6 +25,7 @@ interface VideoModel {
 interface UploadItemAssets extends UploadItemBase {
   sources: "assets";
   type?: string;
+  autoFromDirectorBoardId?: number;
 }
 
 interface UploadItemDirectorBoard extends UploadItemBase {
@@ -112,6 +113,7 @@ interface TrackMediaStoryboard extends TrackMediaBase {
 interface TrackMediaAssets extends TrackMediaBase {
   sources: "assets";
   type?: string;
+  autoFromDirectorBoardId?: number;
 }
 
 interface TrackMediaDirectorBoard extends TrackMediaBase {

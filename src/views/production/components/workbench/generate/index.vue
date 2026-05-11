@@ -12,9 +12,14 @@
       <div class="prompt" v-if="currentTrack">
         <t-card :title="'#' + (activeTrackIndex + 1) + $t('workbench.generate.generateText')" header-bordered class="videoPrompt">
           <template #actions>
-            <t-button size="small" class="genTextbtn" :loading="activeTrackGenTextLoading" @click="genText">
-              {{ $t("workbench.generate.generateText") }}
-            </t-button>
+            <div class="promptActions">
+              <t-button size="small" variant="outline" :loading="batchDirectorBoardPromptLoading" @click="batchGenDirectorBoardPrompts">
+                全部导演板提示词
+              </t-button>
+              <t-button size="small" class="genTextbtn" :loading="activeTrackGenTextLoading" @click="genText">
+                {{ $t("workbench.generate.generateText") }}
+              </t-button>
+            </div>
           </template>
           <div class="promptData fc">
             <div class="promptInput" @focusout="handlePromptBlur">
@@ -249,18 +254,25 @@ watch(
         if (drMap[0].duration?.length) modelParmas.value.duration = clampDuration(modelParmas.value.duration);
       }
 
+      const availableModes = Array.isArray(data.mode) ? data.mode : [];
       const currentParsed = parseMode(modelParmas.value.mode);
+      const defaultMode = pickDefaultVideoMode(availableModes);
+      const defaultParsed = parseMode(defaultMode);
+      const shouldPreferDefaultReferenceMode =
+        Array.isArray(defaultParsed) &&
+        JSON.stringify(defaultParsed) !== JSON.stringify(currentParsed);
       const modeMatched =
         currentParsed !== null &&
-        data.mode.some((m: VideoMode) => {
+        availableModes.some((m: VideoMode) => {
           if (Array.isArray(m) && Array.isArray(currentParsed)) {
             return JSON.stringify(m) === JSON.stringify(currentParsed);
           }
           return m == currentParsed;
         });
-      if (!modeMatched) {
-        const newMode = Array.isArray(data.mode[0]) ? JSON.stringify(data.mode[0]) : data.mode[0];
-        modeChange(newMode);
+      if (shouldPreferDefaultReferenceMode) {
+        modeChange(defaultMode);
+      } else if (!modeMatched) {
+        if (defaultMode) modeChange(defaultMode);
       }
     });
   },
@@ -274,6 +286,23 @@ function parseMode(value: string): VideoMode | null {
     return value as Exclude<VideoMode, ReferenceType[]>;
   }
   return value as Exclude<VideoMode, ReferenceType[]>;
+}
+function stringifyVideoMode(mode: VideoMode): string {
+  return Array.isArray(mode) ? JSON.stringify(mode) : String(mode);
+}
+function getReferenceParts(mode: VideoMode): string[] {
+  return Array.isArray(mode) ? mode.map(String) : [];
+}
+function isImage9Video3Audio3Mode(mode: VideoMode): boolean {
+  const parts = getReferenceParts(mode);
+  return parts.includes("imageReference:9") && parts.includes("videoReference:3") && parts.includes("audioReference:3");
+}
+function pickDefaultVideoMode(modes: VideoMode[]): string {
+  if (!modes.length) return "";
+  const preferred = modes.find(isImage9Video3Audio3Mode);
+  if (preferred) return stringifyVideoMode(preferred);
+  const multiReference = modes.find((mode) => getReferenceParts(mode).some((item) => item.startsWith("imageReference:")));
+  return stringifyVideoMode(multiReference || modes[0]);
 }
 /** uploadBox 作为 promptEditor 的引用预览 */
 const references = computed(() => {
@@ -313,12 +342,7 @@ async function getGenerateData() {
       if (track.id == null) return;
       const cached = getCache(pid, sid, track.id);
       if (cached?.length) {
-        const boardMedias = (track.medias ?? []).filter((item) => item.sources === "directorBoard");
-        const cachedKeys = new Set(cached.map((item) => `${item.id}:${item.sources}`));
-        const missingBoards = boardMedias.filter((item) => !cachedKeys.has(`${item.id}:${item.sources}`));
-        const merged = missingBoards.length ? ([...missingBoards, ...cached] as unknown as UploadItem[]) : cached;
-        if (missingBoards.length) setCache(pid, sid, track.id, merged);
-        track.medias = merged as unknown as TrackMedia[];
+        track.medias = cached as unknown as TrackMedia[];
       }
     });
     // 整体赋值触发响应式
@@ -334,6 +358,180 @@ function handlePromptBlur() {
   axios.post("/production/workbench/updateVideoPrompt", { id: trackId, prompt: currentTrack.value?.prompt });
 }
 const genTextLoadingMap = ref<Record<number, boolean>>({}); // trackId -> 是否正在生成提示词
+const batchDirectorBoardPromptLoading = ref(false);
+
+function parseNumberArray(value: unknown): number[] {
+  if (Array.isArray(value)) return value.map(Number).filter((item) => Number.isFinite(item));
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(Number).filter((item) => Number.isFinite(item));
+  } catch {
+    return [];
+  }
+}
+
+function parseDurationSeconds(value: unknown): number {
+  const duration = Number(String(value ?? "").replace(/[^\d.]/g, ""));
+  return Number.isFinite(duration) && duration > 0 ? duration : 0;
+}
+
+function getFileTypeByExt(src: string | undefined): "image" | "video" | "audio" {
+  const ext = src?.split(".").pop()?.split(/[#?]/)[0]?.toLowerCase() ?? "";
+  if (["mp4", "webm", "mov", "avi", "mkv"].includes(ext)) return "video";
+  if (["mp3", "wav", "ogg", "aac", "flac", "m4a"].includes(ext)) return "audio";
+  return "image";
+}
+
+function buildDirectorBoardItem(board: DirectorBoardItem): UploadItem {
+  return {
+    fileType: "image",
+    sources: "directorBoard",
+    src: board.src,
+    id: board.id,
+    prompt: board.prompt ?? undefined,
+    label: board.name ?? undefined,
+    index: board.index ?? undefined,
+  } as UploadItem;
+}
+
+function buildDirectorBoardAssetItems(board: DirectorBoardItem): UploadItem[] {
+  return (board.assetRefs ?? [])
+    .filter((asset) => asset?.id && asset?.src)
+    .map((asset) => {
+      const src = asset.src || "";
+      return {
+        fileType: asset.fileType || getFileTypeByExt(src),
+        sources: "assets",
+        src,
+        id: asset.id,
+        type: asset.type || undefined,
+        prompt: asset.prompt || asset.describe || asset.name || undefined,
+        autoFromDirectorBoardId: board.id,
+      } as UploadItem;
+    });
+}
+
+function getImageReferenceLimit(): number | null {
+  const parsed = parseMode(modelParmas.value.mode);
+  if (!Array.isArray(parsed)) return null;
+  const imageRule = parsed.map(String).find((item) => item.startsWith("imageReference:"));
+  const count = Number(imageRule?.split(":")[1]);
+  return Number.isFinite(count) && count > 0 ? count : null;
+}
+
+function limitReferencesForMode(items: UploadItem[]): UploadItem[] {
+  const imageLimit = getImageReferenceLimit();
+  if (!imageLimit) return items;
+  let imageCount = 0;
+  return items.filter((item) => {
+    if (item.fileType !== "image") return true;
+    imageCount += 1;
+    return imageCount <= imageLimit;
+  });
+}
+
+function buildDirectorBoardReferences(board: DirectorBoardItem): UploadItem[] {
+  return limitReferencesForMode([buildDirectorBoardItem(board), ...buildDirectorBoardAssetItems(board)]);
+}
+
+function getDirectorBoardDuration(board: DirectorBoardItem): number {
+  const storyboardIds = new Set(parseNumberArray(board.storyboardIds));
+  const total = storyboardList.value
+    .filter((item) => storyboardIds.has(item.id))
+    .reduce((sum, item) => sum + parseDurationSeconds(item.duration), 0);
+  return clampDuration(total || modelParmas.value.duration || 8);
+}
+
+function toUploadInfo(items: UploadItem[]) {
+  return items.filter((item) => item.id).map(({ id, sources }) => ({ id: id as number, sources }));
+}
+
+function writeTrackMediaCache(track: TrackItem, items: UploadItem[]) {
+  track.medias = items as unknown as TrackMedia[];
+  const pid = project.value?.id;
+  const sid = episodesId.value;
+  if (pid != null && sid != null && track.id != null) {
+    setCache(pid, sid, track.id, items);
+  }
+}
+
+async function ensureTrackCount(count: number) {
+  const duration = clampDuration(modelParmas.value.duration || 8);
+  while (trackList.value.length < count) {
+    const { data } = await axios.post("/production/workbench/addTrack", {
+      projectId: project.value?.id,
+      scriptId: episodesId.value ?? 0,
+      duration,
+    });
+    trackList.value.push({
+      id: Number(data),
+      prompt: "",
+      state: "未生成",
+      reason: "",
+      selectVideoId: null,
+      medias: [],
+      videoList: [],
+      duration,
+    });
+  }
+}
+
+function usePreferredReferenceModeForDirectorBoards() {
+  const preferred = pickDefaultVideoMode(modeOptions.value.mode || []);
+  if (preferred && Array.isArray(parseMode(preferred))) {
+    modelParmas.value.mode = preferred;
+  }
+}
+
+async function batchGenDirectorBoardPrompts() {
+  if (project.value?.id == null || episodesId.value == null) return;
+  if (!modelParmas.value.model) return window.$message.error("请先选择视频模型");
+  const boards = directorBoardList.value.filter((board) => board.src && (!board.state || board.state === "已完成"));
+  if (!boards.length) return window.$message.warning("没有可用的已完成导演板");
+
+  batchDirectorBoardPromptLoading.value = true;
+  try {
+    usePreferredReferenceModeForDirectorBoards();
+    await ensureTrackCount(boards.length);
+
+    const tasks = boards.map(async (board, index) => {
+      const track = trackList.value[index];
+      if (!track?.id) throw new Error(`第${index + 1}张导演板没有可用视频轨道`);
+      const refs = buildDirectorBoardReferences(board);
+      const duration = getDirectorBoardDuration(board);
+      track.duration = duration;
+      writeTrackMediaCache(track, refs);
+      genTextLoadingMap.value[track.id] = true;
+      try {
+        await axios.post("/production/workbench/updateVideoDuration", { id: track.id, duration });
+        const { data } = await axios.post("/production/workbench/generateVideoPrompt", {
+          projectId: project.value?.id,
+          trackId: track.id,
+          info: toUploadInfo(refs),
+          model: modelParmas.value.model,
+          mode: modelParmas.value.mode,
+          duration,
+        });
+        track.prompt = data;
+      } finally {
+        genTextLoadingMap.value[track.id] = false;
+      }
+    });
+
+    const results = await Promise.allSettled(tasks);
+    const failed = results.filter((item) => item.status === "rejected");
+    if (failed.length) {
+      window.$message.error(`已完成 ${boards.length - failed.length} 条，失败 ${failed.length} 条`);
+    } else {
+      window.$message.success(`已并发生成 ${boards.length} 条导演板视频提示词`);
+    }
+  } catch (e) {
+    window.$message.error((e as Error)?.message ?? "批量生成导演板提示词失败");
+  } finally {
+    batchDirectorBoardPromptLoading.value = false;
+  }
+}
 
 /** 单个轨道生成提示词 */
 async function genText() {
@@ -556,6 +754,13 @@ onUnmounted(() => {
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        .promptActions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
         :deep(.t-card__body) {
           flex: 1;
           min-height: 0;

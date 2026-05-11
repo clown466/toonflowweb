@@ -342,6 +342,7 @@ function buildDirectorBoardAssetItems(board: DirectorBoardItem): UploadItem[] {
         id: asset.id,
         type: asset.type || undefined,
         prompt: asset.prompt || asset.describe || asset.name || undefined,
+        autoFromDirectorBoardId: board.id,
       } as UploadItem;
     });
 }
@@ -363,7 +364,8 @@ function pickDirectorBoard(board: DirectorBoardItem) {
     imageList.value = [newItem];
   } else {
     const assetItems = buildDirectorBoardAssetItems(board);
-    imageList.value = mergeUniqueItems(imageList.value, [...assetItems, newItem]);
+    const retainedItems = imageList.value.filter((item) => item.sources !== "directorBoard" && !(item.sources === "assets" && item.autoFromDirectorBoardId != null));
+    imageList.value = mergeUniqueItems(retainedItems, [...assetItems, newItem]);
     if (assetItems.length) window.$message.success(`已自动加入 ${assetItems.length} 个导演板资产参考`);
   }
 }
