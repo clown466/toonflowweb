@@ -63,7 +63,7 @@ interface DirectorBoardItem {
   state?: string | null;
   reason?: string | null;
   model?: string | null;
-  boardType?: "continuity" | "textStoryboard" | "hybridStoryboard" | string | null;
+  boardType?: "continuity" | "textStoryboard" | "hybridStoryboard" | "spatialSixPanel" | string | null;
   storyboardIds?: string | null;
   assetIds?: string | number[] | null;
   assetRefs?: {

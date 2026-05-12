@@ -152,9 +152,10 @@ const emit = defineEmits<{
 
 const collapsed = ref(false);
 const panelWidth = defineModel<number>("panelWidth", { default: 320 });
-type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard" | "spatialSixPanel";
 const directorBoardType = useLocalStorage<DirectorBoardType>("studioDirectorBoardType", "hybridStoryboard");
 const directorBoardTypeOptions = [
+  { label: "空间6宫格导演板", value: "spatialSixPanel" },
   { label: "融合导演板", value: "hybridStoryboard" },
   { label: "空间连续性导演板", value: "continuity" },
   { label: "文字分镜导演板", value: "textStoryboard" },

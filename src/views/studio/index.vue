@@ -685,7 +685,7 @@ async function onGenerateAll(items: any[]) {
   }
 }
 
-type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard" | "spatialSixPanel";
 
 async function onGenerateDirectorBoard(items: any[], boardType: DirectorBoardType = "hybridStoryboard") {
   if (!ensureProductionEpisode()) return;

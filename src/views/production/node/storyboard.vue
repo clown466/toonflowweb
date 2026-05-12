@@ -357,9 +357,10 @@ const directorBoardImageSizeOptions = [
   { label: "2K", value: "2K" },
   { label: "4K", value: "4K" },
 ];
-type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard";
+type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard" | "spatialSixPanel";
 const directorBoardType = useLocalStorage<DirectorBoardType>("directorBoardType", "continuity");
 const directorBoardTypeOptions = [
+  { label: "空间6宫格导演板", value: "spatialSixPanel" },
   { label: "空间连续性导演板", value: "continuity" },
   { label: "文字分镜导演板", value: "textStoryboard" },
   { label: "融合导演板", value: "hybridStoryboard" },
@@ -436,12 +437,14 @@ async function generateDirectorBoard() {
 }
 
 function normalizeDirectorBoardType(value?: DirectorBoardItem["boardType"]): DirectorBoardType {
+  if (value === "spatialSixPanel") return "spatialSixPanel";
   if (value === "hybridStoryboard") return "hybridStoryboard";
   return value === "textStoryboard" ? "textStoryboard" : "continuity";
 }
 
 function directorBoardTypeLabel(value?: DirectorBoardItem["boardType"]) {
   const type = normalizeDirectorBoardType(value);
+  if (type === "spatialSixPanel") return "空间6宫格";
   if (type === "textStoryboard") return "文字分镜";
   if (type === "hybridStoryboard") return "融合";
   return "连续性";
