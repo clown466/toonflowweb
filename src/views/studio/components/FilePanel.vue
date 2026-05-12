@@ -83,6 +83,16 @@
               <i-user size="24" />
             </div>
             <div class="card-type">{{ assetTypeLabel(asset.type) }}</div>
+            <t-tooltip v-if="canRegenerateAssetImage(asset)" content="编辑提示词并重新生成">
+              <button
+                class="image-edit-button"
+                type="button"
+                @click.stop="openPromptEditor(asset)"
+                @dblclick.stop
+              >
+                <i-edit size="13" />
+              </button>
+            </t-tooltip>
             <t-tooltip v-if="canSwitchAssetImage(asset)" content="选择其他图片">
               <button
                 class="image-switch-button"
@@ -193,12 +203,75 @@
         <t-button theme="primary" :loading="imageChoiceSaving" :disabled="!selectedChoiceImageId" @click="confirmImageChoice">设为当前图片</t-button>
       </template>
     </t-dialog>
+
+    <!-- Asset Prompt Regeneration Dialog -->
+    <t-dialog
+      v-model:visible="showPromptEditor"
+      :header="`编辑提示词 - ${promptEditAsset?.name || ''}`"
+      width="min(760px, 92vw)"
+      :close-on-overlay-click="false"
+    >
+      <div class="asset-prompt-dialog">
+        <div class="prompt-dialog-grid">
+          <div class="prompt-field">
+            <span class="field-label">出图模型</span>
+            <modelSelect v-model="promptEditModel" type="image" size="small" placeholder="选择出图模型" />
+          </div>
+          <div class="prompt-field">
+            <span class="field-label">图片大小</span>
+            <t-select v-model="promptEditResolution" size="small">
+              <t-option key="1K" label="1K" value="1K" />
+              <t-option key="2K" label="2K" value="2K" />
+              <t-option key="4K" label="4K" value="4K" />
+            </t-select>
+          </div>
+        </div>
+        <div class="prompt-field">
+          <span class="field-label">生图预设</span>
+          <t-select v-model="promptEditSkillId" :options="promptSkillOptions" :loading="promptSkillLoading" size="small" clearable placeholder="默认：视觉手册标准生图" />
+        </div>
+        <div class="prompt-field">
+          <span class="field-label">提示词</span>
+          <t-textarea
+            v-model="promptEditText"
+            :autosize="{ minRows: 8, maxRows: 14 }"
+            placeholder="直接修改这个资产要发送给生图模型的提示词"
+          />
+        </div>
+        <t-alert
+          theme="info"
+          message="全新生成不会带当前图片参考；修改原图会把当前资产图作为参考图传入，再按上面的提示词修改。"
+        />
+      </div>
+      <template #footer>
+        <t-button variant="outline" @click="showPromptEditor = false">取消</t-button>
+        <t-button
+          variant="outline"
+          :loading="promptSubmittingMode === 'fresh'"
+          :disabled="Boolean(promptSubmittingMode)"
+          @click="submitPromptRegeneration('fresh')"
+        >
+          全新生成
+        </t-button>
+        <t-tooltip :content="promptEditHasReference ? '参考当前资产图修改' : '当前资产没有可参考图片'">
+          <t-button
+            theme="primary"
+            :loading="promptSubmittingMode === 'edit'"
+            :disabled="Boolean(promptSubmittingMode) || !promptEditHasReference"
+            @click="submitPromptRegeneration('edit')"
+          >
+            修改原图
+          </t-button>
+        </t-tooltip>
+      </template>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useMouse, useMousePressed } from "@vueuse/core";
 import axios from "@/utils/axios";
+import modelSelect from "@/components/modelSelect.vue";
 
 interface DeriveAsset {
   id: number;
@@ -211,6 +284,7 @@ interface DeriveAsset {
   type?: string;
   state?: string;
   prompt?: string | null;
+  describe?: string | null;
   parentName?: string;
   isDerived?: boolean;
   isHistory?: boolean;
@@ -227,6 +301,7 @@ interface Asset {
   type?: string;
   state?: string;
   prompt?: string | null;
+  describe?: string | null;
   derive?: DeriveAsset[];
   sonAssets?: DeriveAsset[];
   historyImages?: HistoryImage[];
@@ -264,6 +339,8 @@ const props = defineProps<{
   assets: any[];
   storyboard: StoryboardItem[];
   projectId?: string | number;
+  imageModel?: string | null;
+  imageQuality?: string | null;
   loading?: boolean;
   errorMessage?: string;
 }>();
@@ -411,6 +488,15 @@ const imageChoiceSaving = ref(false);
 const imageChoiceAsset = ref<Asset | DeriveAsset | null>(null);
 const imageChoiceImages = ref<ChoiceImage[]>([]);
 const selectedChoiceImageId = ref<number | null>(null);
+const showPromptEditor = ref(false);
+const promptEditAsset = ref<Asset | DeriveAsset | null>(null);
+const promptEditText = ref("");
+const promptEditModel = ref("");
+const promptEditResolution = ref("1K");
+const promptEditSkillId = ref("");
+const promptSubmittingMode = ref<"" | "fresh" | "edit">("");
+const promptSkillLoading = ref(false);
+const imageGenerationSkills = ref<Array<{ id: string; name: string; description?: string; targetTypes: string[]; aspectRatio?: string }>>([]);
 
 function onPreviewAsset(asset: Asset | DeriveAsset) {
   const src = pickSrc(asset);
@@ -455,6 +541,110 @@ function normalizeImageAssetType(type?: string): "role" | "scene" | "tool" | nul
 
 function canSwitchAssetImage(asset: Asset | DeriveAsset) {
   return Boolean(asset.id && normalizeImageAssetType(asset.type) && asset.state !== "生成中");
+}
+
+function canRegenerateAssetImage(asset: Asset | DeriveAsset) {
+  return Boolean(asset.id && normalizeImageAssetType(asset.type) && asset.state !== "生成中");
+}
+
+const promptEditHasReference = computed(() => Boolean(promptEditAsset.value && (pickSrc(promptEditAsset.value) || promptEditAsset.value.imageId)));
+
+function compactLabel(value: string, maxLength: number) {
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+const promptSkillOptions = computed(() => {
+  const type = normalizeImageAssetType(promptEditAsset.value?.type);
+  const options = imageGenerationSkills.value
+    .filter((skill) => !type || (skill.targetTypes || []).includes(type))
+    .map((skill) => ({
+      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
+        .filter(Boolean)
+        .join(" "),
+      value: skill.id,
+    }));
+  return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
+});
+
+async function fetchImageGenerationSkills() {
+  promptSkillLoading.value = true;
+  try {
+    const { data } = await axios.post("/setting/imageGenerationSkill/list");
+    imageGenerationSkills.value = Array.isArray(data) ? data : [];
+  } catch {
+    imageGenerationSkills.value = [];
+  } finally {
+    promptSkillLoading.value = false;
+  }
+}
+
+function openPromptEditor(asset: Asset | DeriveAsset) {
+  if (!props.projectId) {
+    window.$message.warning("当前项目不存在，无法重新生成资产");
+    return;
+  }
+  if (!normalizeImageAssetType(asset.type)) {
+    window.$message.warning("当前资产类型不支持重新生成");
+    return;
+  }
+  promptEditAsset.value = asset;
+  promptEditText.value = asset.prompt || "";
+  promptEditModel.value = props.imageModel || "";
+  promptEditResolution.value = props.imageQuality || "1K";
+  promptEditSkillId.value = "";
+  promptSubmittingMode.value = "";
+  showPromptEditor.value = true;
+  void fetchImageGenerationSkills();
+}
+
+async function submitPromptRegeneration(mode: "fresh" | "edit") {
+  const asset = promptEditAsset.value;
+  const type = normalizeImageAssetType(asset?.type);
+  const prompt = promptEditText.value.trim();
+  if (!asset || !type || !props.projectId) return;
+  if (!prompt) {
+    window.$message.warning("请先填写提示词");
+    return;
+  }
+  if (!promptEditModel.value) {
+    window.$message.warning("请选择出图模型");
+    return;
+  }
+  if (!promptEditResolution.value) {
+    window.$message.warning("请选择图片大小");
+    return;
+  }
+  if (mode === "edit" && !promptEditHasReference.value) {
+    window.$message.warning("当前资产没有可参考图片，不能修改原图");
+    return;
+  }
+
+  promptSubmittingMode.value = mode;
+  try {
+    await axios.post("/assetsGenerate/generateAssets", {
+      projectId: Number(props.projectId),
+      id: asset.id,
+      type,
+      name: asset.name || `资产 #${asset.id}`,
+      describe: "describe" in asset ? asset.describe ?? "" : "",
+      prompt,
+      model: promptEditModel.value,
+      resolution: promptEditResolution.value,
+      skillId: promptEditSkillId.value || null,
+      generationMode: mode === "fresh" ? "fresh_design" : "partial_edit",
+      referencePolicy: mode === "fresh" ? "none" : "current_asset",
+      promptPolicy: mode === "fresh" ? "asset_description_plus_request" : "asset_prompt_plus_request",
+      userRequirement: prompt,
+    });
+    window.$message.success(mode === "fresh" ? "已提交全新资产图生成" : "已提交参考原图修改");
+    showPromptEditor.value = false;
+    emit("assetImageChanged", asset);
+    emit("refreshAssets");
+  } catch (err: any) {
+    window.$message.error(err?.message || "资产图生成提交失败");
+  } finally {
+    promptSubmittingMode.value = "";
+  }
 }
 
 async function openImageChoice(asset: Asset | DeriveAsset) {
@@ -745,6 +935,32 @@ if (typeof window !== "undefined") {
         background: rgba(0, 0, 0, 0.76);
       }
     }
+
+    .image-edit-button {
+      position: absolute;
+      right: 5px;
+      top: 5px;
+      width: 24px;
+      height: 24px;
+      border: 0;
+      padding: 0;
+      color: #fff;
+      cursor: pointer;
+      background: rgba(0, 0, 0, 0.58);
+      border-radius: 5px;
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      svg {
+        display: block;
+      }
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.76);
+      }
+    }
   }
 
   .card-info {
@@ -905,6 +1121,31 @@ if (typeof window !== "undefined") {
 
 .asset-choice-dialog {
   min-height: 260px;
+}
+
+.asset-prompt-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.prompt-dialog-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px;
+  gap: 12px;
+}
+
+.prompt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--td-text-color-secondary);
 }
 
 .asset-choice-loading {

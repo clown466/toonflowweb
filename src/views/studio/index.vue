@@ -81,6 +81,8 @@
             :assets="studioAssets"
             :storyboard="flowData.storyboard"
             :project-id="project?.id"
+            :image-model="project?.imageModel"
+            :image-quality="project?.imageQuality"
             :loading="assetLoading"
             :error-message="assetError"
             @select-asset="onAssetSelect"
