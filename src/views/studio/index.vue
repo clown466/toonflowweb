@@ -260,6 +260,27 @@ function stripLargeFields<T>(value: T): T {
   return cloned;
 }
 
+function latestAttemptState(asset: any) {
+  const state = asset?.latestImageState;
+  return state === "生成中" || state === "生成失败" ? state : null;
+}
+
+function normalizedAssetState(asset: any) {
+  return latestAttemptState(asset) ?? asset?.state ?? "未生成";
+}
+
+function normalizedAssetErrorReason(asset: any) {
+  return latestAttemptState(asset) === "生成失败"
+    ? asset?.latestImageErrorReason ?? asset?.errorReason ?? ""
+    : asset?.errorReason ?? "";
+}
+
+function mergeAssetState(a?: string, b?: string) {
+  if (a === "生成中" || b === "生成中") return "生成中";
+  if (a === "生成失败" || b === "生成失败") return "生成失败";
+  return a || b || "未生成";
+}
+
 function normalizeStudioAsset(asset: any) {
   const derive = asset?.derive ?? asset?.sonAssets ?? [];
   const historyImages = Array.isArray(asset?.historyImages) ? asset.historyImages : [];
@@ -268,7 +289,8 @@ function normalizeStudioAsset(asset: any) {
     desc: asset?.desc ?? asset?.describe ?? "",
     src: asset?.src ?? asset?.filePath ?? "",
     filePath: asset?.filePath ?? asset?.src ?? "",
-    state: asset?.state ?? "未生成",
+    state: normalizedAssetState(asset),
+    errorReason: normalizedAssetErrorReason(asset),
     historyImages: historyImages.map((item: any) => ({
       ...item,
       src: item?.src ?? item?.filePath ?? "",
@@ -282,7 +304,8 @@ function normalizeStudioAsset(asset: any) {
           desc: item?.desc ?? item?.describe ?? "",
           src: item?.src ?? item?.filePath ?? "",
           filePath: item?.filePath ?? item?.src ?? "",
-          state: item?.state ?? "未生成",
+          state: normalizedAssetState(item),
+          errorReason: normalizedAssetErrorReason(item),
           historyImages: Array.isArray(item?.historyImages)
             ? item.historyImages.map((image: any) => ({
                 ...image,
@@ -315,7 +338,8 @@ function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
         imageId: existing?.imageId ?? item.imageId,
         src: existing?.src || item.src,
         filePath: existing?.filePath || item.filePath,
-        state: existing?.state || item.state,
+        state: mergeAssetState(existing?.state, item.state),
+        errorReason: existing?.errorReason || item.errorReason,
         historyImages: item.historyImages?.length ? item.historyImages : existing?.historyImages,
       });
     });
@@ -325,7 +349,8 @@ function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
       imageId: current.imageId ?? asset.imageId,
       src: current.src || asset.src,
       filePath: current.filePath || asset.filePath,
-      state: current.state || asset.state,
+      state: mergeAssetState(current.state, asset.state),
+      errorReason: current.errorReason || asset.errorReason,
       historyImages: asset.historyImages?.length ? asset.historyImages : current.historyImages,
       derive: [...deriveMap.values()],
     });

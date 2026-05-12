@@ -600,6 +600,10 @@ interface Asset {
   state: string;
   sonAssets?: Asset[]; // 子资产列表
   imageId: number;
+  latestImageId?: number | null;
+  latestImageState?: string | null;
+  latestImageErrorReason?: string | null;
+  errorReason?: string | null;
   promptState: string;
   filePath: string;
 }
@@ -615,6 +619,25 @@ function handleSearch() {
   pagination.value.page = 1;
   getFilteredData(assetOptions.value);
 }
+
+function latestAttemptState(asset: Partial<Asset>) {
+  const state = asset.latestImageState;
+  return state === "生成中" || state === "生成失败" ? state : null;
+}
+
+function normalizeAssetImageState(asset: Asset): Asset {
+  const state = latestAttemptState(asset) ?? asset.state ?? "未生成";
+  const sonAssets = Array.isArray(asset.sonAssets)
+    ? asset.sonAssets.map((item) => normalizeAssetImageState(item))
+    : asset.sonAssets;
+  return {
+    ...asset,
+    state,
+    errorReason: state === "生成失败" ? asset.latestImageErrorReason ?? asset.errorReason ?? "" : asset.errorReason,
+    sonAssets,
+  };
+}
+
 async function getFilteredData(type: string) {
   try {
     loading.value = true;
@@ -626,7 +649,7 @@ async function getFilteredData(type: string) {
       limit: pagination.value.pageSize,
     });
 
-    tableData.value = data.data || [];
+    tableData.value = (data.data || []).map((item: Asset) => normalizeAssetImageState(item));
     // 当 clip 类型且指定了 clipMediaTypes 时，进行二次过滤
     if (type === "clip" && props.clipMediaTypes?.length) {
       tableData.value = tableData.value.filter((item) => {
@@ -1463,12 +1486,14 @@ async function pollingImageAssets() {
   try {
     const { data } = await axios.post("/assets/pollingImageAssets", { ids });
     if (Array.isArray(data) && data.length) {
-      data.forEach((item: { id: number; state: string; filePath: string; src?: string }) => {
+      data.forEach((item: { id: number; state: string; filePath?: string | null; src?: string | null; errorReason?: string | null }) => {
         const target = findAssetById(item.id);
         if (target) {
           target.state = item.state;
-          if (item.filePath !== undefined) target.filePath = item.filePath;
-          if (item.src !== undefined) target.src = item.src;
+          if (item.errorReason !== undefined) target.errorReason = item.errorReason;
+          if (item.filePath !== undefined && (item.filePath || item.state === "已完成")) target.filePath = item.filePath || "";
+          if (item.src) target.src = item.src;
+          else if (item.src !== undefined && item.state === "已完成") target.src = "";
           // filePath 存在时也作为 src 使用，确保图片立即显示
           if (!item.src && item.filePath && item.state !== "生成中") {
             target.src = item.filePath;
