@@ -16,17 +16,35 @@
 
       <!-- 输入区 -->
       <div class="inputSection">
-        <!-- 图生图：上传图片 -->
-        <div v-if="testMode === 'singleImage'" class="uploadRow">
-          <div class="uploadBox" @click="triggerImageUpload" @dragover.prevent @drop.prevent="handleDrop">
-            <img v-if="imagePreview" :src="imagePreview" class="previewImg" alt="preview" />
+        <!-- 图生图/多参考：上传图片 -->
+        <div v-if="testMode === 'singleImage' || testMode === 'multiReference'" class="uploadRow" :class="{ multi: testMode === 'multiReference' }">
+          <div
+            v-for="(_, index) in uploadSlotCount"
+            :key="index"
+            class="uploadBox"
+            @click="triggerImageUpload(index)"
+            @dragover.prevent
+            @drop.prevent="(event) => handleDrop(event, index)">
+            <img v-if="imagePreviews[index]" :src="imagePreviews[index]" class="previewImg" alt="preview" />
             <template v-else>
               <i-picture theme="outline" size="32" fill="var(--td-brand-color)" />
-              <p class="uploadText">{{ $t("settings.vendor.test.uploadImage") }}</p>
+              <p class="uploadText">
+                {{
+                  testMode === "multiReference"
+                    ? `${$t("settings.vendor.test.uploadImage")} ${index + 1}`
+                    : $t("settings.vendor.test.uploadImage")
+                }}
+              </p>
               <p class="uploadHint">{{ $t("settings.vendor.test.supportFormat") }}</p>
             </template>
           </div>
-          <input ref="imageInputRef" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
+          <input
+            ref="imageInputRef"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            :multiple="testMode === 'multiReference'"
+            @change="handleImageChange" />
         </div>
 
         <t-form-item :label="$t('settings.vendor.test.prompt')">
@@ -95,43 +113,56 @@ watch(
 );
 
 watch(testMode, () => {
-  imageFile.value = null;
-  imagePreview.value = "";
+  resetImages();
   resultUrl.value = "";
 });
 
 const prompt = ref("");
-const imageFile = ref<File | null>(null);
-const imagePreview = ref("");
+const imageFiles = ref<(File | null)[]>(Array(4).fill(null));
+const imagePreviews = ref<string[]>(Array(4).fill(""));
 const imageInputRef = ref<HTMLInputElement | null>(null);
+const pendingUploadIndex = ref(0);
 const loading = ref(false);
 const resultUrl = ref("");
+const uploadSlotCount = computed(() => (testMode.value === "multiReference" ? 4 : 1));
 
 const canSubmit = computed(() => {
   if (loading.value) return false;
-  if (testMode.value === "text") return !!prompt.value.trim();
-  if (testMode.value === "singleImage" || testMode.value === "multiReference") return !!imageFile.value;
+  if (testMode.value === "text") return true;
+  if (testMode.value === "singleImage") return !!imageFiles.value[0];
+  if (testMode.value === "multiReference") return imageFiles.value.some(Boolean);
   return false;
 });
 
-function triggerImageUpload() {
+function resetImages() {
+  imageFiles.value = Array(4).fill(null);
+  imagePreviews.value = Array(4).fill("");
+}
+
+function setImageFile(file: File, index: number) {
+  if (!file.type.startsWith("image/")) return;
+  imageFiles.value[index] = file;
+  imagePreviews.value[index] = URL.createObjectURL(file);
+}
+
+function triggerImageUpload(index = 0) {
+  pendingUploadIndex.value = index;
   imageInputRef.value?.click();
 }
 
 function handleImageChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  imageFile.value = file;
-  imagePreview.value = URL.createObjectURL(file);
+  const files = Array.from((e.target as HTMLInputElement).files ?? []);
+  files.slice(0, uploadSlotCount.value - pendingUploadIndex.value).forEach((file, offset) => {
+    setImageFile(file, pendingUploadIndex.value + offset);
+  });
   (e.target as HTMLInputElement).value = "";
 }
 
-function handleDrop(e: DragEvent) {
-  const file = e.dataTransfer?.files?.[0];
-  if (file && file.type.startsWith("image/")) {
-    imageFile.value = file;
-    imagePreview.value = URL.createObjectURL(file);
-  }
+function handleDrop(e: DragEvent, index: number) {
+  const files = Array.from(e.dataTransfer?.files ?? []);
+  files.slice(0, uploadSlotCount.value - index).forEach((file, offset) => {
+    setImageFile(file, index + offset);
+  });
 }
 
 const fileToDataURL = (file: File) =>
@@ -151,8 +182,9 @@ async function handleTest() {
     };
     const p = prompt.value.trim();
     if (p) payload.prompt = p;
-    if (imageFile.value) {
-      payload.imageBase64 = await fileToDataURL(imageFile.value); // 带前缀 data:image/...;base64,
+    const selectedImages = imageFiles.value.filter(Boolean) as File[];
+    if (selectedImages.length > 0) {
+      payload.imageBase64List = await Promise.all(selectedImages.map(fileToDataURL)); // 带前缀 data:image/...;base64,
     }
     const { data } = await axios.post("/setting/vendorConfig/modelTest/imageTest", payload);
     resultUrl.value = data;
@@ -166,8 +198,7 @@ async function handleTest() {
 
 function handleClose() {
   prompt.value = "";
-  imageFile.value = null;
-  imagePreview.value = "";
+  resetImages();
   resultUrl.value = "";
   loading.value = false;
 }
@@ -193,6 +224,11 @@ function handleClose() {
     .uploadRow {
       display: flex;
       justify-content: center;
+      gap: 12px;
+
+      &.multi {
+        flex-wrap: wrap;
+      }
 
       .uploadBox {
         width: 200px;

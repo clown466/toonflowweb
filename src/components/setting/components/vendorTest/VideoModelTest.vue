@@ -20,7 +20,6 @@
         <t-icon name="info-circle-filled" size="14px" />
         {{ currentModeInfo.desc }}
       </div>
-      {{ selectedMode }}
 
       <!-- 动态输入区 -->
       <div class="inputSection" v-if="selectedMode">
@@ -156,7 +155,7 @@
       <!-- 底部操作 -->
       <div class="dialogFooter">
         <t-button variant="outline" @click="visible = false">{{ $t("settings.vendor.test.cancel") }}</t-button>
-        <t-button theme="primary" :loading="loading" @click="handleTest">
+        <t-button theme="primary" :loading="loading" :disabled="!canSubmit" @click="handleTest">
           <template #icon><i-lightning theme="outline" /></template>
           {{ $t("settings.vendor.test.startTest") }}
         </t-button>
@@ -306,12 +305,12 @@ function resetUploads() {
 
 const canSubmit = computed(() => {
   if (loading.value || !selectedMode.value) return false;
-  if (selectedMode.value === "text") return !!prompt.value.trim();
+  if (selectedMode.value === "text") return true;
   if (selectedMode.value === "singleImage") return !!uploadedImages.value[0];
   if (selectedMode.value === "startEndRequired") return !!uploadedImages.value[0] && !!uploadedImages.value[1];
   if (selectedMode.value === "endFrameOptional") return !!uploadedImages.value[0];
   if (selectedMode.value === "startFrameOptional") return !!uploadedImages.value[1];
-  if (selectedMode.value.startsWith("multiRef:")) {
+  if (selectedMode.value.startsWith("[")) {
     // 验证所有非可选 ref 都已上传
     for (let rIdx = 0; rIdx < currentMultiRefs.value.length; rIdx++) {
       const ref = currentMultiRefs.value[rIdx];
@@ -357,6 +356,10 @@ async function encodeFiles(files: File[]) {
   );
 }
 async function handleTest() {
+  if (!canSubmit.value) {
+    window.$message.warning("请先补齐当前模式需要的测试输入");
+    return;
+  }
   loading.value = true;
   resultUrl.value = "";
   try {

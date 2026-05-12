@@ -105,10 +105,16 @@
 
           <div class="jb ac">
             <h4 class="sectionTitle">{{ $t("settings.vendor.modelSettings") }}</h4>
-            <t-button variant="outline" size="small" @click="handleAddModel">
-              <template #icon><i-plus theme="outline" /></template>
-              {{ $t("settings.vendor.addManually") }}
-            </t-button>
+            <div class="modelHeaderActions">
+              <t-button variant="outline" size="small" :loading="batchTestingModels" :disabled="!vendorModels.length" @click="handleBatchTestModels">
+                <template #icon><i-lightning theme="outline" /></template>
+                批量测试
+              </t-button>
+              <t-button variant="outline" size="small" @click="handleAddModel">
+                <template #icon><i-plus theme="outline" /></template>
+                {{ $t("settings.vendor.addManually") }}
+              </t-button>
+            </div>
           </div>
           <t-card v-for="(item, index) in vendorModels" :key="index" class="modelCard">
             <div class="topInfo jb ac">
@@ -685,6 +691,7 @@ const testingModel = ref<VendorModel | null>(null);
 const textTestVisible = ref(false);
 const imageTestVisible = ref(false);
 const videoTestVisible = ref(false);
+const batchTestingModels = ref(false);
 
 function getInputIcon(type: VendorInput["type"]) {
   if (type === "password") return "secured";
@@ -1758,6 +1765,100 @@ function handleTestModel(item: (typeof vendorModels.value)[number]) {
   }
 }
 
+function modelHasMode(model: VendorModel, mode: string) {
+  if (model.type === "text") return false;
+  return (model.mode as any[]).some((item) => item === mode);
+}
+
+async function runModelSmokeTest(model: VendorModel) {
+  if (!currentVendor.value) return { status: "failed" as const, message: "未选择供应商" };
+
+  if (model.type === "text") {
+    await axios.post("/setting/vendorConfig/modelTest/textTest", {
+      id: currentVendor.value.id,
+      modelName: model.modelName,
+      messages: [{ role: "user", content: "请只回复 OK，用于测试模型是否可用。" }],
+    });
+    return { status: "passed" as const, message: "文本测试通过" };
+  }
+
+  if (model.type === "image") {
+    if (!modelHasMode(model, "text")) {
+      return { status: "skipped" as const, message: "该图片模型未配置文生图模式，需要手动上传参考图测试" };
+    }
+    await axios.post(
+      "/setting/vendorConfig/modelTest/imageTest",
+      {
+        id: currentVendor.value.id,
+        modelName: model.modelName,
+        prompt: "A simple clean square test image of a red apple on a white table.",
+      },
+      { timeout: 10 * 60 * 1000 },
+    );
+    return { status: "passed" as const, message: "图片测试通过" };
+  }
+
+  if (model.type === "video") {
+    if (!modelHasMode(model, "text")) {
+      return { status: "skipped" as const, message: "该视频模型未配置文生视频模式，需要手动上传参考图/音频/视频测试" };
+    }
+    await axios.post(
+      "/setting/vendorConfig/modelTest/videoTest",
+      {
+        id: currentVendor.value.id,
+        modelName: model.modelName,
+        mode: "text",
+        prompt: "A 4 second clean test video, a red apple on a white table, stable camera, no text.",
+        images: [],
+        videos: [],
+        audios: [],
+      },
+      { timeout: 30 * 60 * 1000 },
+    );
+    return { status: "passed" as const, message: "视频测试通过" };
+  }
+
+  return { status: "skipped" as const, message: "未知模型类型" };
+}
+
+function handleBatchTestModels() {
+  if (!currentVendor.value || !vendorModels.value.length || batchTestingModels.value) return;
+  const confirmDialog = DialogPlugin.confirm({
+    header: "批量测试模型",
+    body: "批量测试会实际调用当前供应商下可直接测试的模型，并可能消耗 API 额度。需要参考图/音频/视频的模型会跳过，保留给单独测试。",
+    confirmBtn: { content: "开始测试", theme: "primary" },
+    cancelBtn: "取消",
+    onConfirm: async () => {
+      confirmDialog.destroy();
+      batchTestingModels.value = true;
+      const passed: string[] = [];
+      const skipped: string[] = [];
+      const failed: string[] = [];
+      try {
+        for (const model of vendorModels.value) {
+          try {
+            window.$message.info(`正在测试：${model.name || model.modelName}`);
+            const result = await runModelSmokeTest(model);
+            if (result.status === "passed") passed.push(model.name || model.modelName);
+            if (result.status === "skipped") skipped.push(`${model.name || model.modelName}（${result.message}）`);
+          } catch (err: any) {
+            failed.push(`${model.name || model.modelName}：${err?.message ?? "测试失败"}`);
+          }
+        }
+        const summary = `批量测试完成：成功 ${passed.length}，跳过 ${skipped.length}，失败 ${failed.length}`;
+        if (failed.length) {
+          window.$message.error(`${summary}。${failed.slice(0, 3).join("；")}`);
+        } else {
+          window.$message.success(summary);
+        }
+      } finally {
+        batchTestingModels.value = false;
+      }
+    },
+    onClose: () => confirmDialog.hide(),
+  });
+}
+
 function handleDeleteModel(modelName: string) {
   if (!currentVendor.value) return;
   const confirmDialog = DialogPlugin.confirm({
@@ -2048,6 +2149,11 @@ function handleFileChange(e: Event) {
       height: 95%;
       padding-right: 10px;
       overflow-y: auto;
+      .modelHeaderActions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
       .modelCard {
         width: 100%;
         margin-top: 10px;
