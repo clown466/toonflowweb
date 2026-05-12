@@ -208,7 +208,8 @@
     <t-dialog
       v-model:visible="showPromptEditor"
       :header="`编辑提示词 - ${promptEditAsset?.name || ''}`"
-      width="min(760px, 92vw)"
+      width="min(1080px, 94vw)"
+      top="4vh"
       :close-on-overlay-click="false"
     >
       <div class="asset-prompt-dialog">
@@ -231,10 +232,20 @@
           <t-select v-model="promptEditSkillId" :options="promptSkillOptions" :loading="promptSkillLoading" size="small" clearable placeholder="默认：视觉手册标准生图" />
         </div>
         <div class="prompt-field">
-          <span class="field-label">提示词</span>
+          <div class="prompt-label-row">
+            <span class="field-label">提示词</span>
+            <div class="prompt-tools">
+              <span class="prompt-count">{{ promptEditText.length }} 字</span>
+              <t-button size="small" variant="text" @click="copyPromptEditText">
+                <template #icon><i-copy size="13" /></template>
+                复制
+              </t-button>
+            </div>
+          </div>
           <t-textarea
             v-model="promptEditText"
-            :autosize="{ minRows: 8, maxRows: 14 }"
+            class="prompt-textarea"
+            :autosize="{ minRows: 18, maxRows: 30 }"
             placeholder="直接修改这个资产要发送给生图模型的提示词"
           />
         </div>
@@ -575,6 +586,20 @@ async function fetchImageGenerationSkills() {
     imageGenerationSkills.value = [];
   } finally {
     promptSkillLoading.value = false;
+  }
+}
+
+async function copyPromptEditText() {
+  const text = promptEditText.value;
+  if (!text) {
+    window.$message.warning("当前提示词为空");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    window.$message.success("已复制提示词");
+  } catch {
+    window.$message.error("复制失败");
   }
 }
 
@@ -1127,6 +1152,9 @@ if (typeof window !== "undefined") {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  max-height: calc(88vh - 140px);
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .prompt-dialog-grid {
@@ -1146,6 +1174,46 @@ if (typeof window !== "undefined") {
   font-size: 12px;
   font-weight: 600;
   color: var(--td-text-color-secondary);
+}
+
+.prompt-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.prompt-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.prompt-count {
+  font-size: 12px;
+  color: var(--td-text-color-placeholder);
+}
+
+.prompt-textarea {
+  width: 100%;
+
+  :deep(textarea) {
+    min-height: min(52vh, 520px);
+    line-height: 1.55;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  }
+}
+
+@media (max-width: 720px) {
+  .prompt-dialog-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prompt-label-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .asset-choice-loading {
