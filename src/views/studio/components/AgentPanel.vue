@@ -1996,4 +1996,99 @@ function openSettings() {
     }
   }
 }
+
+@media (max-width: 720px) {
+  .agent-panel {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .resize-handle {
+    display: none;
+  }
+
+  .panel-header {
+    height: 44px;
+    padding: 0 10px 0 42px;
+  }
+
+  .mode-switch {
+    padding: 6px 8px;
+  }
+
+  .mode-btn {
+    min-width: 0;
+    padding: 6px 4px;
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  .context-bar,
+  .status-strip {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .status-strip {
+    gap: 6px;
+
+    .strip-meta {
+      display: none;
+    }
+  }
+
+  .progress-strip {
+    padding: 8px 10px;
+  }
+
+  .messages-section {
+    padding: 10px 10px 12px;
+
+    :deep(.t-chat__text) {
+      font-size: 13px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+  }
+
+  .panel-footer {
+    padding: 6px 8px 8px;
+  }
+
+  .input-toolbar {
+    gap: 4px;
+
+    :deep(.t-divider--vertical) {
+      display: none;
+    }
+  }
+
+  .storyboard-skill-select,
+  .image-skill-select {
+    flex: 1 1 128px;
+    width: auto;
+    min-width: 0;
+  }
+
+  .attached-asset {
+    max-width: 100%;
+  }
+
+  .input-actions {
+    gap: 6px;
+  }
+
+  .action-left,
+  .action-right {
+    min-width: 0;
+  }
+
+  .think-btn {
+    max-width: 92px;
+  }
+}
 </style>

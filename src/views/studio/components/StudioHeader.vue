@@ -95,10 +95,20 @@ function openSettings() {
   flex-shrink: 0;
 }
 
+.header-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-right {
+  flex-shrink: 0;
+}
+
 .project-info {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 
   .project-icon {
     color: var(--td-brand-color);
@@ -112,6 +122,47 @@ function openSettings() {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+.episode-selector {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .studio-header {
+    height: 44px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+
+  .header-left {
+    gap: 8px;
+  }
+
+  .header-right {
+    gap: 4px;
+
+    :deep(.t-tag) {
+      display: none;
+    }
+  }
+
+  .project-info {
+    gap: 6px;
+
+    .project-name {
+      max-width: 72px;
+    }
+  }
+
+  .episode-selector {
+    flex: 1;
+
+    :deep(.t-select) {
+      width: 100%;
+      min-width: 0;
+    }
   }
 }
 

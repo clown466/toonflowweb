@@ -551,6 +551,21 @@ export function useChat(options: UseChatOptions) {
     // 错误处理
     socket.value.on("error", (error: { code: string; message: string }) => {
       console.error("[Chat Error]", error);
+      if (currentMessageId.value) {
+        const msg = findMessage(currentMessageId.value);
+        if (msg?.role === "assistant") {
+          msg.status = "error";
+          msg.ext = { ...msg.ext, error: error.message };
+          const aiMsg = msg as AIMessage;
+          aiMsg.content?.forEach((content) => {
+            if (content.status === "pending" || content.status === "streaming") {
+              content.status = "error";
+            }
+          });
+        }
+        currentMessageId.value = null;
+        status.value = "idle";
+      }
       onError?.(error);
     });
 

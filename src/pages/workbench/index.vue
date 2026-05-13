@@ -342,4 +342,111 @@ onUnmounted(() => {
 .fade-leave-to {
   opacity: 0;
 }
+
+@media (max-width: 720px) {
+  .main {
+    padding: 6px;
+
+    .menu {
+      width: 48px;
+      border-radius: 12px;
+      padding-top: 8px;
+      padding-bottom: 8px;
+
+      .logoBox .logo {
+        width: 28px;
+      }
+
+      .itemBox {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+      }
+
+      .footItem .item {
+        width: 40px;
+        height: 40px;
+
+        .icon {
+          font-size: 22px;
+        }
+      }
+    }
+
+    .view {
+      margin-left: 6px;
+      border-radius: 12px;
+      padding-left: 8px;
+      padding-right: 8px;
+
+      &.edge-to-edge-view {
+        padding-left: 0;
+        padding-right: 0;
+
+        .topMenu {
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+      }
+
+      .topMenu {
+        height: 48px;
+        min-height: 48px;
+        gap: 8px;
+
+        .title {
+          min-width: 0;
+
+          h2 {
+            margin: 0;
+            font-size: 16px;
+            line-height: 1.2;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+        }
+
+        .rightBtnList {
+          flex: 0 1 auto;
+          min-width: 0;
+          max-width: 58%;
+          overflow-x: auto;
+          scrollbar-width: none;
+
+          &::-webkit-scrollbar {
+            display: none;
+          }
+
+          .item {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+
+            .icon {
+              font-size: 22px;
+            }
+          }
+        }
+      }
+
+      .viewBox {
+        height: calc(100% - 48px);
+      }
+    }
+  }
+
+  .item {
+    width: 40px;
+    height: 40px;
+
+    .icon {
+      font-size: 22px;
+    }
+  }
+
+  .divider {
+    width: 40px;
+  }
+}
 </style>

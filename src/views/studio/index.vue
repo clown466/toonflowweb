@@ -14,7 +14,7 @@
         class="floating-toggle left-toggle"
         shape="square"
         theme="primary"
-        @click="leftPanelOpen = true"
+        @click="openLeftPanel"
       >
         <template #icon><i-menu-unfold-one size="18" /></template>
       </t-button>
@@ -23,13 +23,13 @@
         class="floating-toggle right-toggle"
         shape="square"
         theme="primary"
-        @click="rightPanelOpen = true"
+        @click="openRightPanel"
       >
         <template #icon><i-menu-fold-one size="18" /></template>
       </t-button>
 
       <div v-show="leftPanelOpen" class="studio-floating-panel story-floating-panel">
-        <t-button class="panel-close-btn story-close" shape="square" variant="text" size="small" @click="leftPanelOpen = false">
+        <t-button class="panel-close-btn story-close" shape="square" variant="text" size="small" @click="closeLeftPanel">
           <template #icon><i-menu-fold-one size="16" /></template>
         </t-button>
         <StoryPanel
@@ -97,7 +97,7 @@
       </div>
 
       <div v-show="rightPanelOpen" class="studio-floating-panel agent-floating-panel">
-        <t-button class="panel-close-btn agent-close" shape="square" variant="text" size="small" @click="rightPanelOpen = false">
+        <t-button class="panel-close-btn agent-close" shape="square" variant="text" size="small" @click="closeRightPanel">
           <template #icon><i-menu-unfold-one size="16" /></template>
         </t-button>
         <AgentPanel
@@ -206,6 +206,7 @@ const leftPanelOpen = ref(true);
 const rightPanelOpen = ref(true);
 const leftPanelWidth = ref(320);
 const rightPanelWidth = ref(410);
+const isCompactStudio = ref(false);
 const assetPanelOpen = ref(true);
 const assetPanelHeight = ref(220);
 const projectAssets = ref<any[]>([]);
@@ -233,6 +234,33 @@ const assetProgressMessageId = ref<string | null>(null);
 const assetProgressTotal = ref(0);
 const assetProgressStates = new Map<number, string>();
 let projectAssetsPollingTimer: number | null = null;
+let compactStudioQuery: MediaQueryList | null = null;
+
+function syncCompactStudioLayout() {
+  if (!compactStudioQuery) return;
+  isCompactStudio.value = compactStudioQuery.matches;
+  if (isCompactStudio.value && leftPanelOpen.value && rightPanelOpen.value) {
+    leftPanelOpen.value = false;
+  }
+}
+
+function openLeftPanel() {
+  leftPanelOpen.value = true;
+  if (isCompactStudio.value) rightPanelOpen.value = false;
+}
+
+function openRightPanel() {
+  rightPanelOpen.value = true;
+  if (isCompactStudio.value) leftPanelOpen.value = false;
+}
+
+function closeLeftPanel() {
+  leftPanelOpen.value = false;
+}
+
+function closeRightPanel() {
+  rightPanelOpen.value = false;
+}
 
 function ensureProductionEpisode(showMessage = true) {
   if (episodesId.value) return true;
@@ -617,6 +645,9 @@ function handleAssetsUpdated(event: Event) {
 }
 
 onMounted(async () => {
+  compactStudioQuery = window.matchMedia("(max-width: 720px)");
+  syncCompactStudioLayout();
+  compactStudioQuery.addEventListener("change", syncCompactStudioLayout);
   window.addEventListener("toonflow-assets-updated", handleAssetsUpdated);
   await Promise.all([loadEpisodes(), loadProjectAssets()]);
   if (episodes.value.length > 0 && !episodesId.value) {
@@ -639,6 +670,8 @@ onActivated(() => {
 });
 
 onUnmounted(() => {
+  compactStudioQuery?.removeEventListener("change", syncCompactStudioLayout);
+  compactStudioQuery = null;
   window.removeEventListener("toonflow-assets-updated", handleAssetsUpdated);
   if (projectAssetsPollingTimer) {
     clearInterval(projectAssetsPollingTimer);
@@ -1051,12 +1084,67 @@ watch(() => flowData.value.storyboard, (newVal) => {
 
   .story-floating-panel {
     left: 0;
-    right: 56px;
+    right: 48px;
   }
 
   .agent-floating-panel {
-    left: 56px;
+    left: 48px;
     right: 0;
+  }
+
+  .story-floating-panel :deep(.story-panel),
+  .agent-floating-panel :deep(.agent-panel) {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .story-floating-panel :deep(.resize-handle),
+  .agent-floating-panel :deep(.resize-handle) {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .studio-body {
+    min-width: 0;
+  }
+
+  .story-floating-panel {
+    right: 42px;
+  }
+
+  .agent-floating-panel {
+    left: 42px;
+  }
+
+  .panel-close-btn {
+    top: 6px;
+  }
+
+  .story-close {
+    right: 6px;
+  }
+
+  .agent-close {
+    left: 6px;
+  }
+
+  .floating-toggle {
+    top: 6px;
+  }
+
+  .left-toggle {
+    left: 6px;
+  }
+
+  .right-toggle {
+    right: 6px;
+  }
+
+  .asset-panel-toggle {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 }
 </style>
