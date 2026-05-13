@@ -102,7 +102,7 @@
         </div>
         <t-button block theme="primary" size="small" @click="onGenerateDirectorBoard">
           <template #icon><i-play size="14" /></template>
-          {{ selectedIds.length > 0 ? `生成章节导演板(${selectedIds.length})` : "生成章节导演板" }}
+          生成章节导演板
         </t-button>
         <t-button block variant="outline" size="small" @click="onGenerateAll">
           <template #icon><i-pic size="14" /></template>
@@ -241,10 +241,7 @@ function onGenerateAll() {
 }
 
 function onGenerateDirectorBoard() {
-  const selectedIdSet = new Set(selectedIds.value);
-  const candidates = selectedIds.value.length > 0
-    ? props.storyboard.filter(s => s.id && selectedIdSet.has(s.id))
-    : props.storyboard.filter(s => s.id);
+  const candidates = props.storyboard.filter(s => s.id);
 
   if (candidates.length === 0) {
     window.$message.info("没有可用于生成章节导演板的分镜");

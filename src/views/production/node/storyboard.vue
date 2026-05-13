@@ -409,7 +409,7 @@ function stopDirectorBoardPoll() {
 
 async function generateDirectorBoard() {
   if (!project.value?.id || !episodesId.value) return;
-  const ids = selectedIds.value.length ? selectedIds.value : storyboard.value.map((item) => item.id!).filter(Boolean);
+  const ids = storyboard.value.map((item) => item.id!).filter(Boolean);
   directorBoardLoading.value = true;
   try {
     const { data } = await axios.post("/production/directorBoard/generate", {
