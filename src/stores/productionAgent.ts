@@ -57,6 +57,7 @@ function makeProductionAgentStore(projectId: string) {
       }),
       manageLifecycle: false,
       autoConnect: false,
+      clientIdleTimeoutMs: 210000,
       xmlTags: [
         { tag: "script", keepInMessage: false },
         { tag: "scriptPlan", keepInMessage: false },

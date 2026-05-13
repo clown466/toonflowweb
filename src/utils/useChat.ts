@@ -81,6 +81,7 @@ export interface UseChatOptions {
   onConnect?: () => void;
   onDisconnect?: () => void;
   manageLifecycle?: boolean;
+  clientIdleTimeoutMs?: number;
 }
 
 export function useChat(options: UseChatOptions) {
@@ -95,6 +96,7 @@ export function useChat(options: UseChatOptions) {
     onConnect,
     onDisconnect,
     manageLifecycle = true,
+    clientIdleTimeoutMs = 0,
   } = options;
 
   const socket = shallowRef<Socket | null>(null);
@@ -103,6 +105,7 @@ export function useChat(options: UseChatOptions) {
   const messages = ref<ChatMessagesData[]>([]);
   const currentMessageId = ref<string | null>(null);
   const status = ref<"idle" | "pending" | "streaming">("idle");
+  const lastActivityAt = ref<number | null>(null);
   const xmlData = ref<Record<string, string>>({});
   const xmlDataByMessage = ref<Record<string, Record<string, string>>>({});
   const normalizedXmlTagOptions = Array.from(
@@ -117,6 +120,7 @@ export function useChat(options: UseChatOptions) {
   const hiddenXmlTags = normalizedXmlTagOptions.filter((item) => ((item.keepInMessage ?? keepXmlInMessage) ? false : true)).map((item) => item.tag);
   const emittedXmlState = new Map<string, Record<string, string>>();
   const rawContentState = new Map<string, string>();
+  let clientIdleTimer: number | null = null;
 
   // 计算属性 - 修复：增加对内容流状态的判断
   const isGenerating = computed(() => {
@@ -141,6 +145,60 @@ export function useChat(options: UseChatOptions) {
   // 工具方法
   const findMessage = (id: string): ChatMessagesData | undefined => {
     return messages.value.find((m) => m.id === id);
+  };
+
+  const clearClientIdleTimer = () => {
+    if (clientIdleTimer !== null) {
+      window.clearInterval(clientIdleTimer);
+      clientIdleTimer = null;
+    }
+  };
+
+  const touchClientActivity = () => {
+    lastActivityAt.value = Date.now();
+  };
+
+  const failCurrentMessage = (message: string) => {
+    const id = currentMessageId.value;
+    if (!id) return;
+    const msg = findMessage(id);
+    if (msg?.role === "assistant") {
+      msg.status = "error";
+      msg.ext = { ...msg.ext, error: message };
+      const aiMsg = msg as AIMessage;
+      if (!aiMsg.content) aiMsg.content = [];
+      aiMsg.content.forEach((content) => {
+        if (content.status === "pending" || content.status === "streaming") {
+          content.status = "error";
+        }
+      });
+      aiMsg.content.push({
+        id: `client_timeout_${Date.now()}`,
+        type: "text",
+        data: `执行失败：${message}`,
+        status: "error",
+      } as any);
+    }
+    socket.value?.emit("stop", { messageId: id });
+    currentMessageId.value = null;
+    status.value = "idle";
+    lastActivityAt.value = null;
+    clearClientIdleTimer();
+  };
+
+  const startClientIdleTimer = () => {
+    if (!clientIdleTimeoutMs || clientIdleTimer !== null) return;
+    touchClientActivity();
+    clientIdleTimer = window.setInterval(() => {
+      if (!currentMessageId.value || status.value === "idle") {
+        clearClientIdleTimer();
+        return;
+      }
+      const last = lastActivityAt.value;
+      if (last && Date.now() - last >= clientIdleTimeoutMs) {
+        failCurrentMessage(`超过 ${Math.round(clientIdleTimeoutMs / 1000)} 秒没有收到模型或工具更新，已自动停止本次请求。`);
+      }
+    }, 1000);
   };
 
   const findMessageIndex = (id: string): number => {
@@ -354,6 +412,7 @@ export function useChat(options: UseChatOptions) {
 
   // 处理内容更新的核心逻辑
   const handleContentUpdate = (event: ContentUpdateEvent) => {
+    touchClientActivity();
     const { messageId, contentId, type, data, strategy, status: eventStatus } = event;
 
     const msg = findMessage(messageId) as AIMessage;
@@ -452,6 +511,7 @@ export function useChat(options: UseChatOptions) {
       if (data.role === "assistant") {
         currentMessageId.value = data.id;
         status.value = data.status === "streaming" ? "streaming" : "pending";
+        startClientIdleTimer();
       }
     });
 
@@ -461,6 +521,7 @@ export function useChat(options: UseChatOptions) {
       if (!msg) return;
 
       if (data.status) {
+        touchClientActivity();
         msg.status = data.status;
         if (data.status === "complete" || data.status === "error" || data.status === "stop") {
           const aiMsg = msg as AIMessage;
@@ -485,6 +546,8 @@ export function useChat(options: UseChatOptions) {
         if (currentMessageId.value === data.id) {
           currentMessageId.value = null;
           status.value = "idle";
+          lastActivityAt.value = null;
+          clearClientIdleTimer();
         }
         return;
       }
@@ -497,12 +560,15 @@ export function useChat(options: UseChatOptions) {
         if (currentMessageId.value === data.id) {
           currentMessageId.value = null;
           status.value = "idle";
+          lastActivityAt.value = null;
+          clearClientIdleTimer();
         }
       }
     });
 
     // 添加内容块 - 修复：不要在这里改变消息状态
     socket.value.on("content:add", (data: ContentAddEvent) => {
+      touchClientActivity();
       const msg = findMessage(data.messageId) as AIMessage;
       if (!msg || msg.role !== "assistant") return;
 
@@ -552,19 +618,7 @@ export function useChat(options: UseChatOptions) {
     socket.value.on("error", (error: { code: string; message: string }) => {
       console.error("[Chat Error]", error);
       if (currentMessageId.value) {
-        const msg = findMessage(currentMessageId.value);
-        if (msg?.role === "assistant") {
-          msg.status = "error";
-          msg.ext = { ...msg.ext, error: error.message };
-          const aiMsg = msg as AIMessage;
-          aiMsg.content?.forEach((content) => {
-            if (content.status === "pending" || content.status === "streaming") {
-              content.status = "error";
-            }
-          });
-        }
-        currentMessageId.value = null;
-        status.value = "idle";
+        failCurrentMessage(error.message);
       }
       onError?.(error);
     });
@@ -617,6 +671,7 @@ export function useChat(options: UseChatOptions) {
     socket.value?.disconnect();
     connected.value = false;
     connecting.value = false;
+    clearClientIdleTimer();
   };
 
   const reconnect = () => {
@@ -685,6 +740,8 @@ export function useChat(options: UseChatOptions) {
     }
     currentMessageId.value = null;
     status.value = "idle";
+    lastActivityAt.value = null;
+    clearClientIdleTimer();
 
     return emit("stop", { messageId: id });
   };
@@ -698,10 +755,12 @@ export function useChat(options: UseChatOptions) {
     messages.value = [];
     currentMessageId.value = null;
     status.value = "idle";
+    lastActivityAt.value = null;
     xmlData.value = {};
     xmlDataByMessage.value = {};
     emittedXmlState.clear();
     rawContentState.clear();
+    clearClientIdleTimer();
   };
 
   const removeMessage = (id: string) => {

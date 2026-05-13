@@ -24,6 +24,7 @@ function makeScriptAgentStore(projectId: string) {
             projectId: projectId,
           }),
           manageLifecycle: false,
+          clientIdleTimeoutMs: 210000,
           xmlTags: [
             { tag: "storySkeleton", keepInMessage: false },
             { tag: "adaptationStrategy", keepInMessage: false },

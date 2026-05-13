@@ -35,6 +35,7 @@ function makeWorkspaceAgentStore(projectId: string) {
       }),
       manageLifecycle: false,
       autoConnect: false,
+      clientIdleTimeoutMs: 210000,
     });
 
     // 监听连接成功，获取历史记录
