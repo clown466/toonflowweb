@@ -1487,6 +1487,7 @@
       "fetchFailed": "Failed to fetch task list",
       "col": {
         "taskClass": "Task Category",
+        "previewImages": "Result Image",
         "relatedObjects": "Related Objects",
         "model": "Model",
         "describe": "Description",

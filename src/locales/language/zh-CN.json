@@ -1586,6 +1586,7 @@
       "fetchFailed": "获取任务列表失败",
       "col": {
         "taskClass": "任务大类",
+        "previewImages": "结果图片",
         "relatedObjects": "关联对象",
         "model": "模型",
         "describe": "描述",

@@ -30,6 +30,24 @@
       </div>
       <div class="content">
         <t-table :data="taskList" :columns="columns" row-key="id" :loading="pagination.loading" hover stripe>
+          <template #previewImages="{ row }">
+            <div v-if="row.previewImages?.length" class="taskPreviews">
+              <t-image-viewer :images="previewImageUrls(row)" :closeOnEscKeydown="true" :closeOnOverlay="true">
+                <template #trigger="{ open }">
+                  <button class="previewStack" type="button" @click="open">
+                    <img
+                      v-for="image in row.previewImages.slice(0, 3)"
+                      :key="`${image.source}-${image.id}`"
+                      class="previewThumb"
+                      :src="image.src"
+                      :alt="image.name || 'preview'" />
+                    <span v-if="row.previewImages.length > 3" class="previewMore">+{{ row.previewImages.length - 3 }}</span>
+                  </button>
+                </template>
+              </t-image-viewer>
+            </div>
+            <span v-else class="noPreview">-</span>
+          </template>
           <template #state="{ row }">
             <t-tooltip v-if="row.state === '生成失败'" :content="row.reason || $t('workbench.task.noFailReason')" placement="top">
               <span class="stateText stateFail">{{ row.state }}</span>
@@ -73,10 +91,21 @@ interface TaskItem {
   startTime: number;
   describe?: string;
   reason?: string;
+  previewImages?: TaskPreviewImage[];
+}
+
+interface TaskPreviewImage {
+  id: number;
+  source: string;
+  name?: string;
+  filePath: string;
+  src: string;
+  originalSrc?: string;
 }
 
 const columns = [
   { colKey: "taskClass", title: $t("workbench.task.col.taskClass"), width: 120, ellipsis: true },
+  { colKey: "previewImages", title: $t("workbench.task.col.previewImages"), width: 140, cell: "previewImages" },
   { colKey: "relatedObjects", title: $t("workbench.task.col.relatedObjects"), width: 120, ellipsis: true },
   { colKey: "model", title: $t("workbench.task.col.model"), width: 280, ellipsis: true },
   { colKey: "describe", title: $t("workbench.task.col.describe"), ellipsis: true },
@@ -142,6 +171,10 @@ async function getTaskList() {
     pagination.value.loading = false;
   }
 }
+
+function previewImageUrls(row: TaskItem) {
+  return (row.previewImages ?? []).map((item) => item.originalSrc || item.src).filter(Boolean);
+}
 </script>
 
 <style lang="scss" scoped>
@@ -172,6 +205,47 @@ async function getTaskList() {
   }
   .stateSuccess {
     color: #52c41a;
+  }
+  .taskPreviews {
+    display: flex;
+    align-items: center;
+  }
+  .previewStack {
+    width: 112px;
+    height: 42px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+  }
+  .previewThumb {
+    width: 38px;
+    height: 38px;
+    object-fit: cover;
+    border: 1px solid var(--td-component-border);
+    border-radius: 6px;
+    background: var(--td-bg-color-component);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+  .previewThumb + .previewThumb {
+    margin-left: -10px;
+  }
+  .previewMore {
+    min-width: 28px;
+    height: 24px;
+    margin-left: -6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--td-bg-color-container);
+    border: 1px solid var(--td-component-border);
+    font-size: 12px;
+    line-height: 22px;
+    color: var(--td-text-color-secondary);
+  }
+  .noPreview {
+    color: var(--td-text-color-placeholder);
   }
   .paginationWrap {
     margin-top: 10px;
