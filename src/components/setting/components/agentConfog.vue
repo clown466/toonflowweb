@@ -14,6 +14,7 @@
             </template>
           </t-button>
           <div class="rightBtnList f nw">
+            <t-button theme="primary" variant="outline" @click="openBatchModelDialog">一键改模型</t-button>
             <t-button @click="oneClickToFillIn">{{ $t("settings.agent.oneClickFill") }}</t-button>
           </div>
         </div>
@@ -21,7 +22,7 @@
     </div>
 
     <div class="modeRadioGroup">
-      <t-radio-group v-model="agentUseModeVal" variant="default-filled" @change="(val: string) => updateUseMode(val)">
+      <t-radio-group v-model="agentUseModeVal" variant="default-filled" @change="(val) => updateUseMode(String(val))">
         <t-radio value="0">{{ $t('settings.agent.ordinary') }}</t-radio>
         <t-radio value="1">{{ $t('settings.agent.advanced') }}</t-radio>
       </t-radio-group>
@@ -113,6 +114,31 @@
         </t-form>
       </div>
     </t-dialog>
+
+    <t-dialog
+      v-model:visible="batchModelShow"
+      header="一键修改 Agent 文本模型"
+      width="520px"
+      :on-confirm="confirmBatchModel"
+      confirm-btn="应用到所有文本 Agent"
+      :cancel-btn="$t('settings.agent.cancel')">
+      <div class="dialogContent">
+        <t-alert
+          theme="info"
+          message="会把生产Agent、通用AI、项目总控Agent，以及高级配置里的分镜/资产等文本子Agent统一切换到所选文本模型；TTS 和非文本模型不会修改。"
+          class="batchModelAlert" />
+        <t-form label-align="top">
+          <t-form-item label="选择文本模型">
+            <modelSelect v-model="batchModelValue" v-model:label="batchModelLabel" type="text" />
+          </t-form-item>
+        </t-form>
+        <div class="batchModelPreview">
+          将更新 {{ batchTargetAgents.length }} 个 Agent：
+          <span v-if="batchTargetAgents.length">{{ batchTargetAgents.map((item) => item.name).join("、") }}</span>
+          <span v-else>暂无可更新的文本 Agent</span>
+        </div>
+      </div>
+    </t-dialog>
   </div>
 </template>
 
@@ -125,9 +151,10 @@ const { isElectron } = storeToRefs(settingStore());
 
 interface ModelType {
   id: number;
+  key?: string;
   model: string;
   modelName: string;
-  vendorId: number | null;
+  vendorId: string | number | null;
   name: string;
   icon: string;
   desc: string;
@@ -165,6 +192,18 @@ function getFallbackText(name: string) {
 }
 const type = ref("");
 const maxTokenMode = ref<"auto" | "manual">("auto");
+const batchModelShow = ref(false);
+const batchModelValue = ref("");
+const batchModelLabel = ref("");
+
+const batchTargetAgents = computed(() => {
+  return [...modelData.value, ...advancedModelData.value].filter((item) => {
+    if (item.disabled) return false;
+    const identity = `${item.key || ""} ${item.name || ""}`.toLowerCase();
+    if (/tts|配音/.test(identity)) return false;
+    return true;
+  });
+});
 
 watch(maxTokenMode, (val) => {
   if (val === "auto" && currentItem.value) {
@@ -215,6 +254,55 @@ function confirmConfig() {
       modelDataShow.value = false;
     });
 }
+
+function openBatchModelDialog() {
+  batchModelValue.value = "";
+  batchModelLabel.value = "";
+  batchModelShow.value = true;
+}
+
+async function confirmBatchModel() {
+  if (!batchModelValue.value) {
+    window.$message.warning("请先选择要应用的文本模型");
+    return false;
+  }
+  const [vendorId, modelName] = batchModelValue.value.split(/:(.+)/);
+  if (!vendorId || !modelName) {
+    window.$message.warning("模型格式无效，请重新选择");
+    return false;
+  }
+  const targets = batchTargetAgents.value;
+  if (!targets.length) {
+    window.$message.warning("没有可更新的文本 Agent");
+    return false;
+  }
+  loading.value = true;
+  try {
+    await Promise.all(
+      targets.map((item) =>
+        axios.post("/setting/agentDeploy/deployAgentModel", {
+          id: item.id,
+          name: item.name,
+          model: batchModelLabel.value || modelName,
+          modelName: batchModelValue.value,
+          vendorId,
+          desc: item.desc,
+          temperature: item.temperature ?? 1,
+          maxOutputTokens: item.maxOutputTokens ?? 0,
+        }),
+      ),
+    );
+    window.$message.success(`已将 ${targets.length} 个文本 Agent 切换到 ${batchModelLabel.value || modelName}`);
+    batchModelShow.value = false;
+    await getAgentDeploy();
+  } catch (err: any) {
+    window.$message.error(`一键修改模型失败：${err?.message ?? err}`);
+  } finally {
+    loading.value = false;
+  }
+  return true;
+}
+
 //跳转官方网站
 async function jumpToWebsite() {
   if (isElectron.value) {
@@ -415,6 +503,17 @@ onMounted(() => {
 
 .dialogContent {
   padding: 8px 0;
+}
+
+.batchModelAlert {
+  margin-bottom: 12px;
+}
+
+.batchModelPreview {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--td-text-color-secondary);
+  line-height: 1.6;
 }
 
 .maxTokenRow {
