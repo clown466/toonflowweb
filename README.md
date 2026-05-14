@@ -44,7 +44,6 @@
 > | 平台                                                                                                         | 链接                                                                            |
 > | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 > | <img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white" alt="GitHub" /> | 👉 [github.com/clown466/toonflowback](https://github.com/clown466/toonflowback) |
-> | <img src="https://img.shields.io/badge/Gitee-C71D23?style=flat&logo=gitee&logoColor=white" alt="Gitee" />    | 👉 [gitee.com/clown466/toonflowback](https://github.com/clown466/toonflowback)   |
 >
 > 主仓库包含：
 >
