@@ -102,6 +102,49 @@ function makeWorkspaceAgentStore(projectId: string) {
       }, 100);
     }
 
+    const imageModels = ref<any[]>([]);
+    const currentImageModel = ref<string | null>(null);
+    const currentImageQuality = ref<string | null>(null);
+
+    async function getImageModels() {
+      return new Promise((resolve, reject) => {
+        if (!socket.value) {
+          reject(new Error("Socket not connected"));
+          return;
+        }
+        socket.value.emit("getImageModels", (response: any) => {
+          if (response.success) {
+            imageModels.value = response.options || [];
+            currentImageModel.value = response.current;
+            currentImageQuality.value = response.currentQuality;
+            resolve(response);
+          } else {
+            reject(new Error(response.message || "Failed to get image models"));
+          }
+        });
+      });
+    }
+
+    async function setImageModel(model: string, quality?: string) {
+      return new Promise((resolve, reject) => {
+        if (!socket.value) {
+          reject(new Error("Socket not connected"));
+          return;
+        }
+        socket.value.emit("setImageModel", { model, quality }, (response: any) => {
+          if (response.success) {
+            currentImageModel.value = response.model;
+            if (response.quality) currentImageQuality.value = response.quality;
+            window.$message.success($t("workbench.workspaceAgent.msg.imageModelUpdated"));
+            resolve(response);
+          } else {
+            window.$message.error(response.message || "Failed to set image model");
+            reject(new Error(response.message || "Failed to set image model"));
+          }
+        });
+      });
+    }
+
     return {
       connected,
       messages,
@@ -117,6 +160,11 @@ function makeWorkspaceAgentStore(projectId: string) {
       getHistory,
       clearMemory,
       loadingHistory,
+      imageModels,
+      currentImageModel,
+      currentImageQuality,
+      getImageModels,
+      setImageModel,
     };
   });
 }

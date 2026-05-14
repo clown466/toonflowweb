@@ -27,18 +27,21 @@ watch(
   { immediate: true },
 );
 
-onBeforeMount(() => {
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "F8") {
-      event.preventDefault();
-      debugger;
-    }
-  });
-});
+function handleKeydown(event: KeyboardEvent) {
+  if (event.key === "F8") {
+    event.preventDefault();
+    debugger;
+  }
+}
 
 // 初始化主题
 onMounted(() => {
+  document.addEventListener("keydown", handleKeydown);
   getPort();
+});
+
+onUnmounted(() => {
+  document.removeEventListener("keydown", handleKeydown);
 });
 
 async function handleLinkClick(event: MouseEvent) {

@@ -873,6 +873,7 @@
       "prop": "อุปกรณ์",
       "scene": "ฉาก",
       "clip": "ฟุตเทจ",
+      "uploadImage": "อัปโหลดรูปภาพ",
       "uploadSuccess": "อัปโหลดสำเร็จ",
       "selectAtLeastOne": "โปรดเลือกสินทรัพย์อย่างน้อย 1 รายการ",
       "noDescription": "ไม่มีคำอธิบาย",
@@ -904,8 +905,8 @@
         "describePh": "โปรดกรอกคำอธิบาย",
         "remark": "หมายเหตุ",
         "remarkPh": "โปรดกรอกหมายเหตุ",
-        "prompt": "พรอมต์",
-        "promptPh": "โปรดกรอกพรอมต์",
+        "prompt": "คำอธิบายสินทรัพย์",
+        "promptPh": "กรอกเฉพาะคำอธิบายของสินทรัพย์นี้ ห้ามวางข้อจำกัดของโปรเจกต์ การ์ดข้อเท็จจริง หรือพรอมต์สุดท้าย",
         "nameRequired": "โปรดกรอกชื่อ",
         "describeRequired": "โปรดกรอกรายละเอียด",
         "remarkRequired": "โปรดกรอกหมายเหตุ",
@@ -1390,7 +1391,8 @@
       "start": "Extract characters, scenes, and props from the current novel and prepare the asset library",
       "msg": {
         "memoryCleared": "Memory cleared",
-        "error": "Operation failed"
+        "error": "Operation failed",
+        "imageModelUpdated": "อัปเดตโมเดลรูปภาพแล้ว"
       }
     }
   },

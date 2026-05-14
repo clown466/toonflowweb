@@ -14,7 +14,6 @@
             </template>
           </t-button>
           <div class="rightBtnList f nw">
-            <t-button theme="primary" variant="outline" @click="openBatchModelDialog">一键改模型</t-button>
             <t-button @click="oneClickToFillIn">{{ $t("settings.agent.oneClickFill") }}</t-button>
           </div>
         </div>
@@ -22,7 +21,7 @@
     </div>
 
     <div class="modeRadioGroup">
-      <t-radio-group v-model="agentUseModeVal" variant="default-filled" @change="(val) => updateUseMode(String(val))">
+      <t-radio-group v-model="agentUseModeVal" variant="default-filled" @change="updateUseMode">
         <t-radio value="0">{{ $t('settings.agent.ordinary') }}</t-radio>
         <t-radio value="1">{{ $t('settings.agent.advanced') }}</t-radio>
       </t-radio-group>
@@ -115,28 +114,21 @@
       </div>
     </t-dialog>
 
+    <!-- 一键填入模型选择弹窗 -->
     <t-dialog
-      v-model:visible="batchModelShow"
-      header="一键修改 Agent 文本模型"
-      width="520px"
-      :on-confirm="confirmBatchModel"
-      confirm-btn="应用到所有文本 Agent"
+      v-model:visible="oneClickModelShow"
+      :header="$t('settings.agent.oneClickFillHeader')"
+      width="480px"
+      :on-confirm="confirmOneClickFill"
+      :confirm-btn="$t('settings.agent.confirm')"
       :cancel-btn="$t('settings.agent.cancel')">
       <div class="dialogContent">
-        <t-alert
-          theme="info"
-          message="会把生产Agent、通用AI、项目总控Agent，以及高级配置里的分镜/资产等文本子Agent统一切换到所选文本模型；TTS 和非文本模型不会修改。"
-          class="batchModelAlert" />
-        <t-form label-align="top">
-          <t-form-item label="选择文本模型">
-            <modelSelect v-model="batchModelValue" v-model:label="batchModelLabel" type="text" />
+        <t-form label-align="top" :label-width="70">
+          <t-form-item :label="$t('settings.agent.selectTextModel')">
+            <modelSelect v-model="oneClickModelValue" v-model:label="oneClickModelLabel" type="text" />
           </t-form-item>
         </t-form>
-        <div class="batchModelPreview">
-          将更新 {{ batchTargetAgents.length }} 个 Agent：
-          <span v-if="batchTargetAgents.length">{{ batchTargetAgents.map((item) => item.name).join("、") }}</span>
-          <span v-else>暂无可更新的文本 Agent</span>
-        </div>
+        <div class="oneClickHint">{{ $t("settings.agent.oneClickFillHint") }}</div>
       </div>
     </t-dialog>
   </div>
@@ -151,10 +143,9 @@ const { isElectron } = storeToRefs(settingStore());
 
 interface ModelType {
   id: number;
-  key?: string;
   model: string;
   modelName: string;
-  vendorId: string | number | null;
+  vendorId: number | null;
   name: string;
   icon: string;
   desc: string;
@@ -169,6 +160,9 @@ const modelDataShow = ref(false);
 const currentItem = ref<ModelType | null>(null);
 const selectValue = ref<string>("");
 const selectLabel = ref<string>("");
+const oneClickModelShow = ref(false);
+const oneClickModelValue = ref("");
+const oneClickModelLabel = ref("");
 
 function getProviderLogo(manufacturer: string) {
   if (!manufacturer) return null;
@@ -192,18 +186,6 @@ function getFallbackText(name: string) {
 }
 const type = ref("");
 const maxTokenMode = ref<"auto" | "manual">("auto");
-const batchModelShow = ref(false);
-const batchModelValue = ref("");
-const batchModelLabel = ref("");
-
-const batchTargetAgents = computed(() => {
-  return [...modelData.value, ...advancedModelData.value].filter((item) => {
-    if (item.disabled) return false;
-    const identity = `${item.key || ""} ${item.name || ""}`.toLowerCase();
-    if (/tts|配音/.test(identity)) return false;
-    return true;
-  });
-});
 
 watch(maxTokenMode, (val) => {
   if (val === "auto" && currentItem.value) {
@@ -254,55 +236,6 @@ function confirmConfig() {
       modelDataShow.value = false;
     });
 }
-
-function openBatchModelDialog() {
-  batchModelValue.value = "";
-  batchModelLabel.value = "";
-  batchModelShow.value = true;
-}
-
-async function confirmBatchModel() {
-  if (!batchModelValue.value) {
-    window.$message.warning("请先选择要应用的文本模型");
-    return false;
-  }
-  const [vendorId, modelName] = batchModelValue.value.split(/:(.+)/);
-  if (!vendorId || !modelName) {
-    window.$message.warning("模型格式无效，请重新选择");
-    return false;
-  }
-  const targets = batchTargetAgents.value;
-  if (!targets.length) {
-    window.$message.warning("没有可更新的文本 Agent");
-    return false;
-  }
-  loading.value = true;
-  try {
-    await Promise.all(
-      targets.map((item) =>
-        axios.post("/setting/agentDeploy/deployAgentModel", {
-          id: item.id,
-          name: item.name,
-          model: batchModelLabel.value || modelName,
-          modelName: batchModelValue.value,
-          vendorId,
-          desc: item.desc,
-          temperature: item.temperature ?? 1,
-          maxOutputTokens: item.maxOutputTokens ?? 0,
-        }),
-      ),
-    );
-    window.$message.success(`已将 ${targets.length} 个文本 Agent 切换到 ${batchModelLabel.value || modelName}`);
-    batchModelShow.value = false;
-    await getAgentDeploy();
-  } catch (err: any) {
-    window.$message.error(`一键修改模型失败：${err?.message ?? err}`);
-  } finally {
-    loading.value = false;
-  }
-  return true;
-}
-
 //跳转官方网站
 async function jumpToWebsite() {
   if (isElectron.value) {
@@ -330,54 +263,22 @@ onMounted(() => {
   getAgentDeploy();
 });
 //一键填入
-async function oneClickToFillIn() {
-  loading.value = true;
-  await getVendorList();
-  const toonflow = vendorList.value.find((item) => item.id === "toonflow");
-  if (!toonflow) {
-    window.$message.error($t("settings.agent.msg.toonflowNotFound"));
-    loading.value = false;
-    return;
-  }
-  if (!toonflow.inputValues.apiKey) {
-    // key 不存在，弹窗让用户填入
-    loading.value = false;
-    const inputKey = ref("");
-    const dialogInstance = DialogPlugin({
-      theme: "warning",
-      header: $t("settings.agent.fillKeyHeader"),
-      body: () =>
-        h("div", { style: "padding: 8px 0" }, [
-          h(resolveComponent("t-input") as any, {
-            modelValue: inputKey.value,
-            "onUpdate:modelValue": (val: string) => (inputKey.value = val),
-            placeholder: $t("settings.agent.keyPlaceholder"),
-            type: "password",
-          }),
-        ]),
-      confirmBtn: $t("settings.agent.confirm"),
-      cancelBtn: $t("settings.agent.cancel"),
-      onConfirm: () => {
-        if (!inputKey.value) {
-          window.$message.warning($t("settings.agent.msg.enterKey"));
-          return;
-        }
-        dialogInstance.hide();
-        submitAgentSetKey(inputKey.value);
-      },
-      onClose: () => {
-        dialogInstance.hide();
-      },
-    });
-    return;
-  }
-  submitAgentSetKey(toonflow.inputValues.apiKey);
+function oneClickToFillIn() {
+  oneClickModelShow.value = true;
 }
 
-function submitAgentSetKey(key: string) {
+function confirmOneClickFill() {
+  if (!oneClickModelValue.value) {
+    window.$message.warning($t("settings.agent.msg.selectTextModel"));
+    return;
+  }
+  submitAgentSetModel(oneClickModelValue.value, oneClickModelLabel.value);
+}
+
+function submitAgentSetModel(modelName: string, model: string) {
   loading.value = true;
   axios
-    .post("/setting/agentDeploy/agentSetKey", { key })
+    .post("/setting/agentDeploy/agentSetKey", { modelName, model })
     .then(() => {
       window.$message.success($t("settings.agent.msg.configSuccess"));
       getAgentDeploy();
@@ -387,31 +288,11 @@ function submitAgentSetKey(key: string) {
     })
     .finally(() => {
       modelDataShow.value = false;
+      oneClickModelShow.value = false;
       loading.value = false;
     });
 }
 
-// ── 供应商列表 ──
-interface VendorItem {
-  id: string; //供应商唯一标识，必须全局唯一
-  inputValues: Record<string, string>;
-}
-
-const vendorList = ref<VendorItem[]>([]);
-
-async function getVendorList() {
-  try {
-    const res = await axios.post("/setting/vendorConfig/getVendorList");
-    vendorList.value = res.data.map((item: any) => {
-      return {
-        ...item,
-        enable: item.enable == 1 ? true : false,
-      };
-    });
-  } catch (err: any) {
-    window.$message.error(`${$t("settings.vendor.msg.getVendorListFailed")}${err.message}`);
-  }
-}
 //高级配置
 const advancedModelData = ref<ModelType[]>([]);
 const agentUseModeVal = ref("0");
@@ -420,9 +301,9 @@ async function getUseModeVal() {
   console.log("%c Line:330 🍑 data", "background:#2eafb0", data);
   agentUseModeVal.value = data;
 }
-async function updateUseMode(val: string) {
+async function updateUseMode(val: string | number | boolean) {
   await axios.post("/setting/agentDeploy/updateUseMode", {
-    agentUseMode: val,
+    agentUseMode: String(val),
   });
 }
 onMounted(() => {
@@ -505,15 +386,10 @@ onMounted(() => {
   padding: 8px 0;
 }
 
-.batchModelAlert {
-  margin-bottom: 12px;
-}
-
-.batchModelPreview {
-  margin-top: 8px;
-  font-size: 13px;
+.oneClickHint {
   color: var(--td-text-color-secondary);
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .maxTokenRow {

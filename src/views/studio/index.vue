@@ -8,101 +8,63 @@
       @refresh="refreshData"
     />
 
-    <div class="studio-body" :style="studioLayoutStyle">
+    <div class="studio-body">
+      <div class="studio-canvas">
+        <ProductionFlowCanvas
+          flow-id="studioFlowBox"
+          embedded
+          :show-episode-selector="false"
+          :show-right-chat="false"
+          :auto-select-first-episode="false"
+        />
+      </div>
+
       <t-button
-        v-if="!leftPanelOpen"
-        class="floating-toggle left-toggle"
+        class="panel-float-toggle left"
+        :class="{ active: leftPanelOpen }"
         shape="square"
-        theme="primary"
-        @click="openLeftPanel"
+        theme="default"
+        variant="outline"
+        @click="leftPanelOpen = !leftPanelOpen"
       >
-        <template #icon><i-menu-unfold-one size="18" /></template>
-      </t-button>
-      <t-button
-        v-if="!rightPanelOpen"
-        class="floating-toggle right-toggle"
-        shape="square"
-        theme="primary"
-        @click="openRightPanel"
-      >
-        <template #icon><i-menu-fold-one size="18" /></template>
+        <template #icon><i-list v-if="!leftPanelOpen" size="18" /><i-close v-else size="18" /></template>
       </t-button>
 
-      <div v-show="leftPanelOpen" class="studio-floating-panel story-floating-panel">
-        <t-button class="panel-close-btn story-close" shape="square" variant="text" size="small" @click="closeLeftPanel">
-          <template #icon><i-menu-fold-one size="16" /></template>
-        </t-button>
+      <transition name="studio-slide-left">
         <StoryPanel
+          v-show="leftPanelOpen"
+          class="studio-floating-panel story-floating-panel"
+          :style="{ bottom: sidePanelBottom }"
           v-model:selected-id="selectedStoryboardId"
           v-model:selected-ids="selectedStoryboardIds"
-          v-model:panel-width="leftPanelWidth"
           :storyboard="flowData.storyboard"
           :loading="loading"
           @select="onStoryboardSelect"
           @preview="onPreviewStoryboard"
           @select-all="onSelectAll"
           @generate-all="onGenerateAll"
-          @generate-director-board="onGenerateDirectorBoard"
           @retry="onRetryStoryboard"
           @retry-failed="onRetryFailedStoryboards"
         />
-      </div>
+      </transition>
 
-      <div class="studio-center">
-        <div class="studio-canvas-wrap">
-          <Suspense>
-            <ProductionFlowCanvas
-              embedded
-              show-embedded-toolbar
-              :show-assistant="false"
-              :show-canvas-controls="false"
-            />
-            <template #fallback>
-              <div class="canvas-loading">
-                <t-loading size="small" text="正在加载画布" />
-              </div>
-            </template>
-          </Suspense>
-        </div>
-        <button
-          class="asset-panel-toggle"
-          :class="{ open: assetPanelOpen }"
-          :style="{ bottom: assetPanelOpen ? assetPanelHeight + 8 + 'px' : '12px' }"
-          @click="assetPanelOpen = !assetPanelOpen"
-        >
-          <i-pic size="14" />
-          <span>资产 {{ studioAssets.length }}</span>
-          <i-up v-if="!assetPanelOpen" size="14" />
-          <i-down v-else size="14" />
-        </button>
-        <div v-if="assetPanelOpen" class="studio-assets-shell">
-          <FilePanel
-            v-model:panel-height="assetPanelHeight"
-            :assets="studioAssets"
-            :storyboard="flowData.storyboard"
-            :project-id="project?.id"
-            :image-model="project?.imageModel"
-            :image-quality="project?.imageQuality"
-            :loading="assetLoading"
-            :error-message="assetError"
-            @select-asset="onAssetSelect"
-            @select-storyboard="onStoryboardSelectById"
-            @preview-asset="onAssetPreview"
-            @repaint-asset="onAssetRepaint"
-            @refresh-assets="loadProjectAssets"
-            @asset-image-changed="loadProjectAssets"
-            @collapse="assetPanelOpen = false"
-          />
-        </div>
-      </div>
+      <t-button
+        class="panel-float-toggle right"
+        :class="{ active: rightPanelOpen }"
+        shape="square"
+        theme="default"
+        variant="outline"
+        @click="rightPanelOpen = !rightPanelOpen"
+      >
+        <template #icon><i-robot v-if="!rightPanelOpen" size="18" /><i-close v-else size="18" /></template>
+      </t-button>
 
-      <div v-show="rightPanelOpen" class="studio-floating-panel agent-floating-panel">
-        <t-button class="panel-close-btn agent-close" shape="square" variant="text" size="small" @click="closeRightPanel">
-          <template #icon><i-menu-unfold-one size="16" /></template>
-        </t-button>
+      <transition name="studio-slide-right">
         <AgentPanel
+          v-show="rightPanelOpen"
+          class="studio-floating-panel agent-floating-panel"
+          :style="{ bottom: sidePanelBottom }"
           v-model:mode="agentMode"
-          v-model:panel-width="rightPanelWidth"
           :connected="activeAgent.connected"
           :messages="activeAgent.messages"
           :status="activeAgent.status"
@@ -110,9 +72,10 @@
           :think-level="activeAgent.thinkLevel"
           :flow-data="flowData"
           :project-name="project?.name"
-          :image-model="project?.imageModel"
-          :video-model="project?.videoModel"
           :episodes-count="episodes.length"
+          :image-model="currentImageModel"
+          :image-model-options="imageModelOptions"
+          :loading-image-models="loadingImageModels"
           :selected-storyboard-id="selectedStoryboardId"
           :selected-storyboard-ids="selectedStoryboardIds"
           :selected-asset-id="selectedAssetId"
@@ -126,6 +89,29 @@
           @clear-memory="handleClearMemory"
           @reconnect="handleReconnect"
           @update-think-config="handleUpdateThinkConfig"
+          @load-image-models="handleLoadImageModels"
+          @set-image-model="handleSetImageModel"
+        />
+      </transition>
+
+      <div class="asset-drawer" :class="{ collapsed: !assetsPanelOpen }" :style="{ height: assetsPanelOpen ? `${assetPanelHeight}px` : '44px' }">
+        <div class="asset-drawer-tab">
+          <button type="button" class="asset-tab-btn" @click="assetsPanelOpen = !assetsPanelOpen">
+            <i-pic size="15" />
+            <span>资产 {{ flowData.assets.length }}</span>
+            <i-up v-if="assetsPanelOpen" size="14" />
+            <i-down v-else size="14" />
+          </button>
+        </div>
+        <FilePanel
+          v-show="assetsPanelOpen"
+          v-model:panel-height="assetPanelHeight"
+          :assets="flowData.assets"
+          :storyboard="flowData.storyboard"
+          @select-asset="onAssetSelect"
+          @select-storyboard="onStoryboardSelectById"
+          @preview-asset="onAssetPreview"
+          @repaint-asset="onAssetRepaint"
         />
       </div>
     </div>
@@ -143,8 +129,7 @@ import StudioHeader from "./components/StudioHeader.vue";
 import StoryPanel from "./components/StoryPanel.vue";
 import FilePanel from "./components/FilePanel.vue";
 import AgentPanel from "./components/AgentPanel.vue";
-
-const ProductionFlowCanvas = defineAsyncComponent(() => import("@/views/production/index.vue"));
+import ProductionFlowCanvas from "../production/ProductionFlowCanvas.vue";
 
 const { project } = storeToRefs(projectStore());
 const prodStore = productionAgentStore();
@@ -152,7 +137,6 @@ const workspaceStore = useWorkspaceAgentStore();
 const prodRefs = storeToRefs(prodStore);
 const workspaceRefs = storeToRefs(workspaceStore);
 const { flowData, episodesId } = prodRefs;
-provide("episodesId", episodesId);
 
 type AgentMode = "workspace" | "production";
 const agentMode = ref<AgentMode>("workspace");
@@ -179,13 +163,8 @@ type ProductionDataUpdatedPayload = {
   type?: string;
   projectId?: number | string;
   episodesId?: number;
-  scriptId?: number;
-  scriptName?: string;
   createdCount?: number;
   storyboardIds?: number[];
-  directorBoardIds?: number[];
-  trackId?: number;
-  videoId?: number;
   stage?: "submitted" | "progress" | string;
   submitted?: number;
   assetIds?: number[];
@@ -202,69 +181,59 @@ type ProductionDataUpdatedPayload = {
 const selectedStoryboardId = ref<number | null>(null);
 const selectedStoryboardIds = ref<number[]>([]);
 const selectedAssetId = ref<number | null>(null);
-const leftPanelOpen = ref(true);
-const rightPanelOpen = ref(true);
-const leftPanelWidth = ref(320);
-const rightPanelWidth = ref(410);
-const isCompactStudio = ref(false);
-const assetPanelOpen = ref(true);
-const assetPanelHeight = ref(220);
-const projectAssets = ref<any[]>([]);
-const assetLoading = ref(false);
-const assetError = ref("");
 
 const selectedStoryboard = computed(() =>
   flowData.value.storyboard.find(s => s.id === selectedStoryboardId.value)
 );
 const selectedAsset = computed(() => findAssetById(selectedAssetId.value));
-const studioAssets = computed(() => mergeStudioAssets(projectAssets.value, flowData.value.assets || []));
 const selectedElements = computed(() => ({
   storyboardIds: selectedStoryboardIds.value,
   storyboard: selectedStoryboard.value || null,
   asset: selectedAsset.value || null,
   episode: currentEpisode.value || null,
 }));
-const studioLayoutStyle = computed(() => ({
-  "--asset-safe-left": leftPanelOpen.value ? `${leftPanelWidth.value + 1}px` : "0px",
-  "--asset-safe-right": rightPanelOpen.value ? `${rightPanelWidth.value + 1}px` : "0px",
-}));
 const generating = ref(false);
 const loading = ref(false);
+const leftPanelOpen = ref(true);
+const rightPanelOpen = ref(true);
+const assetsPanelOpen = ref(true);
+const assetPanelHeight = ref(240);
+const sidePanelBottom = computed(() => assetsPanelOpen.value ? `${assetPanelHeight.value + 28}px` : "58px");
 const assetProgressMessageId = ref<string | null>(null);
 const assetProgressTotal = ref(0);
 const assetProgressStates = new Map<number, string>();
-let projectAssetsPollingTimer: number | null = null;
-let compactStudioQuery: MediaQueryList | null = null;
 
-function syncCompactStudioLayout() {
-  if (!compactStudioQuery) return;
-  isCompactStudio.value = compactStudioQuery.matches;
-  if (isCompactStudio.value && leftPanelOpen.value && rightPanelOpen.value) {
-    leftPanelOpen.value = false;
+// 图像模型状态
+const imageModelOptions = ref<any[]>([]);
+const loadingImageModels = ref(false);
+const currentImageModel = computed(() => workspaceRefs.currentImageModel.value || undefined);
+
+async function handleLoadImageModels() {
+  if (agentMode.value !== "workspace") return;
+  loadingImageModels.value = true;
+  try {
+    await workspaceStore.getImageModels();
+    imageModelOptions.value = workspaceStore.imageModels;
+  } catch (err) {
+    console.error("[Studio] handleLoadImageModels error:", err);
+  } finally {
+    loadingImageModels.value = false;
   }
 }
 
-function openLeftPanel() {
-  leftPanelOpen.value = true;
-  if (isCompactStudio.value) rightPanelOpen.value = false;
-}
-
-function openRightPanel() {
-  rightPanelOpen.value = true;
-  if (isCompactStudio.value) leftPanelOpen.value = false;
-}
-
-function closeLeftPanel() {
-  leftPanelOpen.value = false;
-}
-
-function closeRightPanel() {
-  rightPanelOpen.value = false;
+async function handleSetImageModel(model: string) {
+  try {
+    await workspaceStore.setImageModel(model);
+    window.$message.success("图像模型已更新");
+  } catch (err) {
+    console.error("[Studio] handleSetImageModel error:", err);
+    window.$message.error("更新图像模型失败");
+  }
 }
 
 function ensureProductionEpisode(showMessage = true) {
   if (episodesId.value) return true;
-  if (showMessage) window.$message.warning("当前项目还没有章节工作区，请先生成分镜表或选择章节工作区");
+  if (showMessage) window.$message.warning("当前项目还没有可生产的剧集，请先生成或选择剧集");
   return false;
 }
 
@@ -288,159 +257,6 @@ function stripLargeFields<T>(value: T): T {
   return cloned;
 }
 
-function latestAttemptState(asset: any) {
-  const state = asset?.latestImageState;
-  return state === "生成中" || state === "生成失败" ? state : null;
-}
-
-function normalizedAssetState(asset: any) {
-  return latestAttemptState(asset) ?? asset?.state ?? "未生成";
-}
-
-function normalizedAssetErrorReason(asset: any) {
-  return latestAttemptState(asset) === "生成失败"
-    ? asset?.latestImageErrorReason ?? asset?.errorReason ?? ""
-    : asset?.errorReason ?? "";
-}
-
-function mergeAssetState(a?: string, b?: string) {
-  if (a === "生成中" || b === "生成中") return "生成中";
-  if (a === "生成失败" || b === "生成失败") return "生成失败";
-  return a || b || "未生成";
-}
-
-function normalizeStudioAsset(asset: any) {
-  const derive = asset?.derive ?? asset?.sonAssets ?? [];
-  const historyImages = Array.isArray(asset?.historyImages) ? asset.historyImages : [];
-  return {
-    ...asset,
-    desc: asset?.desc ?? asset?.describe ?? "",
-    src: asset?.src ?? asset?.filePath ?? "",
-    filePath: asset?.filePath ?? asset?.src ?? "",
-    state: normalizedAssetState(asset),
-    errorReason: normalizedAssetErrorReason(asset),
-    historyImages: historyImages.map((item: any) => ({
-      ...item,
-      src: item?.src ?? item?.filePath ?? "",
-      filePath: item?.filePath ?? item?.src ?? "",
-      state: item?.state ?? "已完成",
-    })),
-    derive: Array.isArray(derive)
-      ? derive.map((item: any) => ({
-          ...item,
-          assetsId: item.assetsId ?? asset?.id,
-          desc: item?.desc ?? item?.describe ?? "",
-          src: item?.src ?? item?.filePath ?? "",
-          filePath: item?.filePath ?? item?.src ?? "",
-          state: normalizedAssetState(item),
-          errorReason: normalizedAssetErrorReason(item),
-          historyImages: Array.isArray(item?.historyImages)
-            ? item.historyImages.map((image: any) => ({
-                ...image,
-                src: image?.src ?? image?.filePath ?? "",
-                filePath: image?.filePath ?? image?.src ?? "",
-                state: image?.state ?? "已完成",
-              }))
-            : [],
-        }))
-      : [],
-  };
-}
-
-function mergeStudioAssets(globalAssets: any[], flowAssets: any[]) {
-  const map = new Map<number, any>();
-  globalAssets.map(normalizeStudioAsset).forEach((asset) => map.set(asset.id, asset));
-  flowAssets.map(normalizeStudioAsset).forEach((asset) => {
-    const current = map.get(asset.id);
-    if (!current) {
-      map.set(asset.id, asset);
-      return;
-    }
-    const deriveMap = new Map<number, any>();
-    (current.derive || []).forEach((item: any) => deriveMap.set(item.id, item));
-    (asset.derive || []).forEach((item: any) => {
-      const existing = deriveMap.get(item.id);
-      deriveMap.set(item.id, {
-        ...item,
-        ...existing,
-        imageId: existing?.imageId ?? item.imageId,
-        src: existing?.src || item.src,
-        filePath: existing?.filePath || item.filePath,
-        state: mergeAssetState(existing?.state, item.state),
-        errorReason: existing?.errorReason || item.errorReason,
-        historyImages: item.historyImages?.length ? item.historyImages : existing?.historyImages,
-      });
-    });
-    map.set(asset.id, {
-      ...current,
-      ...asset,
-      imageId: current.imageId ?? asset.imageId,
-      src: current.src || asset.src,
-      filePath: current.filePath || asset.filePath,
-      state: mergeAssetState(current.state, asset.state),
-      errorReason: current.errorReason || asset.errorReason,
-      historyImages: asset.historyImages?.length ? asset.historyImages : current.historyImages,
-      derive: [...deriveMap.values()],
-    });
-  });
-  return [...map.values()];
-}
-
-async function loadProjectAssets() {
-  if (!project.value?.id) {
-    projectAssets.value = [];
-    assetLoading.value = false;
-    assetError.value = "";
-    syncProjectAssetsPolling();
-    return;
-  }
-  assetLoading.value = true;
-  assetError.value = "";
-  try {
-    const types = ["role", "scene", "tool"];
-    const responses = await Promise.all(
-      types.map((type) =>
-        axios.post("/assets/getAssetsApi", {
-          projectId: project.value!.id,
-          type,
-          name: "",
-          page: 1,
-          limit: 500,
-          includeHistoryImages: false,
-        }),
-      ),
-    );
-    projectAssets.value = responses.flatMap((res) => res.data?.data ?? []).map(normalizeStudioAsset);
-  } catch (err: any) {
-    console.error("[studio] loadProjectAssets failed:", err);
-    assetError.value = err?.message || "资产加载失败";
-  } finally {
-    assetLoading.value = false;
-    syncProjectAssetsPolling();
-  }
-}
-
-function hasGeneratingAssetImages() {
-  return projectAssets.value.some((asset) => {
-    if (asset?.state === "生成中") return true;
-    return (asset?.derive || []).some((derive: any) => derive?.state === "生成中");
-  });
-}
-
-function syncProjectAssetsPolling() {
-  if (hasGeneratingAssetImages()) {
-    if (projectAssetsPollingTimer) return;
-    projectAssetsPollingTimer = window.setInterval(() => {
-      void loadProjectAssets();
-    }, 3000);
-    return;
-  }
-  if (projectAssetsPollingTimer) {
-    clearInterval(projectAssetsPollingTimer);
-    projectAssetsPollingTimer = null;
-  }
-}
-
 function buildStudioWorkspaceData(key?: string) {
   const context = {
     source: "studio",
@@ -462,7 +278,7 @@ function buildStudioWorkspaceData(key?: string) {
     selectedElements: selectedElements.value,
     flowSummary: {
       storyboardCount: flowData.value.storyboard?.length ?? 0,
-      assetCount: studioAssets.value?.length ?? 0,
+      assetCount: flowData.value.assets?.length ?? 0,
       hasScript: Boolean(flowData.value.script),
       hasScriptPlan: Boolean(flowData.value.scriptPlan),
       hasStoryboardTable: Boolean(flowData.value.storyboardTable),
@@ -481,7 +297,7 @@ function buildStudioWorkspaceData(key?: string) {
     },
     flowData: stripLargeFields(flowData.value),
     storyboard: stripLargeFields(flowData.value.storyboard),
-    assets: stripLargeFields(studioAssets.value),
+    assets: stripLargeFields(flowData.value.assets),
   };
 
   if (key && key in dataMap) return dataMap[key];
@@ -531,44 +347,6 @@ function updateAssetProgressNotice(payload: ProductionDataUpdatedPayload) {
   }
 }
 
-function isProductionToolUpdate(payload: ProductionDataUpdatedPayload) {
-  return ["director_boards", "video_prompt", "video_generation"].includes(String(payload.type || ""));
-}
-
-function productionToolUpdateMessage(payload: ProductionDataUpdatedPayload) {
-  if (payload.type === "director_boards") {
-    if (payload.stage === "director_boards_planned") return "章节导演板提示词已生成，画布数据已刷新。";
-    if (payload.stage === "director_board_regenerating") return `导演板${payload.directorBoardIds?.[0] ? ` #${payload.directorBoardIds[0]}` : ""}已提交重绘，画布数据已刷新。`;
-    return `章节导演板已提交生成${payload.directorBoardIds?.length ? `（${payload.directorBoardIds.length} 张）` : ""}，画布数据已刷新。`;
-  }
-  if (payload.type === "video_prompt") {
-    return `视频提示词已生成${payload.trackId ? `并写入轨道 #${payload.trackId}` : ""}，画布数据已刷新。`;
-  }
-  if (payload.type === "video_generation") {
-    return `视频生成任务已提交${payload.videoId ? `（视频 #${payload.videoId}）` : ""}，画布数据已刷新。`;
-  }
-  return "生产数据已刷新。";
-}
-
-async function refreshProductionWorkspace(payload: ProductionDataUpdatedPayload, options: { selectFirstStoryboard?: boolean } = {}) {
-  await loadEpisodes();
-  const targetEpisodeId = payload.episodesId ?? payload.scriptId;
-  if (!targetEpisodeId) return;
-  const switchedEpisode = Number(targetEpisodeId) !== Number(episodesId.value ?? 0);
-  prodStore.episodesId = targetEpisodeId;
-  prodStore.updateContext?.();
-  if (switchedEpisode) {
-    selectedStoryboardId.value = null;
-    selectedStoryboardIds.value = [];
-  }
-  await prodStore.getFlowData();
-  if (options.selectFirstStoryboard) {
-    const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
-    selectedStoryboardId.value = firstStoryboardId ?? null;
-    selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
-  }
-}
-
 function registerWorkspacePlanDataHandler() {
   const s = workspaceRefs.socket.value;
   if (!s) return;
@@ -581,75 +359,33 @@ function registerWorkspacePlanDataHandler() {
   s.on("productionDataUpdated", async (payload: ProductionDataUpdatedPayload) => {
     if (String(payload?.projectId ?? "") !== String(project.value?.id ?? "")) return;
     if (payload?.type === "asset_images") {
+      if (!flowData.value.assets?.length) await prodStore.getFlowData();
       if (payload.assetIds?.length) prodStore.markAssetImagesGenerating?.(payload.assetIds);
       if (payload.records?.length) prodStore.applyAssetImageRecords?.(payload.records as any);
       updateAssetProgressNotice(payload);
-      await loadProjectAssets();
-      if (payload.stage === "submitted" && episodesId.value) {
-        await prodStore.getFlowData();
-      }
       return;
     }
-    if (isProductionToolUpdate(payload)) {
-      await refreshProductionWorkspace(payload);
-      window.$message.success(productionToolUpdateMessage(payload));
-      return;
-    }
+    await loadEpisodes();
     if (payload?.episodesId) {
-      await refreshProductionWorkspace(payload, { selectFirstStoryboard: true });
-      if (payload.stage === "workspace_resolved") {
-        window.$message.success(`已切换到${payload.scriptName ? `「${payload.scriptName}」` : "目标章节工作区"}，正在生成分镜`);
-      } else {
-        window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有章节工作区");
-      }
+      prodStore.episodesId = payload.episodesId;
+      prodStore.updateContext?.();
+      await prodStore.getFlowData();
+      const firstStoryboardId = payload.storyboardIds?.[0] ?? flowData.value.storyboard[0]?.id;
+      selectedStoryboardId.value = firstStoryboardId ?? null;
+      selectedStoryboardIds.value = firstStoryboardId ? [firstStoryboardId] : [];
+      window.$message.success(payload.createdCount ? `Flova 已生成 ${payload.createdCount} 个分镜` : "已切换到已有分镜剧集");
     }
-  });
-}
-
-function syncWorkspaceAgentContext() {
-  const s = workspaceRefs.socket.value;
-  const projectId = project.value?.id;
-  if (!s || !projectId) return;
-  s.emit("updateContext", {
-    isolationKey: `${projectId}:workspaceAgent`,
-    projectId,
-    scriptId: episodesId.value ?? null,
   });
 }
 
 watch(
   () => workspaceRefs.socket.value,
-  () => {
-    registerWorkspacePlanDataHandler();
-    syncWorkspaceAgentContext();
-  },
+  () => registerWorkspacePlanDataHandler(),
   { immediate: true },
 );
 
-watch(
-  () => [project.value?.id, episodesId.value, workspaceRefs.connected.value] as const,
-  () => syncWorkspaceAgentContext(),
-);
-
-watch(
-  () => project.value?.id,
-  () => {
-    void loadProjectAssets();
-  },
-);
-
-function handleAssetsUpdated(event: Event) {
-  const detail = (event as CustomEvent<{ projectId?: string | number }>).detail;
-  if (detail?.projectId && String(detail.projectId) !== String(project.value?.id ?? "")) return;
-  void loadProjectAssets();
-}
-
 onMounted(async () => {
-  compactStudioQuery = window.matchMedia("(max-width: 720px)");
-  syncCompactStudioLayout();
-  compactStudioQuery.addEventListener("change", syncCompactStudioLayout);
-  window.addEventListener("toonflow-assets-updated", handleAssetsUpdated);
-  await Promise.all([loadEpisodes(), loadProjectAssets()]);
+  await loadEpisodes();
   if (episodes.value.length > 0 && !episodesId.value) {
     prodStore.episodesId = episodes.value[0].id;
   }
@@ -659,24 +395,15 @@ onMounted(async () => {
     prodStore.connect();
     prodStore.getHistory?.();
     await prodStore.getFlowData();
+  } else {
+    await prodStore.getFlowData();
   }
   if (flowData.value.storyboard.length > 0) {
     selectedStoryboardId.value = flowData.value.storyboard[0].id || null;
   }
 });
 
-onActivated(() => {
-  void loadProjectAssets();
-});
-
 onUnmounted(() => {
-  compactStudioQuery?.removeEventListener("change", syncCompactStudioLayout);
-  compactStudioQuery = null;
-  window.removeEventListener("toonflow-assets-updated", handleAssetsUpdated);
-  if (projectAssetsPollingTimer) {
-    clearInterval(projectAssetsPollingTimer);
-    projectAssetsPollingTimer = null;
-  }
   workspaceStore.disconnect();
   prodStore.disconnect();
 });
@@ -697,12 +424,10 @@ function handleEpisodeChange(id: number) {
   prodStore.episodesId = id;
   prodStore.updateContext?.();
   if (ensureProductionEpisode(false)) prodStore.getFlowData();
-  void loadProjectAssets();
 }
 
 function refreshData() {
-  if (episodesId.value) prodStore.getFlowData();
-  void loadProjectAssets();
+  prodStore.getFlowData();
   if (agentMode.value === "workspace") workspaceStore.getHistory?.();
 }
 
@@ -734,43 +459,10 @@ async function onGenerateAll(items: any[]) {
   generating.value = true;
   try {
     await prodStore.batchGenerateStoryboard(ids);
-    window.$message.success(`已提交 ${ids.length} 个首帧分镜图生成任务`);
+    window.$message.success(`已提交 ${ids.length} 个分镜生成任务`);
   } catch (err: any) {
     console.error("[studio] generate storyboard failed:", err);
-    window.$message.error(err?.message || "首帧分镜图生成失败");
-  } finally {
-    generating.value = false;
-  }
-}
-
-type DirectorBoardType = "continuity" | "textStoryboard" | "hybridStoryboard" | "spatialSixPanel";
-
-async function onGenerateDirectorBoard(items: any[], boardType: DirectorBoardType = "hybridStoryboard") {
-  if (!ensureProductionEpisode()) return;
-  const ids = items.map((i: any) => Number(i.id)).filter((id: number) => Number.isFinite(id) && id > 0);
-  if (ids.length === 0 || !project.value?.id || !episodesId.value) return;
-
-  generating.value = true;
-  try {
-    const { data } = await axios.post("/production/directorBoard/generate", {
-      projectId: Number(project.value.id),
-      scriptId: Number(episodesId.value),
-      storyboardIds: ids,
-      boardType,
-      shotsPerBoard: 6,
-      replace: true,
-      generateImages: false,
-    });
-    window.dispatchEvent(new CustomEvent("toonflow-director-boards-updated", {
-      detail: {
-        projectId: Number(project.value.id),
-        scriptId: Number(episodesId.value),
-      },
-    }));
-    window.$message.success(`已创建 ${(data ?? []).length || Math.ceil(ids.length / 6)} 张章节导演板草案，点击单张“生成”再出图`);
-  } catch (err: any) {
-    console.error("[studio] generate director board failed:", err);
-    window.$message.error(err?.message || "章节导演板生成失败");
+    window.$message.error(err?.message || "分镜生成失败");
   } finally {
     generating.value = false;
   }
@@ -791,7 +483,7 @@ async function onRetryFailedStoryboards(ids: number[]) {
 
 function findAssetById(id: number | null) {
   if (!id) return null;
-  for (const asset of studioAssets.value || []) {
+  for (const asset of flowData.value.assets || []) {
     if (asset.id === id) return asset;
     const derive = asset.derive?.find((item: any) => item.id === id);
     if (derive) return { ...derive, parentAsset: asset };
@@ -828,36 +520,14 @@ async function onAssetRepaint(derive: any) {
   }
 }
 
-// PreviewPanel 事件
-async function onPreviewGenerate() {
-  if (!selectedStoryboardId.value) {
-    window.$message.warning("请先选择一个分镜");
-    return;
-  }
-  await onGenerateAll([{ id: selectedStoryboardId.value }]);
-}
-
-async function onPreviewRetry() {
-  if (!selectedStoryboardId.value) return;
-  await onRetryStoryboard({ id: selectedStoryboardId.value });
-}
-
-function onPreviewEdit() {
-  window.$message.info("编辑功能即将支持，请使用 Agent 对话修改");
-}
-
-function onCreateFirst() {
-  window.$message.info("请在左侧分镜列表中创建第一个分镜，或让 Agent 帮你生成分镜表");
-}
-
 // Agent 相关
 function currentStore() {
   return agentMode.value === "workspace" ? workspaceStore : prodStore;
 }
 
-function handleAgentSend(text: string, displayText?: string) {
+function handleAgentSend(text: string) {
   if (agentMode.value === "production" && !ensureProductionEpisode()) return;
-  currentStore().chat(text, undefined, displayText);
+  currentStore().chat(text);
 }
 
 function handleAgentStop() {
@@ -917,234 +587,173 @@ watch(() => flowData.value.storyboard, (newVal) => {
 .studio-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
+  height: calc(100vh - var(--td-comp-size-xxxl, 48px));
   background-color: var(--td-bg-color-page);
   overflow: hidden;
 }
 
 .studio-body {
   position: relative;
-  display: flex;
   flex: 1;
-  overflow: hidden;
-  background-color: var(--td-border-level-1-color);
-}
-
-.studio-center {
-  position: relative;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background-color: var(--td-border-level-1-color);
-}
-
-.studio-canvas-wrap {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
   overflow: hidden;
   background-color: var(--td-bg-color-page);
 }
 
-.canvas-loading {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--td-text-color-secondary);
-}
-
-.studio-assets-shell {
-  flex-shrink: 0;
-  min-width: 0;
-  margin-left: var(--asset-safe-left);
-  margin-right: var(--asset-safe-right);
-  transition: margin 0.2s ease;
-}
-
-.asset-panel-toggle {
+.studio-canvas {
   position: absolute;
-  left: var(--asset-safe-left);
-  right: var(--asset-safe-right);
-  z-index: 32;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  width: max-content;
-  height: 30px;
-  margin-inline: auto;
-  padding: 0 12px;
-  border: 1px solid var(--td-border-level-1-color);
-  border-radius: 16px;
+  inset: 0;
+  min-width: 0;
+  min-height: 0;
   background-color: var(--td-bg-color-container);
-  color: var(--td-text-color-primary);
-  box-shadow: var(--td-shadow-2);
-  cursor: pointer;
-  font-size: 12px;
-  transition: left 0.2s ease, right 0.2s ease, bottom 0.2s ease, background-color 0.2s ease;
-
-  &:hover {
-    background-color: var(--td-bg-color-container-hover);
-  }
-
-  &.open {
-    border-color: var(--td-brand-color);
-    color: var(--td-brand-color);
-  }
 }
 
 .studio-floating-panel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: 30;
-  display: flex;
-  min-height: 0;
-  box-shadow: var(--td-shadow-3);
+  position: absolute !important;
+  top: 12px;
+  bottom: 58px;
+  z-index: 20;
+  overflow: hidden;
   border: 1px solid var(--td-border-level-1-color);
-  background-color: var(--td-bg-color-container);
+  box-shadow: var(--td-shadow-3);
 }
 
 .story-floating-panel {
-  left: 0;
+  left: 12px;
+  border-radius: 8px;
 }
 
 .agent-floating-panel {
-  right: 0;
+  right: 12px;
+  border-radius: 8px;
 }
 
-.panel-close-btn {
+.panel-float-toggle {
   position: absolute;
-  top: 8px;
+  top: 14px;
   z-index: 35;
-}
-
-.story-close {
-  right: 8px;
-}
-
-.agent-close {
-  left: 8px;
-}
-
-.floating-toggle {
-  position: absolute;
-  top: 8px;
-  z-index: 40;
+  background-color: var(--td-bg-color-container);
   box-shadow: var(--td-shadow-2);
-}
 
-.left-toggle {
-  left: 8px;
-}
-
-.right-toggle {
-  right: 8px;
-}
-
-.story-floating-panel :deep(.story-panel),
-.agent-floating-panel :deep(.agent-panel) {
-  height: 100%;
-  box-shadow: none;
-}
-
-.story-floating-panel :deep(.story-panel) {
-  border-right: 1px solid var(--td-border-level-1-color);
-}
-
-.agent-floating-panel :deep(.agent-panel) {
-  border-left: 1px solid var(--td-border-level-1-color);
-}
-
-.story-floating-panel :deep(.story-panel .panel-header) {
-  padding-right: 48px;
-}
-
-.agent-floating-panel :deep(.agent-panel .panel-header) {
-  padding-left: 48px;
-}
-
-@media (max-width: 960px) {
-  .studio-center {
-    --asset-safe-left: 0px !important;
-    --asset-safe-right: 0px !important;
+  &.left {
+    left: 16px;
   }
 
+  &.right {
+    right: 16px;
+  }
+
+  &.active.left {
+    left: 348px;
+  }
+
+  &.active.right {
+    right: 438px;
+  }
+}
+
+.asset-drawer {
+  position: absolute;
+  left: 72px;
+  right: 72px;
+  bottom: 12px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  min-height: 44px;
+  max-height: min(46vh, 420px);
+  overflow: visible;
+  border: 1px solid var(--td-border-level-1-color);
+  border-radius: 8px;
+  background-color: var(--td-bg-color-container);
+  box-shadow: var(--td-shadow-3);
+  transition: height 0.2s ease;
+
+  &.collapsed {
+    left: 50%;
+    right: auto;
+    width: 180px;
+    transform: translateX(-50%);
+    overflow: hidden;
+  }
+
+  :deep(.file-panel) {
+    height: 100% !important;
+    min-height: 0;
+    border-top: 0;
+    border-radius: 0 0 8px 8px;
+  }
+}
+
+.asset-drawer-tab {
+  display: flex;
+  justify-content: center;
+  height: 0;
+  pointer-events: none;
+}
+
+.asset-tab-btn {
+  position: relative;
+  top: -34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--td-border-level-1-color);
+  border-radius: 999px;
+  background: var(--td-bg-color-container);
+  color: var(--td-text-color-primary);
+  font-size: 12px;
+  box-shadow: var(--td-shadow-2);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.studio-slide-left-enter-active,
+.studio-slide-left-leave-active,
+.studio-slide-right-enter-active,
+.studio-slide-right-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.studio-slide-left-enter-from,
+.studio-slide-left-leave-to {
+  opacity: 0;
+  transform: translateX(-16px);
+}
+
+.studio-slide-right-enter-from,
+.studio-slide-right-leave-to {
+  opacity: 0;
+  transform: translateX(16px);
+}
+
+@media (max-width: 900px) {
   .studio-floating-panel {
-    top: 0;
-    bottom: 0;
+    top: 8px;
+    bottom: 56px;
+    max-width: calc(100vw - 24px);
   }
 
   .story-floating-panel {
-    left: 0;
-    right: 48px;
+    left: 8px;
   }
 
   .agent-floating-panel {
-    left: 48px;
-    right: 0;
+    right: 8px;
   }
 
-  .story-floating-panel :deep(.story-panel),
-  .agent-floating-panel :deep(.agent-panel) {
-    width: 100% !important;
-    min-width: 0;
+  .panel-float-toggle.active.left {
+    left: 16px;
   }
 
-  .story-floating-panel :deep(.resize-handle),
-  .agent-floating-panel :deep(.resize-handle) {
-    display: none;
-  }
-}
-
-@media (max-width: 720px) {
-  .studio-body {
-    min-width: 0;
+  .panel-float-toggle.active.right {
+    right: 16px;
   }
 
-  .story-floating-panel {
-    right: 42px;
-  }
-
-  .agent-floating-panel {
-    left: 42px;
-  }
-
-  .panel-close-btn {
-    top: 6px;
-  }
-
-  .story-close {
-    right: 6px;
-  }
-
-  .agent-close {
-    left: 6px;
-  }
-
-  .floating-toggle {
-    top: 6px;
-  }
-
-  .left-toggle {
-    left: 6px;
-  }
-
-  .right-toggle {
-    right: 6px;
-  }
-
-  .asset-panel-toggle {
-    height: 28px;
-    padding: 0 10px;
-    font-size: 12px;
+  .asset-drawer {
+    left: 12px;
+    right: 12px;
   }
 }
 </style>

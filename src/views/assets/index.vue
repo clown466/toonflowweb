@@ -54,6 +54,16 @@
                 </t-button>
               </div>
             </div>
+            <t-alert v-if="!selectorMode" theme="info" class="factSourceHint">
+              <template #message>
+                <div class="factSourceHintContent">
+                  <span>{{ $t("workbench.assets.projectFacts.hint") }}</span>
+                  <t-button size="small" variant="text" theme="primary" @click="openProjectConstraints">
+                    {{ $t("workbench.assets.projectFacts.entry") }}
+                  </t-button>
+                </div>
+              </template>
+            </t-alert>
             <div class="assetsList f w">
               <t-table
                 v-if="['role', 'tool', 'scene'].includes(assetOptions)"
@@ -132,24 +142,24 @@
                             theme="primary"
                             variant="text"
                             :loading="isAssetImageUploading(subRow.id)"
-                            :disabled="isGenerating(subRow.id)"
+                            :disabled="isGenerating(subRow.id) || isRoleFactRecognizing(subRow.id)"
                             @click="handleUploadAssetImage(subRow)">
                             <template #icon>
                               <t-icon name="upload" />
                             </template>
-                            上传图片
+                            {{ uploadImageText }}
                           </t-button>
                           <t-button
                             v-if="subRow.type === 'role'"
                             theme="primary"
                             variant="text"
-                            :loading="isRoleCardRefreshing(subRow.id)"
-                            :disabled="isGenerating(subRow.id)"
-                            @click="handleRefreshRoleFactCard(subRow)">
+                            :loading="isRoleFactRecognizing(subRow.id)"
+                            :disabled="isGenerating(subRow.id) || isAssetImageUploading(subRow.id)"
+                            @click="recognizeRoleFactCard(subRow)">
                             <template #icon>
                               <t-icon name="scan" />
                             </template>
-                            角色卡
+                            {{ $t("workbench.assets.factCard.recognize") }}
                           </t-button>
                           <t-button theme="danger" variant="text" :disabled="isGenerating(subRow.id)" @click="handleDelete(subRow)">
                             <template #icon>
@@ -229,24 +239,24 @@
                       theme="primary"
                       variant="text"
                       :loading="isAssetImageUploading(row.id)"
-                      :disabled="isGenerating(row.id)"
+                      :disabled="isGenerating(row.id) || isRoleFactRecognizing(row.id)"
                       @click="handleUploadAssetImage(row)">
                       <template #icon>
                         <t-icon name="upload" />
                       </template>
-                      上传图片
+                      {{ uploadImageText }}
                     </t-button>
                     <t-button
                       v-if="row.type === 'role'"
                       theme="primary"
                       variant="text"
-                      :loading="isRoleCardRefreshing(row.id)"
-                      :disabled="isGenerating(row.id)"
-                      @click="handleRefreshRoleFactCard(row)">
+                      :loading="isRoleFactRecognizing(row.id)"
+                      :disabled="isGenerating(row.id) || isAssetImageUploading(row.id)"
+                      @click="recognizeRoleFactCard(row)">
                       <template #icon>
                         <t-icon name="scan" />
                       </template>
-                      角色卡
+                      {{ $t("workbench.assets.factCard.recognize") }}
                     </t-button>
                     <t-button theme="danger" variant="text" :disabled="isGenerating(row.id)" @click="handleDelete(row)">
                       <template #icon>
@@ -431,6 +441,53 @@
 
     <addAudioAssets v-model="addAudioShow" v-if="addAudioShow" :formData="audioFormData" @getFilteredData="getFilteredData(assetOptions)" />
     <t-dialog
+      v-model:visible="projectConstraintsShow"
+      :header="$t('workbench.assets.projectFacts.title')"
+      width="520px"
+      placement="center"
+      destroyOnClose
+      @confirm="saveProjectConstraints">
+      <t-alert theme="info" :message="$t('workbench.assets.projectFacts.description')" class="projectConstraintsAlert" />
+      <t-textarea
+        v-model="projectConstraintsText"
+        :autosize="{ minRows: 6, maxRows: 10 }"
+        :placeholder="$t('workbench.assets.projectFacts.placeholder')" />
+      <div v-if="projectConstraintsFallback" class="fallbackText">
+        {{ $t("workbench.assets.projectFacts.apiFallback") }}
+      </div>
+    </t-dialog>
+    <t-dialog
+      v-model:visible="roleFactDraftShow"
+      :header="$t('workbench.assets.factCard.inferDialogTitle')"
+      width="620px"
+      placement="center"
+      destroyOnClose
+      :confirm-btn="{ content: $t('workbench.assets.factCard.saveDraft'), loading: roleFactDraftSaving }"
+      :cancel-btn="$t('workbench.assets.factCard.cancelDraft')"
+      @confirm="saveInferredRoleFactCard">
+      <t-alert theme="info" :message="$t('workbench.assets.factCard.inferDialogDesc')" class="roleFactDraftAlert" />
+      <t-form label-align="top">
+        <t-form-item :label="$t('workbench.assets.factCard.facts')">
+          <t-textarea
+            v-model="roleFactDraft.facts"
+            :autosize="{ minRows: 5, maxRows: 10 }"
+            :placeholder="$t('workbench.assets.factCard.factsPh')" />
+        </t-form-item>
+        <t-form-item :label="$t('workbench.assets.factCard.negativeFacts')">
+          <t-textarea
+            v-model="roleFactDraft.negativeFacts"
+            :autosize="{ minRows: 3, maxRows: 7 }"
+            :placeholder="$t('workbench.assets.factCard.negativeFactsPh')" />
+        </t-form-item>
+        <div class="roleFactDraftMeta">
+          <t-tag size="small" variant="light-outline">{{ $t("workbench.assets.factCard.sourceTypes.uploaded_image") }}</t-tag>
+          <t-tag size="small" variant="light-outline">
+            {{ $t("workbench.assets.factCard.confidence") }} {{ Math.round(roleFactDraft.confidence * 100) }}%
+          </t-tag>
+        </div>
+      </t-form>
+    </t-dialog>
+    <t-dialog
       v-model:visible="mediaPreviewShow"
       :header="mediaPreviewName || $t('workbench.assets.mediaPreview')"
       :footer="false"
@@ -461,14 +518,6 @@
       <div class="batch">
         <span>{{ $t("workbench.assets.confirmBatch", { type: batchType }) }}</span>
         <t-form labelAlign="top">
-          <t-form-item label="生图预设" name="selectedImageSkillId" v-if="['role', 'tool', 'scene'].includes(assetOptions)">
-            <t-select
-              v-model="selectedImageSkillId"
-              :options="batchImageSkillOptions"
-              :loading="imageSkillLoading"
-              clearable
-              placeholder="默认：视觉手册标准生图" />
-          </t-form-item>
           <t-form-item :label="$t('workbench.assets.model')" name="selectValue" v-if="batchType === $t('workbench.assets.batchGenImage')">
             <modelSelect v-model="selectValue" :type="`image`" />
           </t-form-item>
@@ -497,6 +546,10 @@ import generateImage from "./components/generateImage.vue";
 import projectStore from "@/stores/project";
 import settingStore from "@/stores/setting";
 const { otherSetting } = storeToRefs(settingStore());
+const uploadImageText = computed(() => {
+  const text = String($t("workbench.assets.uploadImage") || "");
+  return text === "workbench.assets.uploadImage" ? "上传图片" : text;
+});
 
 const props = withDefaults(
   defineProps<{
@@ -524,7 +577,6 @@ const audioFormData = ref({
 
 onMounted(() => {
   loadCurrentTabData();
-  fetchImageGenerationSkills();
 });
 
 onUnmounted(() => {
@@ -579,20 +631,31 @@ const selectedSubRowKeys = ref<Array<string | number>>([]);
 const expandedRowKeys = ref<Array<string | number>>([]);
 const loading = ref(false);
 const uploadingAssetIds = ref<Set<number>>(new Set());
-const refreshingRoleCardIds = ref<Set<number>>(new Set());
-// 是否正在处于任意生成中（提示词或图片），基于 item 的实际 state/promptState 判断
+const recognizingRoleFactIds = ref<Set<number>>(new Set());
+const ROLE_FACT_RECOGNITION_TIMEOUT_MS = 3 * 60 * 1000;
+const roleFactDraftShow = ref(false);
+const roleFactDraftSaving = ref(false);
+const roleFactDraft = reactive({
+  assetId: 0,
+  roleName: "",
+  facts: "",
+  negativeFacts: "",
+  confidence: 0.7,
+});
+// 是否正在处于任意生成中（描述词或图片），基于 item 的实际 state/promptState 判断
 const isGenerating = (id: number) => {
   const item = findAssetById(id);
   return item?.promptState === "生成中" || item?.state === "生成中";
 };
 const isAssetImageUploading = (id: number) => uploadingAssetIds.value.has(id);
-const isRoleCardRefreshing = (id: number) => refreshingRoleCardIds.value.has(id);
+const isRoleFactRecognizing = (id: number) => recognizingRoleFactIds.value.has(id);
 //表格数据类型定义
 interface Asset {
   id: number;
   assetsId: number | null;
   name: string;
   prompt: string;
+  sourcePrompt?: string;
   describe: string;
   remark: string;
   src: string;
@@ -600,10 +663,6 @@ interface Asset {
   state: string;
   sonAssets?: Asset[]; // 子资产列表
   imageId: number;
-  latestImageId?: number | null;
-  latestImageState?: string | null;
-  latestImageErrorReason?: string | null;
-  errorReason?: string | null;
   promptState: string;
   filePath: string;
 }
@@ -619,25 +678,6 @@ function handleSearch() {
   pagination.value.page = 1;
   getFilteredData(assetOptions.value);
 }
-
-function latestAttemptState(asset: Partial<Asset>) {
-  const state = asset.latestImageState;
-  return state === "生成中" || state === "生成失败" ? state : null;
-}
-
-function normalizeAssetImageState(asset: Asset): Asset {
-  const state = latestAttemptState(asset) ?? asset.state ?? "未生成";
-  const sonAssets = Array.isArray(asset.sonAssets)
-    ? asset.sonAssets.map((item) => normalizeAssetImageState(item))
-    : asset.sonAssets;
-  return {
-    ...asset,
-    state,
-    errorReason: state === "生成失败" ? asset.latestImageErrorReason ?? asset.errorReason ?? "" : asset.errorReason,
-    sonAssets,
-  };
-}
-
 async function getFilteredData(type: string) {
   try {
     loading.value = true;
@@ -649,7 +689,7 @@ async function getFilteredData(type: string) {
       limit: pagination.value.pageSize,
     });
 
-    tableData.value = (data.data || []).map((item: Asset) => normalizeAssetImageState(item));
+    tableData.value = data.data || [];
     // 当 clip 类型且指定了 clipMediaTypes 时，进行二次过滤
     if (type === "clip" && props.clipMediaTypes?.length) {
       tableData.value = tableData.value.filter((item) => {
@@ -688,11 +728,10 @@ function selectAssetOptions(value: TabValue) {
   selectedRowKeys.value = [];
   selectedSubRowKeys.value = [];
   expandedRowKeys.value = [];
-  selectedImageSkillId.value = "";
   pagination.value.page = 1;
   loadCurrentTabData();
 }
-const formData = ref<{ id: number; name: string; describe: string; remark: string; src?: string; prompt: string }>({
+const formData = ref<{ id: number; name: string; describe: string; remark: string; src?: string; prompt: string; sourcePrompt?: string }>({
   id: 0,
   name: "",
   describe: "",
@@ -701,6 +740,37 @@ const formData = ref<{ id: number; name: string; describe: string; remark: strin
   prompt: "",
 });
 const addAssetsShow = ref(false);
+const projectConstraintsShow = ref(false);
+const projectConstraintsText = ref("");
+const projectConstraintsFallback = ref(false);
+
+async function openProjectConstraints() {
+  projectConstraintsShow.value = true;
+  projectConstraintsFallback.value = false;
+  try {
+    const { data } = await axios.post("/projectContext/getConstraints", {
+      projectId: project.value?.id,
+    });
+    projectConstraintsText.value = data?.content ?? data?.hardConstraints ?? "";
+  } catch {
+    projectConstraintsFallback.value = true;
+  }
+}
+
+async function saveProjectConstraints() {
+  try {
+    await axios.post("/projectContext/saveConstraints", {
+      projectId: project.value?.id,
+      content: projectConstraintsText.value,
+      sourceType: "manual",
+    });
+    projectConstraintsFallback.value = false;
+    window.$message.success($t("workbench.assets.projectFacts.saveSuccess"));
+  } catch {
+    projectConstraintsFallback.value = true;
+    window.$message.warning($t("workbench.assets.projectFacts.apiFallback"));
+  }
+}
 // 新增
 // 文件选择
 const { open, onChange, onCancel } = useFileDialog({ multiple: false, reset: true, accept: ".png,.jpg,.jpeg,.mp3,.mp4" });
@@ -749,52 +819,9 @@ const batchGenerationShow = ref(false);
 const selectValue = ref(""); //选择的模型
 const resolution = ref("1K"); //选择的分辨率
 const batchType = ref("");
-const selectedImageSkillId = ref("");
-const imageSkillLoading = ref(false);
-
-interface ImageGenerationSkillMeta {
-  id: string;
-  name: string;
-  description: string;
-  targetTypes: string[];
-  aspectRatio?: string;
-}
-
-const imageGenerationSkills = ref<ImageGenerationSkillMeta[]>([]);
-
-function compactLabel(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
-}
-
-const batchImageSkillOptions = computed(() => {
-  const currentType = assetOptions.value === "role" || assetOptions.value === "scene" || assetOptions.value === "tool" ? assetOptions.value : "";
-  const options = imageGenerationSkills.value
-    .filter((skill) => !currentType || skill.targetTypes.includes(currentType))
-    .map((skill) => ({
-      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
-        .filter(Boolean)
-        .join(" "),
-      value: skill.id,
-    }));
-  return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
-});
-
-async function fetchImageGenerationSkills() {
-  imageSkillLoading.value = true;
-  try {
-    const { data } = await axios.post("/setting/imageGenerationSkill/list");
-    imageGenerationSkills.value = Array.isArray(data) ? data : [];
-  } catch {
-    imageGenerationSkills.value = [];
-  } finally {
-    imageSkillLoading.value = false;
-  }
-}
-
 function batchGeneration(type: number) {
   batchType.value = type === 1 ? $t("workbench.assets.batchGenPrompt") : $t("workbench.assets.batchGenImage");
   batchGenerationShow.value = true;
-  fetchImageGenerationSkills();
 }
 function keep() {
   if (batchType.value === $t("workbench.assets.batchGenPrompt")) {
@@ -817,7 +844,7 @@ function getSelectedSubAssets(): Asset[] {
   });
   return subAssets;
 }
-// 批量生成提示词
+// 批量生成描述词
 async function handleBatchGeneratePrompt() {
   const selectedParentAssets = tableData.value.filter((item: any) => selectedRowKeys.value.includes(item.id));
   const selectedSubAssets = getSelectedSubAssets();
@@ -844,13 +871,11 @@ async function handleBatchGeneratePrompt() {
     await axios.post("/assetsGenerate/batchPolishAssetsPrompt", {
       projectId: project.value?.id,
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
-      skillId: selectedImageSkillId.value || null,
       items: selectedAssets.map((item: { id: number; name: string; type: string; describe: string }) => ({
         assetsId: item.id,
         type: item.type ?? "props",
         name: item.name,
         describe: item.describe ? item.describe : $t("workbench.assets.noDescription"),
-        skillId: selectedImageSkillId.value || null,
       })),
     });
   } catch (e: any) {
@@ -877,7 +902,8 @@ async function handleBatchGenerateImage() {
 
   // 过滤掉没有 prompt 的资产
   const validAssets = selectedAssets.filter((asset) => {
-    if (!asset.prompt) {
+    const sourcePrompt = asset.sourcePrompt ?? asset.prompt ?? asset.describe;
+    if (!sourcePrompt) {
       window.$message.warning($t("workbench.assets.noPromptForImage", { name: asset.name }));
       return false;
     }
@@ -908,14 +934,13 @@ async function handleBatchGenerateImage() {
       model: selectValue.value,
       resolution: resolution.value,
       concurrentCount: otherSetting.value.assetsBatchGenereateSize,
-      skillId: selectedImageSkillId.value || null,
       items: validAssets.map((item) => ({
         id: item.id,
         type: item.type ?? "props",
         name: item.name ?? $t("workbench.cornerScape.unnamed"),
-        prompt: item.prompt || item.describe,
+        prompt: item.sourcePrompt ?? item.prompt ?? item.describe,
         describe: item.describe,
-        skillId: selectedImageSkillId.value || null,
+        promptMode: "source",
       })),
     });
   } catch (e: any) {
@@ -1012,7 +1037,7 @@ const columns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 420,
+    width: 360,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -1067,7 +1092,7 @@ const subColumns: TableProps["columns"] = [
   {
     colKey: "operation",
     title: $t("workbench.assets.colOperation"),
-    width: 420,
+    width: 360,
     align: "center",
     fixed: "right",
     cell: "operation",
@@ -1223,6 +1248,7 @@ const currentAssetData = ref<{
   describe?: string;
   type?: string;
   prompt?: string;
+  sourcePrompt?: string;
   src: string;
 }>({
   id: undefined,
@@ -1230,15 +1256,18 @@ const currentAssetData = ref<{
   describe: "",
   type: "",
   prompt: "",
+  sourcePrompt: "",
   src: "",
 });
 function generate(row: any) {
+  const sourcePrompt = row.sourcePrompt ?? row.prompt ?? "";
   currentAssetData.value = {
     id: row.id,
     name: row.name,
     describe: row.describe,
     type: row.type,
-    prompt: row.prompt,
+    prompt: sourcePrompt,
+    sourcePrompt,
     src: row.src,
   };
   generateImageShow.value = true;
@@ -1251,11 +1280,11 @@ function setAssetImageUploading(id: number, value: boolean) {
   uploadingAssetIds.value = next;
 }
 
-function setRoleCardRefreshing(id: number, value: boolean) {
-  const next = new Set(refreshingRoleCardIds.value);
+function setRoleFactRecognizing(id: number, value: boolean) {
+  const next = new Set(recognizingRoleFactIds.value);
   if (value) next.add(id);
   else next.delete(id);
-  refreshingRoleCardIds.value = next;
+  recognizingRoleFactIds.value = next;
 }
 
 function normalizeUploadAssetType(type?: string): "role" | "scene" | "tool" | null {
@@ -1315,51 +1344,97 @@ async function handleUploadAssetImage(row: Asset) {
     return;
   }
 
+  let uploadedBase64 = "";
   setAssetImageUploading(row.id, true);
   try {
     const base64 = await readFileAsDataUrl(file);
+    uploadedBase64 = base64;
     await axios.post("/assets/saveAssets", {
       id: row.id,
       base64,
       type,
-      prompt: row.prompt ?? "",
+      prompt: row.sourcePrompt ?? row.prompt ?? "",
       projectId: project.value.id,
     });
-    window.$message.success(type === "role" ? "图片已上传，角色卡已同步并开始后台看图识别" : "图片已上传并绑定到资产");
-    window.dispatchEvent(new CustomEvent("toonflow-assets-updated", { detail: { projectId: project.value.id, assetId: row.id } }));
+    window.$message.success(type === "role" ? $t("workbench.assets.factCard.uploadBound") : $t("workbench.assets.uploadSuccess"));
     await getFilteredData(assetOptions.value);
   } catch (error: any) {
-    window.$message.error(error?.message || "图片上传失败");
+    window.$message.error(error?.message || $t("workbench.assets.factCard.uploadFailed"));
+    return;
   } finally {
     setAssetImageUploading(row.id, false);
   }
+
+  if (type === "role") {
+    void inferRoleFactCardFromUploadedImage(row, uploadedBase64);
+  }
 }
 
-async function handleRefreshRoleFactCard(row: Asset) {
-  if (row.type !== "role") {
-    window.$message.warning("只有角色资产需要角色卡");
+async function recognizeRoleFactCard(row: Asset) {
+  if (row.type !== "role") return;
+  if (!row.src && !row.imageId) {
+    window.$message.warning($t("workbench.assets.factCard.uploadFirst"));
     return;
   }
-  if (!project.value?.id) {
-    window.$message.warning("当前项目不存在，无法同步角色卡");
-    return;
-  }
-  setRoleCardRefreshing(row.id, true);
+  await inferRoleFactCardFromUploadedImage(row);
+}
+
+async function inferRoleFactCardFromUploadedImage(row: Asset, imageBase64?: string) {
+  setRoleFactRecognizing(row.id, true);
   try {
-    await axios.post("/assets/refreshRoleFactCard", {
-      id: row.id,
-      projectId: project.value.id,
-    });
-    window.$message.success("角色卡已同步，后台会继续尝试看图识别");
+    window.$message.info($t("workbench.assets.factCard.inferStarted"));
+    const { data } = await axios.post("/projectContext/inferRoleFactCardFromImage", {
+      projectId: project.value?.id,
+      assetId: row.id,
+      roleName: row.name,
+      assetDescribe: row.describe,
+      assetPrompt: row.sourcePrompt ?? row.prompt ?? "",
+      imageBase64,
+    }, { timeout: ROLE_FACT_RECOGNITION_TIMEOUT_MS });
+    roleFactDraft.assetId = row.id;
+    roleFactDraft.roleName = row.name;
+    roleFactDraft.facts = data?.facts ?? "";
+    roleFactDraft.negativeFacts = data?.negativeFacts ?? "";
+    roleFactDraft.confidence = Number.isFinite(Number(data?.confidence)) ? Number(data.confidence) : 0.7;
+    roleFactDraftShow.value = true;
   } catch (error: any) {
-    window.$message.error(error?.message || "角色卡同步失败");
+    const timeoutMessage = error?.code === "ECONNABORTED" || /timeout/i.test(error?.message ?? "")
+      ? "角色卡识别超时，请检查看图文本模型是否可用，或稍后手动点击识别角色卡重试"
+      : "";
+    window.$message.warning(timeoutMessage || error?.message || $t("workbench.assets.factCard.inferFailed"));
   } finally {
-    setRoleCardRefreshing(row.id, false);
+    setRoleFactRecognizing(row.id, false);
+  }
+}
+
+async function saveInferredRoleFactCard() {
+  if (!roleFactDraft.assetId || !roleFactDraft.roleName) return;
+  if (!roleFactDraft.facts.trim() && !roleFactDraft.negativeFacts.trim()) {
+    window.$message.warning($t("workbench.assets.factCard.emptyDraft"));
+    return;
+  }
+  roleFactDraftSaving.value = true;
+  try {
+    await axios.post("/projectContext/saveRoleFactCard", {
+      projectId: project.value?.id,
+      assetId: roleFactDraft.assetId,
+      roleName: roleFactDraft.roleName,
+      facts: roleFactDraft.facts,
+      negativeFacts: roleFactDraft.negativeFacts,
+      sourceType: "uploaded_image",
+      confidence: roleFactDraft.confidence,
+    });
+    window.$message.success($t("workbench.assets.factCard.saveDraftSuccess"));
+    roleFactDraftShow.value = false;
+    await getFilteredData(assetOptions.value);
+  } catch (error: any) {
+    window.$message.error(error?.message || $t("workbench.assets.factCard.saveDraftFailed"));
+  } finally {
+    roleFactDraftSaving.value = false;
   }
 }
 // 编辑
 function handleEdit(row: any) {
-  console.log(row);
   if (row.type == "audio") {
     audioFormData.value = {
       ...row,
@@ -1368,6 +1443,7 @@ function handleEdit(row: any) {
   } else {
     formData.value = {
       ...row,
+      prompt: row.sourcePrompt ?? row.prompt ?? "",
     };
     addAssetsShow.value = true;
   }
@@ -1459,7 +1535,7 @@ const generatingData = computed(() => {
 // 轮询相关
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
 let imagePollingTimer: ReturnType<typeof setInterval> | null = null;
-//轮询提示词生成
+// 轮询描述词生成
 async function pollingPromptAssets() {
   if (notCompultedData.value.length === 0) return;
   const ids = notCompultedData.value.map((item) => item.id);
@@ -1470,13 +1546,16 @@ async function pollingPromptAssets() {
         const target = findAssetById(item.id);
         if (target) {
           target.promptState = item.promptState;
-          if (item.prompt !== undefined) target.prompt = item.prompt;
+          if (item.prompt !== undefined) {
+            target.prompt = item.prompt;
+            target.sourcePrompt = item.prompt;
+          }
         }
       });
       getFilteredData(assetOptions.value);
     }
   } catch (e) {
-    console.error("轮询提示词状态失败:", e);
+    console.error("轮询描述词状态失败:", e);
   }
 }
 //轮询图片生成
@@ -1486,14 +1565,12 @@ async function pollingImageAssets() {
   try {
     const { data } = await axios.post("/assets/pollingImageAssets", { ids });
     if (Array.isArray(data) && data.length) {
-      data.forEach((item: { id: number; state: string; filePath?: string | null; src?: string | null; errorReason?: string | null }) => {
+      data.forEach((item: { id: number; state: string; filePath: string; src?: string }) => {
         const target = findAssetById(item.id);
         if (target) {
           target.state = item.state;
-          if (item.errorReason !== undefined) target.errorReason = item.errorReason;
-          if (item.filePath !== undefined && (item.filePath || item.state === "已完成")) target.filePath = item.filePath || "";
-          if (item.src) target.src = item.src;
-          else if (item.src !== undefined && item.state === "已完成") target.src = "";
+          if (item.filePath !== undefined) target.filePath = item.filePath;
+          if (item.src !== undefined) target.src = item.src;
           // filePath 存在时也作为 src 使用，确保图片立即显示
           if (!item.src && item.filePath && item.state !== "生成中") {
             target.src = item.filePath;
@@ -1620,8 +1697,20 @@ async function getBigImageUrl(row: Asset, fn: Function) {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 16px;
+        margin-bottom: 12px;
         padding-bottom: 16px;
+      }
+
+      .factSourceHint {
+        margin-bottom: 12px;
+      }
+
+      .factSourceHintContent {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
       }
 
       .data {
@@ -1808,6 +1897,26 @@ async function getBigImageUrl(row: Asset, fn: Function) {
       }
     }
   }
+}
+
+.projectConstraintsAlert {
+  margin-bottom: 12px;
+}
+
+.fallbackText {
+  margin-top: 8px;
+  color: var(--td-warning-color);
+  font-size: 12px;
+}
+
+.roleFactDraftAlert {
+  margin-bottom: 12px;
+}
+
+.roleFactDraftMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
 

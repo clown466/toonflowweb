@@ -104,8 +104,8 @@
         <div class="infoBox">
           <div class="title ac jb">
             {{ item.name }}
-            <t-tag size="small" variant="outline" theme="success" v-if="item.prompt">已生成提示词</t-tag>
-            <t-tag size="small" variant="outline" theme="danger" v-else>未生成提示词</t-tag>
+            <t-tag size="small" variant="outline" theme="success" v-if="item.prompt">{{ $t("workbench.cornerScape.promptReady") }}</t-tag>
+            <t-tag size="small" variant="outline" theme="danger" v-else>{{ $t("workbench.cornerScape.promptMissing") }}</t-tag>
           </div>
           <div class="meta">
             <t-tag size="small" variant="light-outline" theme="warning" class="typeTag">
@@ -201,6 +201,12 @@
           <t-form-item label="生图预设">
             <t-select v-model="selectedImageSkillId" :options="imageSkillOptions" :loading="imageSkillLoading" clearable placeholder="默认：视觉手册标准生图" />
           </t-form-item>
+          <t-form-item v-if="currentItem?.type === 'role'" :label="$t('workbench.cornerScape.factCardSummary')">
+            <div class="factCardSummary">
+              <div class="factCardSummaryText">{{ currentFactCardSummary }}</div>
+              <t-tag size="small" variant="light-outline">{{ $t("workbench.cornerScape.factCardReadonly") }}</t-tag>
+            </div>
+          </t-form-item>
           <t-form-item :label="$t('workbench.cornerScape.promptLabel')">
             <t-loading style="width: 100%" :loading="currentItem.promptState == '生成中'">
               <t-textarea
@@ -273,6 +279,7 @@ interface DataItem {
   type: string;
   name: string;
   prompt: string;
+  sourcePrompt?: string;
   filePath: string | null;
   state: string;
   model: string;
@@ -284,6 +291,12 @@ interface DataItem {
   promptErrorReason: string;
   relepedAudio: { id: number; name: string }[];
   audioBindState: string;
+  factCardSummary?: string;
+  factCard?: {
+    body?: string;
+    conflictRules?: string;
+    sourceType?: string;
+  };
 }
 
 const checkboxValue = ref<string[]>([]);
@@ -432,7 +445,7 @@ const toggleSelect = (id: number) => {
 const selectByState = (state: string) => {
   selectedIds.value = dataList.value.filter((item) => (state === "" ? !item.state : item.state === state)).map((item) => item.id);
 };
-//全选提示词为空的
+// 全选描述词为空的
 function selectPromptEmpty() {
   const lite = dataList.value.filter((item) => !item.prompt || item.prompt.trim() === "").map((item) => item.id);
   if (lite.length === 0) {
@@ -497,6 +510,12 @@ const selectedHistoryId = ref<number | null>(null);
 const assetUploadInput = ref<HTMLInputElement | null>(null);
 const uploadingAsset = ref(false);
 
+const currentFactCardSummary = computed(() => {
+  if (!currentItem.value) return "";
+  const summary = currentItem.value.factCardSummary || currentItem.value.factCard?.body || "";
+  return summary || $t("workbench.cornerScape.factCardEmpty");
+});
+
 function triggerAssetUpload() {
   assetUploadInput.value?.click();
 }
@@ -530,7 +549,7 @@ async function uploadAssetImage(event: Event) {
       id: currentItem.value.id,
       type: currentItem.value.type,
       projectId: project.value?.id,
-      prompt: editForm.prompt || currentItem.value.prompt,
+      prompt: editForm.prompt || currentItem.value.sourcePrompt || currentItem.value.prompt,
       base64: await fileToDataUrl(file),
     });
     window.$message.success($t("workbench.cornerScape.msg.uploadSuccess"));
@@ -538,7 +557,7 @@ async function uploadAssetImage(event: Event) {
     const freshItem = dataList.value.find((item) => item.id === currentItem.value?.id);
     if (freshItem) {
       currentItem.value = freshItem;
-      editForm.prompt = freshItem.prompt || editForm.prompt;
+      editForm.prompt = freshItem.sourcePrompt || freshItem.prompt || editForm.prompt;
       editForm.resolution = freshItem.resolution || editForm.resolution;
     }
   } catch (e: any) {
@@ -557,7 +576,7 @@ async function toggleHistorySelect(id: number) {
       id: currentItem.value.id,
       type: currentItem.value.type,
       projectId: project.value?.id,
-      prompt: currentItem.value.prompt,
+      prompt: currentItem.value.sourcePrompt || currentItem.value.prompt,
       imageId: selectedImage?.id,
     });
     //拿选中的图片替换当前图片
@@ -594,7 +613,7 @@ async function openDrawer(item: DataItem) {
   editForm.model = item.model || "";
   currentItem.value = item;
   editForm.resolution = item.resolution || "";
-  editForm.prompt = item.prompt || "";
+  editForm.prompt = item.sourcePrompt || item.prompt || "";
   editForm.describe = item.describe || "";
   editForm.promptState = item.promptState;
   editForm.relepedAudio = item?.relepedAudio ?? [];
@@ -613,7 +632,7 @@ async function openDrawer(item: DataItem) {
       if (idx !== -1) dataList.value[idx] = freshItem;
       // 更新当前抽屉项
       currentItem.value = freshItem;
-      editForm.prompt = freshItem.prompt || editForm.prompt;
+      editForm.prompt = freshItem.sourcePrompt || freshItem.prompt || editForm.prompt;
       editForm.resolution = freshItem.resolution || editForm.resolution;
     }
   } catch (e) {
@@ -661,6 +680,7 @@ function regenerateItem() {
         describe: item.describe,
         skillId: selectedImageSkillId.value || null,
         userRequirement: otherTextPrompt.value || null,
+        promptMode: "source",
       },
       { signal: controller.signal },
     )
@@ -675,7 +695,7 @@ function regenerateItem() {
     });
 }
 
-// 提示词失焦保存
+// 描述词失焦保存
 async function savePromptOnBlur() {
   if (!currentItem.value) return;
   // 内容没有变化则不保存
@@ -717,7 +737,7 @@ async function polishPrompts() {
     });
     window.$message.success($t("workbench.cornerScape.msg.promptGenSuccess"));
     if (data.assetsId === editForm.assetsId) {
-      editForm.prompt = data.prompt;
+      editForm.prompt = data.sourcePrompt ?? data.prompt;
     }
     getFilteredData();
   } catch {
@@ -726,7 +746,7 @@ async function polishPrompts() {
     polishing.value = false;
   }
 }
-//批量生成提示词
+// 批量生成描述词
 async function batchGenerationPrompt() {
   if (selectedIds.value.length === 0) {
     window.$message.warning($t("workbench.cornerScape.msg.selectAtLeastOne"));
@@ -816,7 +836,7 @@ async function batchGenerationImage() {
   }
 
   const items = dataList.value.filter((item) => selectedIds.value.includes(item.id));
-  //检查如果勾选的数据prompt有空的，提示用户勾选的哪一个提示词未生成，然后终止批量生成
+  // 检查如果勾选的数据描述词为空，提示用户后终止批量生成
   const emptyPrompts = items.filter((item) => !item.prompt);
   if (emptyPrompts.length > 0) {
     const emptyPromptNames = emptyPrompts.map((item) => item.name).join(", ");
@@ -850,6 +870,7 @@ async function batchGenerationImage() {
         prompt: item.prompt,
         describe: item.describe,
         userRequirement: otherTextPrompt.value || null,
+        promptMode: "source",
       })),
     });
     selectedIds.value = [];
@@ -873,7 +894,7 @@ let pollingTimer: ReturnType<typeof setInterval> | null = null;
 let imagePollingTimer: ReturnType<typeof setInterval> | null = null;
 let audioBindPollingTimer: ReturnType<typeof setInterval> | null = null;
 
-//轮询提示词生成
+// 轮询描述词生成
 async function pollingPromptAssets() {
   if (notCompultedData.value.length === 0) return;
   const ids = notCompultedData.value.map((item) => item.id);
@@ -890,7 +911,7 @@ async function pollingPromptAssets() {
         }
       });
     }
-    // 有提示词生成完成时，重新获取完整数据以刷新 historyImages
+    // 有描述词生成完成时，重新获取完整数据以刷新 historyImages
     if (hasCompleted) {
       try {
         const { data: freshData } = await axios.post("/cornerScape/getAllAssets", {
@@ -911,7 +932,7 @@ async function pollingPromptAssets() {
       }
     }
   } catch (e) {
-    console.error("轮询提示词状态失败:", e);
+    console.error("轮询描述词状态失败:", e);
   }
 }
 //轮询图片生成
@@ -1300,6 +1321,23 @@ async function selectAudio() {
 }
 .audioList {
   margin-top: 8px;
+}
+.factCardSummary {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--td-component-border);
+  border-radius: 6px;
+  background: var(--td-bg-color-container-hover);
+
+  .factCardSummaryText {
+    color: var(--td-text-color-secondary);
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
 }
 .drawerImageBox {
   width: 100%;

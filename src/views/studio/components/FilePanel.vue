@@ -36,88 +36,109 @@
                 <div class="menu-item" :class="{ active: filterType === 'role' }" @click="filterType = 'role'">角色</div>
                 <div class="menu-item" :class="{ active: filterType === 'scene' }" @click="filterType = 'scene'">场景</div>
                 <div class="menu-item" :class="{ active: filterType === 'tool' }" @click="filterType = 'tool'">道具</div>
-                <div class="menu-item" :class="{ active: filterType === 'clip' }" @click="filterType = 'clip'">片段</div>
               </div>
             </template>
           </t-popup>
         </t-tooltip>
-        <t-button variant="text" shape="square" size="small" :loading="loading" @click="emit('refreshAssets')">
-          <template #icon><i-refresh size="14" /></template>
-        </t-button>
-        <t-button variant="text" shape="square" size="small" @click="emit('collapse')">
-          <template #icon><i-down size="14" /></template>
+        <t-button variant="text" shape="square" size="small" @click="collapsed = !collapsed">
+          <template #icon><i-up v-if="!collapsed" size="14" /><i-down v-else size="14" /></template>
         </t-button>
       </div>
     </div>
 
-    <div class="panel-body">
-      <t-alert v-if="errorMessage" theme="error" :message="errorMessage" close style="margin: 8px 12px 0" />
-
+    <div v-show="!collapsed" class="panel-body">
       <!-- Assets Tab -->
-      <div v-if="activeTab === 'assets'" class="file-grid">
-        <div v-if="loading && displayAssets.length === 0" class="empty-state">
-          <t-loading size="small" text="正在加载资产" />
+      <div v-if="activeTab === 'assets'" class="assets-view">
+        <div v-if="assetStats.total > 0" class="asset-status-summary">
+          <span>共 {{ assetStats.total }} 个资产</span>
+          <span v-if="assetStats.generating" class="status-pill generating">{{ assetStats.generating }} 生成中</span>
+          <span v-if="assetStats.completed" class="status-pill completed">{{ assetStats.completed }} 已完成</span>
+          <span v-if="assetStats.failed" class="status-pill failed">{{ assetStats.failed }} 失败</span>
+          <span v-if="assetStats.pending" class="status-pill pending">{{ assetStats.pending }} 未生成</span>
         </div>
-        <div v-else-if="displayAssets.length === 0" class="empty-state">
-          <t-empty :title="$t('studio.files.noAssets')" :description="$t('studio.files.noAssetsDesc')" />
-        </div>
-        <div
-          v-for="asset in displayAssets"
-          :key="asset.key"
-          class="file-card"
-          :class="{ selected: selectedKey === asset.key, draggable: !!asset.src }"
-          :draggable="!!asset.src"
-          @dragstart="onAssetDragStart($event, asset)"
-          @click="onSelectAsset(asset)"
-          @dblclick="onPreviewAsset(asset)"
-        >
-          <div class="card-thumb">
-            <img v-if="asset.src" :src="asset.src" draggable="false" />
-            <div v-else-if="asset.state === '生成中'" class="thumb-state generating">
-              <t-loading size="small" />
-            </div>
-            <div v-else-if="asset.state === '生成失败'" class="thumb-state error">
-              <i-refresh size="14" />
-            </div>
-            <div v-else class="thumb-placeholder">
-              <i-user size="24" />
-            </div>
-            <div class="card-type">{{ assetTypeLabel(asset.type) }}</div>
-            <t-tooltip v-if="canRegenerateAssetImage(asset)" content="编辑提示词并重新生成">
-              <button
-                class="image-edit-button"
-                type="button"
-                @click.stop="openPromptEditor(asset)"
-                @dblclick.stop
-              >
-                <i-edit size="13" />
-              </button>
-            </t-tooltip>
-            <t-tooltip v-if="canSwitchAssetImage(asset)" content="选择其他图片">
-              <button
-                class="image-switch-button"
-                type="button"
-                @click.stop="openImageChoice(asset)"
-                @dblclick.stop
-              >
-                <i-pic size="13" />
-              </button>
-            </t-tooltip>
+        <div class="file-grid">
+          <div v-if="displayAssets.length === 0" class="empty-state">
+            <t-empty
+              :title="props.assets.length ? '当前筛选无资产' : $t('studio.files.noAssets')"
+              :description="props.assets.length ? '资产已加载，清除筛选后即可查看。' : $t('studio.files.noAssetsDesc')"
+            >
+              <template v-if="props.assets.length" #action>
+                <t-button size="small" @click="clearFilters">清除筛选</t-button>
+              </template>
+            </t-empty>
           </div>
-          <div class="card-info">
-            <div class="info-name" :title="asset.name">{{ asset.name }}</div>
-            <div class="info-meta">
-              <span v-if="asset.parentName" :title="asset.parentName">{{ asset.parentName }}</span>
-              <span v-else>{{ $t("studio.files.single") }}</span>
+          <div
+            v-for="asset in displayAssets"
+            :key="asset.id"
+            class="file-card"
+            :class="{ selected: selectedId === asset.id }"
+            @click="onSelectAsset(asset)"
+            @dblclick="onPreviewAsset(asset)"
+          >
+            <div class="card-thumb">
+              <img v-if="asset.src && !isImageBroken('asset', asset.id)" :src="asset.src" @error="onImageError('asset', asset.id)" />
+              <div v-else-if="asset.state === '生成中'" class="thumb-state generating">
+                <t-loading size="small" />
+              </div>
+              <div v-else-if="asset.state === '生成失败' || (asset.src && isImageBroken('asset', asset.id))" class="thumb-state error">
+                <i-refresh size="14" />
+                <span>{{ asset.src ? '加载失败' : '生成失败' }}</span>
+              </div>
+              <div v-else class="thumb-placeholder">
+                <i-user size="24" />
+              </div>
+              <div v-if="asset.state === '生成中' && asset.src" class="thumb-overlay generating">
+                <t-loading size="small" />
+              </div>
+              <div class="card-type">{{ assetTypeLabel(asset.type) }}</div>
             </div>
-            <t-tag :theme="stateTheme(asset.state)" size="small" variant="light">
-              {{ stateLabel(asset.state || '未生成') }}
-            </t-tag>
-          </div>
-          <div v-if="asset.isDerived && !asset.isHistory" class="card-actions">
-            <t-button size="small" variant="outline" :disabled="asset.state === '生成中'" @click.stop="onRepaintDerive(asset)">
-              重绘
-            </t-button>
+            <div class="card-info">
+              <div class="info-name" :title="asset.name">{{ asset.name }}</div>
+              <div class="info-meta">
+                <span v-if="asset.derive">{{ asset.derive.length }} {{ $t("studio.files.variants") }}</span>
+                <span v-else>{{ $t("studio.files.single") }}</span>
+              </div>
+              <div v-if="asset.errorReason" class="info-error" :title="asset.errorReason">{{ asset.errorReason }}</div>
+              <t-tag :theme="stateTheme(asset.state)" size="small" variant="light">
+                {{ stateLabel(asset.state || '未生成') }}
+              </t-tag>
+            </div>
+            <div v-if="asset.derive?.length" class="derive-list" @click.stop>
+              <div
+                v-for="derive in asset.derive"
+                :key="derive.id"
+                class="derive-item"
+                :class="{ selected: selectedId === derive.id }"
+                @click="onSelectDerive(derive)"
+                @dblclick="onPreviewDerive(derive)"
+              >
+                <div class="derive-thumb">
+                  <img v-if="derive.src && !isImageBroken('derive', derive.id)" :src="derive.src" @error="onImageError('derive', derive.id)" />
+                  <div v-else-if="derive.state === '生成中'" class="thumb-state generating">
+                    <t-loading size="small" />
+                  </div>
+                  <div v-else-if="derive.state === '生成失败' || (derive.src && isImageBroken('derive', derive.id))" class="thumb-state error">
+                    <i-refresh size="14" />
+                  </div>
+                  <div v-else class="thumb-state pending">
+                    <i-image-error size="14" />
+                  </div>
+                  <div v-if="derive.state === '生成中' && derive.src" class="thumb-overlay generating">
+                    <t-loading size="small" />
+                  </div>
+                </div>
+                <div class="derive-info">
+                  <div class="derive-name" :title="derive.name">{{ derive.name || '衍生资产' }}</div>
+                  <t-tag :theme="stateTheme(derive.state)" size="small" variant="light">
+                    {{ stateLabel(derive.state || '未生成') }}
+                  </t-tag>
+                  <div v-if="derive.errorReason" class="derive-error" :title="derive.errorReason">{{ derive.errorReason }}</div>
+                </div>
+                <t-button size="small" variant="outline" :disabled="derive.state === '生成中'" @click.stop="onRepaintDerive(derive)">
+                  重绘
+                </t-button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -162,180 +183,38 @@
     </div>
 
     <!-- Resize handle -->
-    <div ref="resizeHandle" class="resize-handle top" />
+    <div ref="resizeHandle" class="resize-handle top" v-show="!collapsed" />
 
     <!-- Asset Preview Dialog -->
-    <t-dialog v-model:visible="showPreview" :header="previewAsset?.name || '图片预览'" width="min(80vw, 960px)" :footer="false">
-      <div class="asset-preview-dialog">
-        <img v-if="previewAsset?.src" :src="previewAsset.src" :alt="previewAsset.name || 'asset preview'" />
-        <t-empty v-else title="暂无可预览图片" />
-      </div>
-    </t-dialog>
-
-    <!-- Asset Image Choice Dialog -->
-    <t-dialog v-model:visible="showImageChoice" :header="`选择图片 - ${imageChoiceAsset?.name || ''}`" width="min(82vw, 960px)">
-      <div class="asset-choice-dialog">
-        <div v-if="imageChoiceLoading" class="asset-choice-loading">
-          <t-loading size="small" text="正在加载图片" />
-        </div>
-        <t-empty v-else-if="imageChoiceImages.length === 0" title="暂无可选图片" description="先在资产中心生成或上传图片后再选择" />
-        <div v-else class="asset-choice-grid">
-          <button
-            v-for="image in imageChoiceImages"
-            :key="image.id"
-            type="button"
-            class="asset-choice-card"
-            :class="{ selected: selectedChoiceImageId === image.id, disabled: image.state !== '已完成' }"
-            :disabled="image.state !== '已完成'"
-            @click="selectedChoiceImageId = image.id"
-          >
-            <img v-if="image.src" :src="image.src" :alt="`image-${image.id}`" />
-            <div v-else class="choice-state">{{ stateLabel(image.state || '未生成') }}</div>
-            <t-tag v-if="image.selected" class="choice-badge" theme="success" size="small" variant="light">当前</t-tag>
-            <div v-if="selectedChoiceImageId === image.id" class="choice-check">
-              <i-check-one theme="filled" size="18" />
-            </div>
-          </button>
-        </div>
-      </div>
-      <template #footer>
-        <t-button variant="outline" @click="showImageChoice = false">取消</t-button>
-        <t-button theme="primary" :loading="imageChoiceSaving" :disabled="!selectedChoiceImageId" @click="confirmImageChoice">设为当前图片</t-button>
-      </template>
-    </t-dialog>
-
-    <!-- Asset Prompt Regeneration Dialog -->
-    <t-dialog
-      v-model:visible="showPromptEditor"
-      :header="`编辑提示词 - ${promptEditAsset?.name || ''}`"
-      width="min(1080px, 94vw)"
-      top="4vh"
-      :close-on-overlay-click="false"
-    >
-      <div class="asset-prompt-dialog">
-        <div class="prompt-dialog-grid">
-          <div class="prompt-field">
-            <span class="field-label">出图模型</span>
-            <modelSelect v-model="promptEditModel" type="image" size="small" placeholder="选择出图模型" />
-          </div>
-          <div class="prompt-field">
-            <span class="field-label">图片大小</span>
-            <t-select v-model="promptEditResolution" size="small">
-              <t-option key="1K" label="1K" value="1K" />
-              <t-option key="2K" label="2K" value="2K" />
-              <t-option key="4K" label="4K" value="4K" />
-            </t-select>
-          </div>
-        </div>
-        <div class="prompt-field">
-          <span class="field-label">生图预设</span>
-          <t-select v-model="promptEditSkillId" :options="promptSkillOptions" :loading="promptSkillLoading" size="small" clearable placeholder="默认：视觉手册标准生图" />
-        </div>
-        <div class="prompt-field">
-          <div class="prompt-label-row">
-            <span class="field-label">提示词</span>
-            <div class="prompt-tools">
-              <span class="prompt-count">{{ promptEditText.length }} 字</span>
-              <t-button size="small" variant="text" @click="copyPromptEditText">
-                <template #icon><i-copy size="13" /></template>
-                复制
-              </t-button>
-            </div>
-          </div>
-          <t-textarea
-            v-model="promptEditText"
-            class="prompt-textarea"
-            :autosize="{ minRows: 18, maxRows: 30 }"
-            placeholder="直接修改这个资产要发送给生图模型的提示词"
-          />
-        </div>
-        <t-alert
-          theme="info"
-          message="全新生成不会带当前图片参考；修改原图会把当前资产图作为参考图传入，再按上面的提示词修改。"
-        />
-      </div>
-      <template #footer>
-        <t-button variant="outline" @click="showPromptEditor = false">取消</t-button>
-        <t-button
-          variant="outline"
-          :loading="promptSubmittingMode === 'fresh'"
-          :disabled="Boolean(promptSubmittingMode)"
-          @click="submitPromptRegeneration('fresh')"
-        >
-          全新生成
-        </t-button>
-        <t-tooltip :content="promptEditHasReference ? '参考当前资产图修改' : '当前资产没有可参考图片'">
-          <t-button
-            theme="primary"
-            :loading="promptSubmittingMode === 'edit'"
-            :disabled="Boolean(promptSubmittingMode) || !promptEditHasReference"
-            @click="submitPromptRegeneration('edit')"
-          >
-            修改原图
-          </t-button>
-        </t-tooltip>
-      </template>
-    </t-dialog>
+    <t-image-viewer
+      v-model:visible="showPreview"
+      :images="previewAsset?.src ? [previewAsset.src] : []"
+      :default-index="0"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useMouse, useMousePressed } from "@vueuse/core";
-import axios from "@/utils/axios";
-import modelSelect from "@/components/modelSelect.vue";
 
 interface DeriveAsset {
   id: number;
-  key?: string;
   assetsId?: number;
-  imageId?: number;
   name?: string;
   src?: string | null;
-  filePath?: string | null;
   type?: string;
   state?: string;
-  prompt?: string | null;
-  describe?: string | null;
-  parentName?: string;
-  isDerived?: boolean;
-  isHistory?: boolean;
-  historyImages?: HistoryImage[];
+  errorReason?: string;
 }
 
 interface Asset {
   id: number;
-  key?: string;
-  imageId?: number;
   name: string;
   src?: string | null;
-  filePath?: string | null;
   type?: string;
   state?: string;
-  prompt?: string | null;
-  describe?: string | null;
+  errorReason?: string;
   derive?: DeriveAsset[];
-  sonAssets?: DeriveAsset[];
-  historyImages?: HistoryImage[];
-  parentName?: string;
-  isDerived?: boolean;
-  isHistory?: boolean;
-}
-
-interface HistoryImage {
-  id: number;
-  assetsId?: number;
-  src?: string | null;
-  filePath?: string | null;
-  type?: string;
-  state?: string;
-  selected?: boolean;
-}
-
-interface ChoiceImage {
-  id: number;
-  src: string;
-  state: string;
-  selected?: boolean;
 }
 
 interface StoryboardItem {
@@ -349,11 +228,6 @@ interface StoryboardItem {
 const props = defineProps<{
   assets: any[];
   storyboard: StoryboardItem[];
-  projectId?: string | number;
-  imageModel?: string | null;
-  imageQuality?: string | null;
-  loading?: boolean;
-  errorMessage?: string;
 }>();
 
 const emit = defineEmits<{
@@ -361,15 +235,14 @@ const emit = defineEmits<{
   (e: "selectStoryboard", id: number): void;
   (e: "previewAsset", asset: Asset | DeriveAsset): void;
   (e: "repaintAsset", asset: DeriveAsset): void;
-  (e: "refreshAssets"): void;
-  (e: "assetImageChanged", asset: Asset | DeriveAsset): void;
-  (e: "collapse"): void;
 }>();
 
 const activeTab = ref("assets");
 const searchQuery = ref("");
-const selectedKey = ref<string | undefined>();
+const collapsed = ref(false);
+const selectedId = ref<number | null>(null);
 const panelHeight = defineModel<number>("panelHeight", { default: 200 });
+const brokenImages = ref<Set<string>>(new Set());
 
 const tabs = computed(() => [
   { key: "assets", label: '资产', icon: "i-pic", count: props.assets.length },
@@ -380,53 +253,84 @@ const tabs = computed(() => [
 
 const filterType = ref('');
 
+const normalizedAssets = computed<Asset[]>(() => {
+  return (Array.isArray(props.assets) ? props.assets : [])
+    .filter(Boolean)
+    .map((asset: any) => ({
+      ...asset,
+      id: Number(asset.id),
+      name: String(asset.name || `资产 #${asset.id ?? ""}`),
+      src: asset.src || null,
+      state: asset.state || "未生成",
+      derive: Array.isArray(asset.derive) ? asset.derive.filter(Boolean) : [],
+    }));
+});
+
+const assetStats = computed(() => {
+  const stats = { total: normalizedAssets.value.length, generating: 0, completed: 0, failed: 0, pending: 0 };
+  normalizedAssets.value.forEach((asset) => {
+    if (asset.state === "生成中") stats.generating += 1;
+    else if (asset.state === "已完成") stats.completed += 1;
+    else if (asset.state === "生成失败") stats.failed += 1;
+    else stats.pending += 1;
+  });
+  return stats;
+});
+
 const filteredAssets = computed(() => {
-  let result = props.assets;
-  if (filterType.value) {
-    result = result.filter(a => a.type === filterType.value);
+  let result = normalizedAssets.value;
+  const activeFilter = filterType.value && result.some(a => a.type === filterType.value) ? filterType.value : "";
+  if (activeFilter) {
+    result = result.filter(a => a.type === activeFilter);
   }
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase();
+  const q = searchQuery.value.trim().toLowerCase();
+  if (q) {
     result = result.filter(a =>
-      a.name?.toLowerCase().includes(q) || a.type?.toLowerCase().includes(q)
+      String(a.name ?? "").toLowerCase().includes(q) || String(a.type ?? "").toLowerCase().includes(q)
     );
   }
   return result;
 });
 
-const displayAssets = computed(() =>
-  filteredAssets.value.flatMap((asset) => {
-    const normalizedAsset = asset as Asset;
-    const items: Array<Asset | DeriveAsset> = [
-      {
-        ...normalizedAsset,
-        key: `asset-${normalizedAsset.id}`,
-        src: assetThumb(normalizedAsset),
-        state: assetVisualState(normalizedAsset),
-        isDerived: false,
-      },
-    ];
-    assetDerives(normalizedAsset).forEach((derive) => {
-      items.push({
-        ...derive,
-        key: `derive-${derive.id}`,
-        type: derive.type || normalizedAsset.type,
-        name: derive.name || normalizedAsset.name,
-        parentName: normalizedAsset.name,
-        src: deriveThumb(derive),
-        state: derive.state || "未生成",
-        isDerived: true,
-      });
-    });
-    return items;
-  }),
+const displayAssets = computed(() => {
+  const assets = normalizedAssets.value;
+  if (filteredAssets.value.length > 0 || assets.length === 0) return filteredAssets.value;
+  return assets;
+});
+
+watch(
+  () => [props.assets, filterType.value] as const,
+  ([assets, type]) => {
+    if (!type || !Array.isArray(assets) || assets.length === 0) return;
+    if (!assets.some((asset) => asset?.type === type)) filterType.value = "";
+  },
+  { immediate: true },
 );
 
+function clearFilters() {
+  filterType.value = "";
+  searchQuery.value = "";
+}
+
+function imageKey(kind: "asset" | "derive", id: number) {
+  return `${kind}:${id}`;
+}
+
+function isImageBroken(kind: "asset" | "derive", id: number) {
+  return brokenImages.value.has(imageKey(kind, id));
+}
+
+function onImageError(kind: "asset" | "derive", id: number) {
+  const next = new Set(brokenImages.value);
+  next.add(imageKey(kind, id));
+  brokenImages.value = next;
+}
+
 const filteredStoryboard = computed(() => {
-  if (!searchQuery.value) return props.storyboard;
-  const q = searchQuery.value.toLowerCase();
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return props.storyboard;
   return props.storyboard.filter(s =>
-    s.prompt?.toLowerCase().includes(q)
+    String(s.prompt ?? "").toLowerCase().includes(q)
   );
 });
 
@@ -458,281 +362,33 @@ function assetTypeLabel(type?: string): string {
   return labels[type || ""] || type || $t("studio.assetTypes.unknown");
 }
 
-function pickSrc(item?: { src?: string | null; filePath?: string | null }) {
-  return item?.src || item?.filePath || "";
-}
-
-function assetDerives(asset: Asset) {
-  return Array.isArray(asset.derive) && asset.derive.length > 0 ? asset.derive : asset.sonAssets || [];
-}
-
-function deriveThumb(derive: DeriveAsset) {
-  return pickSrc(derive);
-}
-
-function assetThumb(asset: Asset) {
-  const ownSrc = pickSrc(asset);
-  if (ownSrc) return ownSrc;
-  const completedDerive = assetDerives(asset).find((derive) => pickSrc(derive));
-  return pickSrc(completedDerive);
-}
-
-function assetVisualState(asset: Asset) {
-  if (asset.state && asset.state !== "未生成") return asset.state;
-  const derives = assetDerives(asset);
-  if (derives.some((derive) => derive.state === "生成中")) return "生成中";
-  if (assetThumb(asset)) return "已完成";
-  if (derives.some((derive) => derive.state === "生成失败")) return "生成失败";
-  return asset.state || "未生成";
-}
-
-function onSelectAsset(asset: Asset | DeriveAsset) {
-  selectedKey.value = asset.key;
+function onSelectAsset(asset: Asset) {
+  selectedId.value = asset.id;
   emit("selectAsset", asset);
+}
+
+function onSelectDerive(derive: DeriveAsset) {
+  selectedId.value = derive.id;
+  emit("selectAsset", derive);
 }
 
 const showPreview = ref(false);
 const previewAsset = ref<Asset | DeriveAsset | null>(null);
-const showImageChoice = ref(false);
-const imageChoiceLoading = ref(false);
-const imageChoiceSaving = ref(false);
-const imageChoiceAsset = ref<Asset | DeriveAsset | null>(null);
-const imageChoiceImages = ref<ChoiceImage[]>([]);
-const selectedChoiceImageId = ref<number | null>(null);
-const showPromptEditor = ref(false);
-const promptEditAsset = ref<Asset | DeriveAsset | null>(null);
-const promptEditText = ref("");
-const promptEditModel = ref("");
-const promptEditResolution = ref("1K");
-const promptEditSkillId = ref("");
-const promptSubmittingMode = ref<"" | "fresh" | "edit">("");
-const promptSkillLoading = ref(false);
-const imageGenerationSkills = ref<Array<{ id: string; name: string; description?: string; targetTypes: string[]; aspectRatio?: string }>>([]);
 
-function onPreviewAsset(asset: Asset | DeriveAsset) {
-  const src = pickSrc(asset);
-  if (!src) {
-    window.$message.warning("该资产还没有可预览图片");
-    return;
-  }
-  previewAsset.value = { ...asset, src };
+function onPreviewAsset(asset: Asset) {
+  previewAsset.value = asset;
   showPreview.value = true;
   emit('previewAsset', asset);
 }
 
+function onPreviewDerive(derive: DeriveAsset) {
+  previewAsset.value = derive;
+  showPreview.value = true;
+  emit("previewAsset", derive);
+}
+
 function onRepaintDerive(derive: DeriveAsset) {
   emit("repaintAsset", derive);
-}
-
-function onAssetDragStart(event: DragEvent, asset: Asset | DeriveAsset) {
-  const src = pickSrc(asset);
-  if (!src || !event.dataTransfer) return;
-  const payload = {
-    kind: "toonflow-asset-image",
-    id: asset.id,
-    imageId: asset.imageId ?? null,
-    name: asset.name || "",
-    type: asset.type || "",
-    src,
-    filePath: asset.filePath || "",
-    prompt: asset.prompt || "",
-    parentName: asset.parentName || "",
-  };
-  event.dataTransfer.effectAllowed = "copy";
-  event.dataTransfer.setData("application/x-toonflow-asset", JSON.stringify(payload));
-  event.dataTransfer.setData("text/plain", `引用资产 ID: ${asset.id}，名称：${asset.name || ""}，图片：${src}`);
-}
-
-function normalizeImageAssetType(type?: string): "role" | "scene" | "tool" | null {
-  if (type === "role" || type === "character") return "role";
-  if (type === "scene") return "scene";
-  if (type === "tool" || type === "prop") return "tool";
-  return null;
-}
-
-function canSwitchAssetImage(asset: Asset | DeriveAsset) {
-  return Boolean(asset.id && normalizeImageAssetType(asset.type) && asset.state !== "生成中");
-}
-
-function canRegenerateAssetImage(asset: Asset | DeriveAsset) {
-  return Boolean(asset.id && normalizeImageAssetType(asset.type) && asset.state !== "生成中");
-}
-
-const promptEditHasReference = computed(() => Boolean(promptEditAsset.value && (pickSrc(promptEditAsset.value) || promptEditAsset.value.imageId)));
-
-function compactLabel(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
-}
-
-const promptSkillOptions = computed(() => {
-  const type = normalizeImageAssetType(promptEditAsset.value?.type);
-  const options = imageGenerationSkills.value
-    .filter((skill) => !type || (skill.targetTypes || []).includes(type))
-    .map((skill) => ({
-      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
-        .filter(Boolean)
-        .join(" "),
-      value: skill.id,
-    }));
-  return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
-});
-
-async function fetchImageGenerationSkills() {
-  promptSkillLoading.value = true;
-  try {
-    const { data } = await axios.post("/setting/imageGenerationSkill/list");
-    imageGenerationSkills.value = Array.isArray(data) ? data : [];
-  } catch {
-    imageGenerationSkills.value = [];
-  } finally {
-    promptSkillLoading.value = false;
-  }
-}
-
-async function copyPromptEditText() {
-  const text = promptEditText.value;
-  if (!text) {
-    window.$message.warning("当前提示词为空");
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    window.$message.success("已复制提示词");
-  } catch {
-    window.$message.error("复制失败");
-  }
-}
-
-function openPromptEditor(asset: Asset | DeriveAsset) {
-  if (!props.projectId) {
-    window.$message.warning("当前项目不存在，无法重新生成资产");
-    return;
-  }
-  if (!normalizeImageAssetType(asset.type)) {
-    window.$message.warning("当前资产类型不支持重新生成");
-    return;
-  }
-  promptEditAsset.value = asset;
-  promptEditText.value = asset.prompt || "";
-  promptEditModel.value = props.imageModel || "";
-  promptEditResolution.value = props.imageQuality || "1K";
-  promptEditSkillId.value = "";
-  promptSubmittingMode.value = "";
-  showPromptEditor.value = true;
-  void fetchImageGenerationSkills();
-}
-
-async function submitPromptRegeneration(mode: "fresh" | "edit") {
-  const asset = promptEditAsset.value;
-  const type = normalizeImageAssetType(asset?.type);
-  const prompt = promptEditText.value.trim();
-  if (!asset || !type || !props.projectId) return;
-  if (!prompt) {
-    window.$message.warning("请先填写提示词");
-    return;
-  }
-  if (!promptEditModel.value) {
-    window.$message.warning("请选择出图模型");
-    return;
-  }
-  if (!promptEditResolution.value) {
-    window.$message.warning("请选择图片大小");
-    return;
-  }
-  if (mode === "edit" && !promptEditHasReference.value) {
-    window.$message.warning("当前资产没有可参考图片，不能修改原图");
-    return;
-  }
-
-  promptSubmittingMode.value = mode;
-  try {
-    await axios.post("/assetsGenerate/generateAssets", {
-      projectId: Number(props.projectId),
-      id: asset.id,
-      type,
-      name: asset.name || `资产 #${asset.id}`,
-      describe: "describe" in asset ? asset.describe ?? "" : "",
-      prompt,
-      model: promptEditModel.value,
-      resolution: promptEditResolution.value,
-      skillId: promptEditSkillId.value || null,
-      generationMode: mode === "fresh" ? "fresh_design" : "partial_edit",
-      referencePolicy: mode === "fresh" ? "none" : "current_asset",
-      promptPolicy: mode === "fresh" ? "asset_description_plus_request" : "asset_prompt_plus_request",
-      userRequirement: prompt,
-    });
-    window.$message.success(mode === "fresh" ? "已提交全新资产图生成" : "已提交参考原图修改");
-    showPromptEditor.value = false;
-    emit("assetImageChanged", asset);
-    emit("refreshAssets");
-  } catch (err: any) {
-    window.$message.error(err?.message || "资产图生成提交失败");
-  } finally {
-    promptSubmittingMode.value = "";
-  }
-}
-
-async function openImageChoice(asset: Asset | DeriveAsset) {
-  if (!props.projectId) {
-    window.$message.warning("当前项目不存在，无法切换图片");
-    return;
-  }
-  if (!normalizeImageAssetType(asset.type)) {
-    window.$message.warning("当前资产类型不支持切换图片");
-    return;
-  }
-
-  imageChoiceAsset.value = asset;
-  showImageChoice.value = true;
-  imageChoiceLoading.value = true;
-  selectedChoiceImageId.value = asset.imageId ? Number(asset.imageId) : null;
-  imageChoiceImages.value = [];
-
-  try {
-    const { data } = await axios.post("/assets/getImage", { assetsId: asset.id });
-    const images = (data?.tempAssets || [])
-      .map((item: { id: number | string; filePath?: string; src?: string; state?: string; selected?: boolean }) => ({
-        id: Number(item.id),
-        src: item.filePath || item.src || "",
-        state: item.state || "未生成",
-        selected: Boolean(item.selected),
-      }))
-      .sort((a: ChoiceImage, b: ChoiceImage) => Number(b.selected) - Number(a.selected) || b.id - a.id);
-    imageChoiceImages.value = images;
-    const selected = images.find((image: ChoiceImage) => image.selected);
-    selectedChoiceImageId.value = selected?.id ?? selectedChoiceImageId.value;
-  } catch (err: any) {
-    window.$message.error(err?.message || "图片列表加载失败");
-    showImageChoice.value = false;
-  } finally {
-    imageChoiceLoading.value = false;
-  }
-}
-
-async function confirmImageChoice() {
-  const asset = imageChoiceAsset.value;
-  const imageId = selectedChoiceImageId.value;
-  const type = normalizeImageAssetType(asset?.type);
-  if (!asset || !imageId || !type || !props.projectId) return;
-
-  imageChoiceSaving.value = true;
-  try {
-    await axios.post("/assets/saveAssets", {
-      id: asset.id,
-      base64: "",
-      type,
-      prompt: asset.prompt ?? "",
-      projectId: Number(props.projectId),
-      imageId,
-    });
-    window.$message.success("已切换资产图片");
-    showImageChoice.value = false;
-    emit("assetImageChanged", asset);
-  } catch (err: any) {
-    window.$message.error(err?.message || "资产图片切换失败");
-  } finally {
-    imageChoiceSaving.value = false;
-  }
 }
 
 // Resize logic
@@ -790,7 +446,6 @@ if (typeof window !== "undefined") {
   position: relative;
   flex-shrink: 0;
   border-top: 1px solid var(--td-border-level-1-color);
-  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.16);
 }
 
 .panel-header {
@@ -849,15 +504,54 @@ if (typeof window !== "undefined") {
   justify-content: center;
 }
 
+.assets-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.asset-status-summary {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 0;
+  font-size: 11px;
+  color: var(--td-text-color-secondary);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.status-pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background-color: var(--td-bg-color-secondarycontainer);
+
+  &.generating {
+    color: var(--td-warning-color);
+    background-color: var(--td-warning-color-light);
+  }
+
+  &.completed {
+    color: var(--td-success-color);
+    background-color: var(--td-success-color-light);
+  }
+
+  &.failed {
+    color: var(--td-error-color);
+    background-color: var(--td-error-color-light);
+  }
+}
+
 // Grid view
 .file-grid {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 140px));
-  align-content: start;
-  justify-content: start;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: 12px;
 
   &.compact {
@@ -870,13 +564,13 @@ if (typeof window !== "undefined") {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  height: 100%;
   cursor: pointer;
   padding: 6px;
   border-radius: 8px;
   border: 2px solid transparent;
   transition: all 0.2s;
   min-width: 0;
+  background-color: var(--td-bg-color-container);
 
   &:hover {
     background-color: var(--td-bg-color-container-hover);
@@ -885,14 +579,6 @@ if (typeof window !== "undefined") {
   &.selected {
     border-color: var(--td-brand-color);
     background-color: var(--td-brand-color-light);
-  }
-
-  &.draggable {
-    cursor: grab;
-
-    &:active {
-      cursor: grabbing;
-    }
   }
 
   &.compact {
@@ -934,58 +620,6 @@ if (typeof window !== "undefined") {
       color: white;
       border-radius: 3px;
     }
-
-    .image-switch-button {
-      position: absolute;
-      right: 5px;
-      bottom: 5px;
-      width: 24px;
-      height: 24px;
-      border: 0;
-      padding: 0;
-      color: #fff;
-      cursor: pointer;
-      background: rgba(0, 0, 0, 0.58);
-      border-radius: 5px;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      svg {
-        display: block;
-      }
-
-      &:hover {
-        background: rgba(0, 0, 0, 0.76);
-      }
-    }
-
-    .image-edit-button {
-      position: absolute;
-      right: 5px;
-      top: 5px;
-      width: 24px;
-      height: 24px;
-      border: 0;
-      padding: 0;
-      color: #fff;
-      cursor: pointer;
-      background: rgba(0, 0, 0, 0.58);
-      border-radius: 5px;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      svg {
-        display: block;
-      }
-
-      &:hover {
-        background: rgba(0, 0, 0, 0.76);
-      }
-    }
   }
 
   .card-info {
@@ -1004,6 +638,12 @@ if (typeof window !== "undefined") {
     .info-meta {
       font-size: 10px;
       color: var(--td-text-color-secondary);
+    }
+
+    .info-error {
+      font-size: 10px;
+      line-height: 1.2;
+      color: var(--td-error-color);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -1011,23 +651,101 @@ if (typeof window !== "undefined") {
   }
 }
 
-.card-actions {
+.derive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.derive-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  background-color: var(--td-bg-color-secondarycontainer);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--td-bg-color-container-hover);
+  }
+
+  &.selected {
+    outline: 1px solid var(--td-brand-color);
+  }
+}
+
+.derive-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  overflow: hidden;
+  background-color: var(--td-bg-color-container);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: auto;
+  position: relative;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.derive-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.derive-name {
+  font-size: 10px;
+  color: var(--td-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.derive-error {
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--td-error-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .thumb-state {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+  gap: 4px;
   width: 100%;
   height: 100%;
+  font-size: 10px;
 
   &.generating { color: var(--td-warning-color); }
   &.error { color: var(--td-error-color); }
   &.pending { color: var(--td-text-color-disabled); }
+}
+
+.thumb-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+
+  &.generating {
+    color: #fff;
+  }
 }
 
 // List view
@@ -1126,170 +844,6 @@ if (typeof window !== "undefined") {
 
   &:hover {
     background-color: var(--td-brand-color);
-  }
-}
-
-.asset-preview-dialog {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  max-height: 72vh;
-  min-height: 240px;
-  overflow: auto;
-
-  img {
-    max-width: 100%;
-    max-height: 70vh;
-    object-fit: contain;
-  }
-}
-
-.asset-choice-dialog {
-  min-height: 260px;
-}
-
-.asset-prompt-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  max-height: calc(88vh - 140px);
-  overflow-y: auto;
-  padding-right: 2px;
-}
-
-.prompt-dialog-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 140px;
-  gap: 12px;
-}
-
-.prompt-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.field-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--td-text-color-secondary);
-}
-
-.prompt-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.prompt-tools {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.prompt-count {
-  font-size: 12px;
-  color: var(--td-text-color-placeholder);
-}
-
-.prompt-textarea {
-  width: 100%;
-
-  :deep(textarea) {
-    min-height: min(52vh, 520px);
-    line-height: 1.55;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  }
-}
-
-@media (max-width: 720px) {
-  .prompt-dialog-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .prompt-label-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-}
-
-.asset-choice-loading {
-  min-height: 260px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.asset-choice-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-  max-height: 62vh;
-  overflow-y: auto;
-  padding: 4px;
-}
-
-.asset-choice-card {
-  position: relative;
-  aspect-ratio: 1;
-  padding: 0;
-  overflow: hidden;
-  border: 2px solid var(--td-border-level-2-color);
-  border-radius: 8px;
-  background: var(--td-bg-color-secondarycontainer);
-  cursor: pointer;
-
-  &:hover {
-    border-color: var(--td-brand-color);
-  }
-
-  &.selected {
-    border-color: var(--td-brand-color);
-    box-shadow: 0 0 0 2px var(--td-brand-color-light);
-  }
-
-  &.disabled {
-    cursor: not-allowed;
-    opacity: 0.55;
-  }
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
-
-  .choice-state {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--td-text-color-secondary);
-    font-size: 12px;
-  }
-
-  .choice-badge {
-    position: absolute;
-    top: 6px;
-    left: 6px;
-  }
-
-  .choice-check {
-    position: absolute;
-    right: 6px;
-    top: 6px;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--td-brand-color);
-    background: rgba(255, 255, 255, 0.92);
-    border-radius: 999px;
   }
 }
 </style>

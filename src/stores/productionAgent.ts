@@ -134,74 +134,94 @@ function makeProductionAgentStore(projectId: string) {
     // 注册 getPlanData 事件（无需依赖组件生命周期）
     watch(
       socket,
-      (s) => {
-        if (s) {
-          s.on("connect", () => {
-            getHistory();
-          });
-          s.on("getFlowData", (_, callback) => {
-            const returnData = JSON.parse(JSON.stringify(flowData.value));
-            returnData.assets.forEach((item: any) => {
-              delete item.prompt;
-              delete item.flowId;
-              delete item.src;
-              if (item.derive && item.derive.length) {
-                item.derive.forEach((deriveItem: any) => {
-                  delete deriveItem.prompt;
-                  delete deriveItem.flowId;
-                  delete deriveItem.src;
-                });
-              }
-            });
-            returnData.storyboard.forEach((item: any) => {
-              delete item.prompt;
-              delete item.src;
-              delete item.flowId;
-            });
-            callback(returnData);
-          });
-          s.on("addDeriveAsset", async (data, callback) => {
-            const assets = flowData.value.assets.find((a) => a.id === data.assetsId);
-            if (!assets) return callback({ success: false, message: $t("storyboard.assets.notExist") });
-            const deriveAssetList = assets.derive || [];
-            const item = deriveAssetList.find((d) => d.id === data.id);
-            if (item) {
-              if (!item) return callback({ success: false, message: $t("storyboard.assets.notDerivativeExist") });
-              item.name = data.name;
-              item.type = assets.type;
-              callback({ success: true, message: $t("storyboard.assets.derivativeUpdateSuccess") });
-            } else {
-              deriveAssetList.push({
-                assetsId: data.assetsId,
-                id: data.id,
-                name: data.name,
-                type: assets.type,
-                desc: data.describe,
-                prompt: "",
-                state: "未生成" as "未生成" | "生成中" | "已完成" | "生成失败",
-                src: "",
+      (s, _oldSocket, onCleanup) => {
+        if (!s) return;
+
+        const handleConnect = () => {
+          getHistory();
+        };
+
+        const handleGetFlowData = (_: unknown, callback: (data: FlowData) => void) => {
+          const returnData = JSON.parse(JSON.stringify(flowData.value));
+          returnData.assets.forEach((item: any) => {
+            delete item.prompt;
+            delete item.flowId;
+            delete item.src;
+            if (item.derive && item.derive.length) {
+              item.derive.forEach((deriveItem: any) => {
+                delete deriveItem.prompt;
+                delete deriveItem.flowId;
+                delete deriveItem.src;
               });
-              callback({ success: true, message: $t("storyboard.assets.derivativeAddSuccess") });
             }
           });
-          s.on("delDeriveAsset", async (data, callback) => {
-            const assets = flowData.value.assets.find((a) => a.id === data.assetsId);
-            if (!assets) return callback({ success: false, message: $t("storyboard.assets.notExist") });
-            const deriveAssetList = assets.derive || [];
-            const index = deriveAssetList.findIndex((d) => d.id === data.id);
-            if (index === -1) return callback({ success: false, message: $t("storyboard.assets.notDerivativeExist") });
-            deriveAssetList.splice(index, 1);
-            callback({ success: true, message: $t("storyboard.assets.derivativeDelSuccess") });
+          returnData.storyboard.forEach((item: any) => {
+            delete item.prompt;
+            delete item.src;
+            delete item.flowId;
           });
-          s.on("generateDeriveAsset", async (data, callback) => {
-            const assetsData = await batchGenerateAssets(data.ids);
-            callback({ success: true, message: assetsData });
-          });
-          s.on("generateStoryboard", async (data, callback) => {
-            const storyData = await batchGenerateStoryboard(data.ids);
-            callback({ success: true, message: storyData });
-          });
-        }
+          callback(returnData);
+        };
+
+        const handleAddDeriveAsset = async (data: any, callback: (result: { success: boolean; message: string }) => void) => {
+          const assets = flowData.value.assets.find((a) => a.id === data.assetsId);
+          if (!assets) return callback({ success: false, message: $t("storyboard.assets.notExist") });
+          const deriveAssetList = assets.derive || [];
+          const item = deriveAssetList.find((d) => d.id === data.id);
+          if (item) {
+            item.name = data.name;
+            item.type = assets.type;
+            callback({ success: true, message: $t("storyboard.assets.derivativeUpdateSuccess") });
+          } else {
+            deriveAssetList.push({
+              assetsId: data.assetsId,
+              id: data.id,
+              name: data.name,
+              type: assets.type,
+              desc: data.describe,
+              prompt: "",
+              state: "未生成" as "未生成" | "生成中" | "已完成" | "生成失败",
+              src: "",
+            });
+            callback({ success: true, message: $t("storyboard.assets.derivativeAddSuccess") });
+          }
+        };
+
+        const handleDelDeriveAsset = async (data: any, callback: (result: { success: boolean; message: string }) => void) => {
+          const assets = flowData.value.assets.find((a) => a.id === data.assetsId);
+          if (!assets) return callback({ success: false, message: $t("storyboard.assets.notExist") });
+          const deriveAssetList = assets.derive || [];
+          const index = deriveAssetList.findIndex((d) => d.id === data.id);
+          if (index === -1) return callback({ success: false, message: $t("storyboard.assets.notDerivativeExist") });
+          deriveAssetList.splice(index, 1);
+          callback({ success: true, message: $t("storyboard.assets.derivativeDelSuccess") });
+        };
+
+        const handleGenerateDeriveAsset = async (data: any, callback: (result: { success: boolean; message: unknown }) => void) => {
+          const assetsData = await batchGenerateAssets(data.ids);
+          callback({ success: true, message: assetsData });
+        };
+
+        const handleGenerateStoryboard = async (data: any, callback: (result: { success: boolean; message: unknown }) => void) => {
+          const storyData = await batchGenerateStoryboard(data.ids);
+          callback({ success: true, message: storyData });
+        };
+
+        s.on("connect", handleConnect);
+        s.on("getFlowData", handleGetFlowData);
+        s.on("addDeriveAsset", handleAddDeriveAsset);
+        s.on("delDeriveAsset", handleDelDeriveAsset);
+        s.on("generateDeriveAsset", handleGenerateDeriveAsset);
+        s.on("generateStoryboard", handleGenerateStoryboard);
+
+        onCleanup(() => {
+          s.off("connect", handleConnect);
+          s.off("getFlowData", handleGetFlowData);
+          s.off("addDeriveAsset", handleAddDeriveAsset);
+          s.off("delDeriveAsset", handleDelDeriveAsset);
+          s.off("generateDeriveAsset", handleGenerateDeriveAsset);
+          s.off("generateStoryboard", handleGenerateStoryboard);
+        });
       },
       { immediate: true },
     );
@@ -215,11 +235,9 @@ function makeProductionAgentStore(projectId: string) {
     }
 
     async function getFlowData() {
-      if (!episodesId.value) return flowData.value;
-      const { data } = await axios.post("/production/getFlowData", {
-        projectId: projectId,
-        episodesId: episodesId.value,
-      });
+      const payload: { projectId: string; episodesId?: number } = { projectId };
+      if (episodesId.value) payload.episodesId = episodesId.value;
+      const { data } = await axios.post("/production/getFlowData", payload);
       flowData.value = data;
       return data;
     }
@@ -284,7 +302,10 @@ function makeProductionAgentStore(projectId: string) {
           applyAssetImageRecords(data);
         }
         return data;
-      } catch (e) {}
+      } catch (e) {
+        console.warn("[productionAgent] batchGenerateAssets failed", e);
+        window.$message.error((e as any)?.message || "资产图片生成失败");
+      }
     }
     function applyAssetImageRecords(records: AssetImageRecord[] = []) {
       records.forEach((record) => {
@@ -439,6 +460,11 @@ function makeProductionAgentStore(projectId: string) {
         storyboardPollingTimer = null;
       }
     }
+
+    onBeforeUnmount(() => {
+      stopAssetsPolling();
+      stopStoryboardPolling();
+    });
 
     watch(
       () => storyboardNotStateImageIds.value,

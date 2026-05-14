@@ -47,7 +47,7 @@
             </div>
           </div>
           <div class="skillSelect">
-            <span style="font-size: 16px; font-weight: 900">生图预设</span>
+            <span style="font-size: 16px; font-weight: 900">生图 Skill</span>
             <t-select v-model="selectedSkillId" :options="skillOptions" :loading="skillLoading" clearable placeholder="默认：视觉手册标准生图" />
           </div>
           <div class="selectModel f">
@@ -154,6 +154,7 @@ const props = defineProps<{
     describe?: string;
     type?: string;
     prompt?: string;
+    sourcePrompt?: string;
     src: string;
   };
 }>();
@@ -179,14 +180,9 @@ const generateLoading = ref(false);
 const selectValue = ref(""); //选择的模型
 
 const value2 = ref("");
-//智能生成提示词
+// 智能生成描述词，并请求后端返回最终生图提示词用于直发
 const promptLoading = ref(false);
-const promptPolishedSkillId = ref<string | null>(null);
-const promptNeedsSkillRefresh = computed(() =>
-  Boolean(selectedSkillId.value && props.formData.prompt && promptPolishedSkillId.value !== selectedSkillId.value),
-);
-
-async function generatePrompt(options: { silent?: boolean } = {}) {
+async function generatePrompt() {
   promptLoading.value = true;
   try {
     const { data } = await axios.post("/assetsGenerate/polishAssetsPrompt", {
@@ -195,18 +191,16 @@ async function generatePrompt(options: { silent?: boolean } = {}) {
       type: props.formData.type ?? "props",
       name: props.formData.name,
       describe: props.formData.describe ? props.formData.describe : $t("workbench.assets.noDescription"),
-      currentPrompt: props.formData.prompt || null,
       skillId: selectedSkillId.value || null,
+      responsePromptMode: "source",
     });
+    window.$message.success($t("workbench.assets.gen.promptSuccess"));
     if (data.assetsId === props.formData.id) {
-      props.formData.prompt = data.prompt;
-      promptPolishedSkillId.value = selectedSkillId.value || null;
+      props.formData.prompt = data.sourcePrompt ?? data.prompt;
+      props.formData.sourcePrompt = data.sourcePrompt ?? data.prompt;
     }
-    if (!options.silent) window.$message.success($t("workbench.assets.gen.promptSuccess"));
-    return data.prompt as string;
   } catch (e: any) {
     window.$message.error(e.message ?? $t("workbench.assets.gen.promptFail"));
-    throw e;
   } finally {
     promptLoading.value = false;
   }
@@ -237,17 +231,11 @@ const skillOptions = computed(() => {
   const options = imageGenerationSkills.value
     .filter((skill) => !currentType || skill.targetTypes.includes(currentType))
     .map((skill) => ({
-      label: [skill.name, skill.aspectRatio ? `(${skill.aspectRatio})` : "", skill.description ? `- ${compactLabel(skill.description, 24)}` : ""]
-        .filter(Boolean)
-        .join(" "),
+      label: skill.aspectRatio ? `${skill.name} (${skill.aspectRatio})` : skill.name,
       value: skill.id,
     }));
   return [{ label: "默认：视觉手册标准生图", value: "" }, ...options];
 });
-
-function compactLabel(value: string, maxLength: number) {
-  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
-}
 
 async function fetchImageGenerationSkills() {
   skillLoading.value = true;
@@ -277,10 +265,6 @@ async function handleGenerate() {
   }
   generateLoading.value = true;
   try {
-    if (promptNeedsSkillRefresh.value) {
-      await generatePrompt({ silent: true });
-      window.$message.success("已按当前生图预设重新推理提示词");
-    }
     let referenceImageBase64 = "";
     if (referenceFileList.value.length > 0) {
       const file = referenceFileList.value[0].raw;
@@ -300,12 +284,13 @@ async function handleGenerate() {
       projectId: project.value?.id,
       name: props.formData.name ?? $t("workbench.assets.gen.unnamed"),
       base64: referenceImageBase64,
-      prompt: props.formData.prompt,
+      prompt: props.formData.sourcePrompt ?? props.formData.prompt,
       describe: props.formData.describe,
       model: selectValue.value,
       id: props.formData.id,
       resolution: resolution.value,
       skillId: selectedSkillId.value || null,
+      promptMode: "source",
     });
     window.$message.success($t("workbench.assets.gen.assetGenSuccess"));
     await fetchGeneratedImages();
@@ -359,21 +344,11 @@ watch(
       referenceFileList.value = [];
       value2.value = "";
       selectedSkillId.value = "";
-      promptPolishedSkillId.value = null;
       selectedImageIndex.value = null;
       hoveredImageIndex.value = null;
       generateLoading.value = false;
       fetchImageGenerationSkills();
       fetchGeneratedImages();
-    }
-  },
-);
-
-watch(
-  () => props.formData.prompt,
-  () => {
-    if (!selectedSkillId.value) {
-      promptPolishedSkillId.value = null;
     }
   },
 );
@@ -454,12 +429,11 @@ async function onClick() {
       id: props.formData.id,
       base64: isLocalUpload ? selectedImage.src : "",
       type: props.formData.type,
-      prompt: props.formData.prompt,
+      prompt: props.formData.sourcePrompt ?? props.formData.prompt,
       projectId: project.value?.id,
       imageId: isLocalUpload ? undefined : Number(selectedImage.id),
     });
     window.$message.success($t("workbench.assets.gen.imageSaved"));
-    window.dispatchEvent(new CustomEvent("toonflow-assets-updated", { detail: { projectId: project.value?.id, assetId: props.formData.id } }));
     generateImageShow.value = false;
     emit("update");
   }

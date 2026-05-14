@@ -863,6 +863,7 @@
       "prop": "Đạo cụ",
       "scene": "Cảnh",
       "clip": "Chất liệu (Clip)",
+      "uploadImage": "Tải ảnh lên",
       "uploadSuccess": "Tải lên thành công",
       "selectAtLeastOne": "Vui lòng chọn ít nhất một tài nguyên",
       "noDescription": "Không có mô tả",
@@ -894,8 +895,8 @@
         "describePh": "Vui lòng nhập mô tả",
         "remark": "Ghi chú",
         "remarkPh": "Vui lòng nhập ghi chú",
-        "prompt": "Lời nhắc",
-        "promptPh": "Vui lòng nhập lời nhắc",
+        "prompt": "Mô tả tài nguyên",
+        "promptPh": "Chỉ nhập mô tả riêng của tài nguyên này. Không dán ràng buộc dự án, thẻ sự kiện hoặc lời nhắc tạo ảnh cuối cùng.",
         "nameRequired": "Vui lòng nhập tên",
         "describeRequired": "Vui lòng nhập chi tiết",
         "remarkRequired": "Vui lòng nhập ghi chú",
@@ -1380,7 +1381,8 @@
       "start": "Extract characters, scenes, and props from the current novel and prepare the asset library",
       "msg": {
         "memoryCleared": "Memory cleared",
-        "error": "Operation failed"
+        "error": "Operation failed",
+        "imageModelUpdated": "Đã cập nhật mô hình hình ảnh"
       }
     }
   },

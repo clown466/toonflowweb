@@ -5,11 +5,9 @@
     <div class="panel-header">
       <div class="header-title">
         <span class="title-text">{{ panelTitle }}</span>
+        <span class="connection-dot" :class="connected ? 'online' : 'offline'"></span>
       </div>
       <div class="header-actions">
-        <t-tooltip :content="connected ? '已连接' : '未连接'" placement="bottom">
-          <span class="connection-dot" :class="connected ? 'online' : 'offline'"></span>
-        </t-tooltip>
         <t-tooltip content="更多" placement="bottom">
           <t-button variant="text" shape="square" size="small" @click="showMoreMenu = true">
             <template #icon><i-more size="16" /></template>
@@ -66,7 +64,7 @@
         <div v-if="progressHint" class="progress-hint">{{ progressHint }}</div>
       </div>
 
-      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory" @load.capture="scrollMessagesToBottom">
+      <div ref="messagesSectionRef" class="messages-section" v-loading="loadingHistory">
         <t-chat-list :clear-history="false">
           <t-chat-message
             v-for="message in messages"
@@ -119,79 +117,17 @@
 
         <t-divider layout="vertical" />
 
-        <t-select
-          v-model="selectedStoryboardSkillId"
-          class="storyboard-skill-select"
-          size="small"
-          clearable
-          :loading="storyboardSkillLoading"
-          :popup-props="{ overlayClassName: 'storyboard-skill-popup' }"
-          placeholder="分镜方法"
-          @popup-visible-change="handleStoryboardSkillPopup"
-        >
-          <t-option key="default" value="" label="默认分镜方法">
-            <div class="storyboard-skill-option">
-              <span class="skill-name">默认分镜方法</span>
-              <span class="skill-desc">使用系统默认分镜生成逻辑</span>
-            </div>
-          </t-option>
-          <t-option
-            v-for="skill in storyboardSkills"
-            :key="skill.id"
-            :value="skill.id"
-            :label="storyboardSkillDisplayName(skill)"
-          >
-            <div class="storyboard-skill-option">
-              <span class="skill-name">{{ storyboardSkillDisplayName(skill) }}</span>
-              <span class="skill-desc">{{ storyboardSkillDisplayDescription(skill) }}</span>
-            </div>
-          </t-option>
-        </t-select>
-
-        <t-divider layout="vertical" />
-
-        <t-select
-          v-model="selectedImageSkillId"
-          class="image-skill-select"
-          size="small"
-          clearable
-          :loading="imageSkillLoading"
-          :popup-props="{ overlayClassName: 'image-skill-popup' }"
-          placeholder="生图预设"
-          @popup-visible-change="handleImageSkillPopup"
-        >
-          <t-option key="default" value="" label="默认生图预设">
-            <div class="image-skill-option">
-              <span class="skill-name">默认生图预设</span>
-              <span class="skill-desc">使用系统默认资产生图逻辑</span>
-            </div>
-          </t-option>
-          <t-option
-            v-for="skill in imageGenerationSkills"
-            :key="skill.id"
-            :value="skill.id"
-            :label="imageSkillDisplayName(skill)"
-          >
-            <div class="image-skill-option">
-              <span class="skill-name">{{ imageSkillDisplayName(skill) }}</span>
-              <span class="skill-desc">{{ imageSkillDisplayDescription(skill) }}</span>
-            </div>
-          </t-option>
-        </t-select>
-
-        <t-divider layout="vertical" />
-
-        <!-- 预设按钮 -->
+        <!-- 技能按钮 -->
         <t-popup trigger="click" placement="top">
           <t-button variant="text" size="small" class="tool-btn">
             <span class="btn-prefix">/</span>
-            <span>预设</span>
+            <span>技能</span>
           </t-button>
           <template #content>
             <div class="popup-menu skills-menu">
-              <div class="menu-title">{{ mode === 'workspace' ? '项目预设' : '生产预设' }}</div>
+              <div class="menu-title">{{ mode === 'workspace' ? '项目技能' : '生产技能' }}</div>
               <div class="search-row">
-                <t-input v-model="skillSearch" size="small" clearable placeholder="搜索预设" />
+                <t-input v-model="skillSearch" size="small" clearable placeholder="搜索技能" />
               </div>
               <div
                 v-for="skill in filteredSkills"
@@ -209,7 +145,7 @@
         </t-popup>
 
         <!-- 模型按钮 -->
-        <t-popup trigger="click" placement="top">
+        <t-popup trigger="click" placement="top" @visible-change="onModelPopupVisibleChange">
           <t-button variant="text" size="small" class="tool-btn">
             <template #icon><i-robot size="14" /></template>
             <span>模型</span>
@@ -225,26 +161,24 @@
                   <span class="info-label">Agent 模型</span>
                   <span class="info-value">{{ currentModel || '默认' }}</span>
                 </div>
-                <div class="info-row">
-                  <span class="info-label">项目出图</span>
-                  <span class="info-value" :title="currentProjectImageModel">{{ currentProjectImageModel || '未选择' }}</span>
+                <div class="info-row full-width">
+                  <span class="info-label">图像模型</span>
+                  <t-select
+                    v-model="selectedImageModel"
+                    size="small"
+                    placeholder="选择图像模型"
+                    :loading="loadingImageModels"
+                    class="model-select"
+                  >
+                    <t-option-group v-for="vendor in groupedImageModels" :key="vendor.vendorId" :label="vendor.vendorName">
+                      <t-option v-for="model in vendor.models" :key="model.value" :value="model.value" :label="model.label" />
+                    </t-option-group>
+                  </t-select>
                 </div>
                 <div class="info-row">
                   <span class="info-label">视频模型</span>
                   <span class="info-value">{{ videoModel || '项目配置' }}</span>
                 </div>
-              </div>
-              <div class="model-select-row">
-                <t-loading :loading="imageModelSaving" size="small">
-                  <modelSelect
-                    v-model="localProjectImageModel"
-                    type="image"
-                    size="small"
-                    placeholder="选择本项目出图模型"
-                    :disabled="imageModelSaving"
-                    @change="handleProjectImageModelChange"
-                  />
-                </t-loading>
               </div>
               <div class="menu-divider"></div>
               <div class="menu-item" @click="openSettings">
@@ -301,7 +235,7 @@
                 </template>
                 <template v-if="activeElementTab === 'episodes'">
                   <div class="element-item disabled">
-                    <span>章节工作区列表（即将支持）</span>
+                    <span>剧集列表（即将支持）</span>
                   </div>
                 </template>
               </div>
@@ -310,32 +244,7 @@
         </t-popup>
       </div>
 
-      <div
-        class="input-box"
-        :class="{ 'asset-drop-active': assetDropActive }"
-        @dragover.prevent="handleAssetDragOver"
-        @dragleave="handleAssetDragLeave"
-        @drop.prevent="handleAssetDrop"
-      >
-        <div v-if="attachedAssetRefs.length" class="attached-assets">
-          <div
-            v-for="asset in attachedAssetRefs"
-            :key="asset.id"
-            class="attached-asset"
-            :title="asset.name || `资产 #${asset.id}`"
-          >
-            <img :src="asset.src" :alt="asset.name || `asset-${asset.id}`" />
-            <div class="attached-asset-info">
-              <span class="attached-asset-name">{{ asset.name || `资产 #${asset.id}` }}</span>
-              <span class="attached-asset-meta">{{ asset.type || '资产图片' }}</span>
-            </div>
-            <t-tooltip content="移除引用" placement="top">
-              <button class="attached-asset-remove" type="button" @click="removeAttachedAsset(asset.id)">
-                <i-close size="12" />
-              </button>
-            </t-tooltip>
-          </div>
-        </div>
+      <div class="input-box">
         <t-textarea
           v-model="inputValue"
           :placeholder="inputPlaceholder"
@@ -388,7 +297,7 @@
               v-else
               theme="primary"
               size="small"
-              :disabled="!canSend"
+              :disabled="!inputValue.trim() || !connected"
               @click="handleSend"
             >
               <template #icon><i-send size="14" /></template>
@@ -453,9 +362,6 @@
 import { useMousePressed, useMouse } from "@vueuse/core";
 import type { ChatMessagesData } from "@tdesign-vue-next/chat";
 import settingStore from "@/stores/setting";
-import projectStore from "@/stores/project";
-import { storeToRefs } from "pinia";
-import axios from "@/utils/axios";
 
 interface FlowData {
   storyboard: Array<{
@@ -484,6 +390,8 @@ const props = defineProps<{
   episodesCount?: number;
   currentModel?: string;
   imageModel?: string;
+  imageModelOptions?: any[];
+  loadingImageModels?: boolean;
   videoModel?: string;
   selectedStoryboardId?: number | null;
   selectedStoryboardIds?: number[];
@@ -495,7 +403,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:mode", mode: "workspace" | "production"): void;
-  (e: "send", text: string, displayText?: string): void;
+  (e: "send", text: string): void;
   (e: "stop"): void;
   (e: "clearMemory", type: "message" | "summary" | "all"): void;
   (e: "reconnect"): void;
@@ -503,152 +411,54 @@ const emit = defineEmits<{
   (e: "openSettings"): void;
   (e: "selectStoryboard", id: number): void;
   (e: "selectAsset", id: number): void;
+  (e: "loadImageModels"): void;
+  (e: "setImageModel", model: string): void;
 }>();
-
-const projectState = projectStore();
-const { project, allProject } = storeToRefs(projectState);
 
 // 输入状态
 const inputValue = ref("");
-const assetDropActive = ref(false);
 const showMoreMenu = ref(false);
 const showSettingPopup = ref(false);
 const showThink = ref(true);
-const panelWidth = defineModel<number>("panelWidth", { default: 410 });
+const panelWidth = ref(410);
 const activeElementTab = ref("storyboard");
 const skillSearch = ref("");
 const elementSearch = ref("");
 const busyStartedAt = ref<number | null>(null);
 const now = ref(Date.now());
-const imageModelSaving = ref(false);
 let progressTimer: ReturnType<typeof setInterval> | null = null;
-const currentProjectImageModel = computed(() => project.value?.imageModel || props.imageModel || "");
-const localProjectImageModel = ref(currentProjectImageModel.value);
 
-interface AttachedAssetRef {
-  id: number;
-  imageId?: number | null;
-  name?: string;
-  type?: string;
-  src: string;
-  prompt?: string;
-}
-
-interface StoryboardSkillMeta {
-  id: string;
-  name: string;
-  description?: string;
-  path?: string;
-  source?: "builtin" | "user";
-}
-
-interface ImageGenerationSkillMeta {
-  id: string;
-  name: string;
-  description?: string;
-  targetTypes?: string[];
-  aspectRatio?: string;
-}
-
-const storyboardSkills = ref<StoryboardSkillMeta[]>([]);
-const selectedStoryboardSkillId = ref("");
-const storyboardSkillLoading = ref(false);
-const storyboardSkillLoaded = ref(false);
-const imageGenerationSkills = ref<ImageGenerationSkillMeta[]>([]);
-const selectedImageSkillId = ref("");
-const imageSkillLoading = ref(false);
-const imageSkillLoaded = ref(false);
-
-const selectedStoryboardSkill = computed(() =>
-  storyboardSkills.value.find((skill) => skill.id === selectedStoryboardSkillId.value),
-);
-const selectedImageSkill = computed(() =>
-  imageGenerationSkills.value.find((skill) => skill.id === selectedImageSkillId.value),
-);
-
-function compactText(value: string, maxLength = 18) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-  if (normalized.length <= maxLength) return normalized;
-  return `${normalized.slice(0, maxLength)}...`;
-}
-
-function cleanStoryboardSkillDescription(skill: StoryboardSkillMeta) {
-  return (skill.description || "")
-    .replace(/\s+/g, " ")
-    .replace(/^视频制作执行层Agent技能\s*[—-]\s*/, "")
-    .trim();
-}
-
-function storyboardSkillStyleName(skill: StoryboardSkillMeta) {
-  const desc = cleanStoryboardSkillDescription(skill);
-  const promptMatch = desc.match(/^导演分镜提示词技法\s*·\s*(.+)$/);
-  if (promptMatch) return compactText(promptMatch[1], 14);
-
-  const tableStyleMatch = desc.match(/^分镜表(.+?)约束/);
-  if (tableStyleMatch) return compactText(tableStyleMatch[1], 12);
-
-  const narrativeMatch = desc.match(/^分镜表叙事手法\s*·\s*(.+?)\s*[—-]/);
-  if (narrativeMatch) return compactText(narrativeMatch[1], 12);
-
-  return "";
-}
-
-function storyboardSkillDisplayName(skill: StoryboardSkillMeta) {
-  const desc = cleanStoryboardSkillDescription(skill);
-  const styleName = storyboardSkillStyleName(skill);
-
-  if (skill.id.includes("storyboard_generation_method")) return "Flova 结构化分镜";
-  if (skill.id.includes("storyboard_table_techniques")) return "通用分镜表技法";
-  if (skill.id.includes("storyboard_prompt_techniques")) return "通用提示词技法";
-  if (/构建分镜表/.test(desc)) return "构建分镜表";
-  if (/分镜面板写入/.test(desc)) return "分镜面板写入";
-  if (/分镜图生成/.test(desc)) return "分镜图生成";
-  if (/^导演分镜提示词技法/.test(desc) && styleName) return `${styleName} · 提示词技法`;
-  if (/^分镜表.+?约束/.test(desc) && styleName) return `${styleName} · 表格约束`;
-  if (/^分镜表叙事手法/.test(desc) && styleName) return `${styleName} · 叙事分镜`;
-
-  return compactText((skill.name || skill.id).replace(/\.md$/i, "").replace(/_/g, " "), 18);
-}
-
-function storyboardSkillDisplayDescription(skill: StoryboardSkillMeta) {
-  const desc = cleanStoryboardSkillDescription(skill);
-
-  if (skill.source === "user") return compactText(desc || "用户自定义分镜生成规则", 26);
-  if (skill.id.includes("storyboard_generation_method")) return "从章节事件生成分镜表和生产镜头";
-  if (skill.id.includes("storyboard_table_techniques")) return "分镜字段、拆镜粒度与表格规则";
-  if (skill.id.includes("storyboard_prompt_techniques")) return "提示词结构、参考图标注与画质规则";
-  if (/构建分镜表/.test(desc)) return "把小说章节拆成结构化分镜表";
-  if (/分镜面板写入/.test(desc)) return "把分镜表写入分镜面板";
-  if (/分镜图生成/.test(desc)) return "按分镜面板生成分镜图";
-  if (/^导演分镜提示词技法/.test(desc)) return "生成分镜图提示词的风格规则";
-  if (/^分镜表.+?约束/.test(desc)) return "约束光影、动作、运镜与转场";
-  if (/^分镜表叙事手法/.test(desc)) return "约束景别、节奏、镜头与转场";
-
-  return compactText(desc || "分镜生成规则", 26);
-}
-
-function imageSkillTypeLabel(type: string) {
-  if (type === "role") return "角色";
-  if (type === "scene") return "场景";
-  if (type === "tool") return "道具";
-  return type;
-}
-
-function imageSkillDisplayName(skill: ImageGenerationSkillMeta) {
-  const suffix = skill.aspectRatio ? ` (${skill.aspectRatio})` : "";
-  return compactText(`${skill.name || skill.id}${suffix}`, 18);
-}
-
-function imageSkillDisplayDescription(skill: ImageGenerationSkillMeta) {
-  const typeText = Array.isArray(skill.targetTypes) && skill.targetTypes.length
-    ? skill.targetTypes.map(imageSkillTypeLabel).join("/")
-    : "资产";
-  return compactText(`${typeText} · ${skill.description || "资产生图推理规则"}`, 30);
-}
-
-watch(currentProjectImageModel, (value) => {
-  localProjectImageModel.value = value;
+// 图像模型选择
+const selectedImageModel = computed({
+  get: () => props.imageModel || "",
+  set: (v) => emit("setImageModel", v),
 });
+
+const groupedImageModels = computed(() => {
+  if (!props.imageModelOptions || props.imageModelOptions.length === 0) return [];
+
+  const map = new Map<string, { vendorId: string; vendorName: string; models: any[] }>();
+  for (const model of props.imageModelOptions) {
+    if (!map.has(model.vendorId)) {
+      map.set(model.vendorId, {
+        vendorId: model.vendorId,
+        vendorName: model.vendorName,
+        models: [],
+      });
+    }
+    map.get(model.vendorId)!.models.push({
+      value: model.value,
+      label: model.label || model.modelName,
+    });
+  }
+  return Array.from(map.values());
+});
+
+function onModelPopupVisibleChange(visible: boolean) {
+  if (visible) {
+    emit("loadImageModels");
+  }
+}
 
 const localThinkLevel = computed({
   get: () => props.thinkLevel,
@@ -664,7 +474,7 @@ const panelTitle = computed(() => props.mode === "workspace" ? "项目总控" : 
 // 输入框占位符
 const inputPlaceholder = computed(() => {
   if (!props.connected) return "未连接，请检查设置...";
-  return props.mode === "workspace" ? "直接说目标：提资产、做分镜、生成视频，总控会自动判断调用..." : "输入指令生成分镜或处理资产...";
+  return props.mode === "workspace" ? "直接说目标：写剧本、提资产、做分镜，总控会自动判断调用..." : "输入指令生成分镜或处理资产...";
 });
 
 // 调整大小逻辑
@@ -673,60 +483,18 @@ const MAX_WIDTH = 620;
 const resizeHandleRef = ref<HTMLElement | null>(null);
 const messagesSectionRef = ref<HTMLElement | null>(null);
 let autoScrollFrame: number | null = null;
-let autoScrollTimers: ReturnType<typeof setTimeout>[] = [];
 
-function clearAutoScrollQueue() {
+function scrollMessagesToBottom(behavior: ScrollBehavior = "auto") {
   if (autoScrollFrame !== null) {
     cancelAnimationFrame(autoScrollFrame);
-    autoScrollFrame = null;
   }
-  autoScrollTimers.forEach((timer) => clearTimeout(timer));
-  autoScrollTimers = [];
-}
-
-function scrollMessagesToBottom() {
-  clearAutoScrollQueue();
-
-  const scrollNow = () => {
+  autoScrollFrame = requestAnimationFrame(() => {
+    autoScrollFrame = null;
     const el = messagesSectionRef.value;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  };
-
-  scrollNow();
-  void nextTick(() => {
-    scrollNow();
-    autoScrollFrame = requestAnimationFrame(() => {
-      autoScrollFrame = null;
-      scrollNow();
-    });
-    autoScrollTimers.push(setTimeout(scrollNow, 80), setTimeout(scrollNow, 240));
+    el.scrollTo({ top: el.scrollHeight, behavior });
   });
 }
-
-function stringifyForScroll(value: unknown, seen = new WeakSet<object>()): string {
-  if (value === null || value === undefined) return "";
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
-  if (typeof value !== "object") return "";
-  if (seen.has(value)) return "";
-  seen.add(value);
-  if (Array.isArray(value)) return value.map((item) => stringifyForScroll(item, seen)).join("|");
-  return Object.keys(value as Record<string, unknown>)
-    .sort()
-    .map((key) => `${key}:${stringifyForScroll((value as Record<string, unknown>)[key], seen)}`)
-    .join("|");
-}
-
-const latestMessageSignature = computed(() =>
-  props.messages
-    .slice(-4)
-    .map((message) => stringifyForScroll({
-      id: message.id,
-      status: message.status,
-      content: (message as any).content,
-    }))
-    .join("||"),
-);
 
 const { pressed } = useMousePressed({ target: resizeHandleRef });
 const { x } = useMouse();
@@ -852,23 +620,18 @@ watch(isBusy, (busy) => {
 }, { immediate: true });
 
 onMounted(() => {
-  scrollMessagesToBottom();
-  void fetchStoryboardSkills();
-});
-
-onActivated(() => {
-  scrollMessagesToBottom();
+  scrollMessagesToBottom("auto");
 });
 
 watch(
   () => [props.loadingHistory, props.mode, props.messages.length] as const,
-  () => nextTick(() => scrollMessagesToBottom()),
+  () => nextTick(() => scrollMessagesToBottom("auto")),
   { immediate: true },
 );
 
 watch(
-  () => latestMessageSignature.value,
-  () => scrollMessagesToBottom(),
+  () => props.messages.map((message) => `${message.id}:${message.content ?? ""}:${message.status ?? ""}`).join("|"),
+  () => nextTick(() => scrollMessagesToBottom("smooth")),
 );
 
 onUnmounted(() => {
@@ -876,19 +639,22 @@ onUnmounted(() => {
     clearInterval(progressTimer);
     progressTimer = null;
   }
-  clearAutoScrollQueue();
+  if (autoScrollFrame !== null) {
+    cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = null;
+  }
 });
 
 // 技能列表
 const workspaceSkills = [
-  { name: "检查项目状态", desc: "分析小说、资产、分镜、视频进度", prompt: "请检查当前项目的整体状态，并判断下一步应该走小说事件、资产、分镜表、分镜图还是视频生产。" },
-  { name: "提取角色场景", desc: "从小说提取资产清单", prompt: "请从当前项目的小说章节中提取角色、场景和道具，并写入资产库；先查重，避免重复创建。" },
-  { name: "生成分镜表", desc: "按小说章节拆分镜", prompt: "请基于当前小说章节和资产库生成分镜表，直接进入分镜流程。" },
-  { name: "进入生产准备", desc: "由总控判断资产/分镜是否就绪", prompt: "请检查当前项目是否具备生产条件；如果可以，协助规划分镜、导演方案和资产生成步骤。" },
+  { name: "检查项目状态", desc: "分析小说、剧本、资产、生产进度", prompt: "请检查当前项目的整体状态，并判断下一步应该走小说、剧本、资产还是生产流程。" },
+  { name: "生成/改编剧本", desc: "由总控转交编剧能力", prompt: "请根据当前项目内容生成或改编剧本；你先检查小说和已有剧本状态，再决定是否调用编剧能力。" },
+  { name: "提取角色场景", desc: "从小说/剧本提取资产清单", prompt: "请从当前项目的小说或剧本中提取角色、场景和道具，并写入资产库；先查重，避免重复创建。" },
+  { name: "进入生产准备", desc: "由总控判断资产/剧本是否就绪", prompt: "请检查当前项目是否具备生产条件；如果可以，协助规划分镜、导演方案和资产生成步骤。" },
 ];
 
 const productionSkills = [
-  { name: "生成分镜", desc: "批量生成分镜图片", prompt: "请为当前章节工作区的所有分镜生成图片。" },
+  { name: "生成分镜", desc: "批量生成分镜图片", prompt: "请为当前剧集的所有分镜生成图片。" },
   { name: "重试失败镜头", desc: "重新生成失败项", prompt: "请重新生成所有生成失败的分镜。" },
   { name: "整理生产资产", desc: "检查和优化资产", prompt: "请检查当前生产资产，优化提示词。" },
 ];
@@ -904,7 +670,7 @@ const filteredSkills = computed(() => {
 
 function resolveSkillPrompt(skill: { prompt: string }) {
   const lines = [skill.prompt];
-  if (props.currentEpisode) lines.push(`当前章节工作区：${props.currentEpisode.name || props.currentEpisode.id} (#${props.currentEpisode.id})`);
+  if (props.currentEpisode) lines.push(`当前剧集：${props.currentEpisode.name || props.currentEpisode.id} (#${props.currentEpisode.id})`);
   if (props.selectedStoryboardId) lines.push(`当前分镜：#${props.selectedStoryboardId}`);
   if (props.selectedStoryboardIds?.length) lines.push(`当前多选分镜：${props.selectedStoryboardIds.map(id => `#${id}`).join('、')}`);
   if (props.selectedAsset) lines.push(`当前资产：${props.selectedAsset.name || props.selectedAsset.id} (#${props.selectedAsset.id})`);
@@ -915,7 +681,7 @@ function resolveSkillPrompt(skill: { prompt: string }) {
 const elementTabs = [
   { key: "storyboard", label: "分镜" },
   { key: "assets", label: "资产" },
-  { key: "episodes", label: "章节" },
+  { key: "episodes", label: "剧集" },
 ];
 
 const filteredElementStoryboards = computed(() => {
@@ -936,21 +702,19 @@ const filteredElementAssets = computed(() => {
 
 // 建议列表
 const workspaceSuggestions = [
-  { text: "检查项目", prompt: "请检查当前项目状态，并告诉我下一步该做小说事件、资产、分镜还是视频。" },
-  { text: "提资产", prompt: "请从小说章节中提取角色、场景和道具，并写入资产库。" },
-  { text: "做分镜表", prompt: "请基于当前小说章节和资产库生成分镜表。" },
+  { text: "检查项目", prompt: "请检查当前项目状态，并告诉我下一步该做剧本、资产还是生产。" },
+  { text: "写剧本", prompt: "请根据当前项目内容生成或改编剧本；由你判断是否需要调用编剧能力。" },
+  { text: "提资产", prompt: "请从小说或剧本中提取角色、场景和道具，并写入资产库。" },
   { text: "准备生产", prompt: "请判断项目是否具备生产条件，并规划分镜、导演方案和资产生成步骤。" },
 ];
 
 const productionSuggestions = [
-  { text: "生成分镜", prompt: "请为当前章节工作区生成所有分镜图片。" },
+  { text: "生成分镜", prompt: "请为当前剧集生成所有分镜图片。" },
   { text: "重试失败", prompt: "请重新生成所有失败的分镜。" },
   { text: "整理资产", prompt: "请检查和优化当前生产资产。" },
 ];
 
 const currentSuggestions = computed(() => props.mode === "workspace" ? workspaceSuggestions : productionSuggestions);
-const attachedAssetRefs = ref<AttachedAssetRef[]>([]);
-const canSend = computed(() => props.connected && (inputValue.value.trim().length > 0 || attachedAssetRefs.value.length > 0));
 
 // 思考级别选项
 const thinkLevelOptions = [
@@ -977,143 +741,9 @@ const handleActions = {
 // 方法
 function handleSend() {
   const text = inputValue.value.trim();
-  if (!canSend.value) return;
-  const attachmentText = attachedAssetRefs.value.map(formatAssetReferenceLine).join("\n");
-  const messageText = [text, attachmentText].filter(Boolean).join("\n");
-  emit("send", withSelectedSkillInstructions(messageText), text || formatAttachedAssetDisplayText());
+  if (!text || !props.connected) return;
+  emit("send", text);
   inputValue.value = "";
-  attachedAssetRefs.value = [];
-}
-
-function parseDraggedAsset(event: DragEvent) {
-  const raw = event.dataTransfer?.getData("application/x-toonflow-asset");
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed?.kind !== "toonflow-asset-image" || !parsed?.id || !parsed?.src) return null;
-    return parsed as AttachedAssetRef;
-  } catch {
-    return null;
-  }
-}
-
-function handleAssetDragOver(event: DragEvent) {
-  if (!event.dataTransfer?.types.includes("application/x-toonflow-asset")) return;
-  event.dataTransfer.dropEffect = "copy";
-  assetDropActive.value = true;
-}
-
-function handleAssetDragLeave(event: DragEvent) {
-  const current = event.currentTarget as HTMLElement | null;
-  if (current && event.relatedTarget instanceof Node && current.contains(event.relatedTarget)) return;
-  assetDropActive.value = false;
-}
-
-function handleAssetDrop(event: DragEvent) {
-  assetDropActive.value = false;
-  const asset = parseDraggedAsset(event);
-  if (!asset) return;
-  emit("selectAsset", Number(asset.id));
-  attachAssetRef(asset);
-}
-
-function attachAssetRef(asset: AttachedAssetRef) {
-  const normalized: AttachedAssetRef = {
-    id: Number(asset.id),
-    imageId: asset.imageId ?? null,
-    name: asset.name || "",
-    type: asset.type || "",
-    src: asset.src,
-    prompt: asset.prompt || "",
-  };
-  const index = attachedAssetRefs.value.findIndex(item => item.id === normalized.id);
-  if (index >= 0) {
-    attachedAssetRefs.value.splice(index, 1, normalized);
-    return;
-  }
-  attachedAssetRefs.value.push(normalized);
-}
-
-function removeAttachedAsset(id: number) {
-  attachedAssetRefs.value = attachedAssetRefs.value.filter(asset => asset.id !== id);
-}
-
-function formatAssetReferenceLine(asset: AttachedAssetRef) {
-  const typeText = asset.type ? `，类型：${asset.type}` : "";
-  return `引用资产 ID: ${asset.id}，名称：${asset.name || ""}${typeText}，图片：${asset.src}`;
-}
-
-function formatAttachedAssetDisplayText() {
-  if (attachedAssetRefs.value.length === 1) {
-    const asset = attachedAssetRefs.value[0];
-    return `引用资产：${asset.name || `#${asset.id}`}`;
-  }
-  return `引用 ${attachedAssetRefs.value.length} 张资产图`;
-}
-
-function withSelectedSkillInstructions(text: string) {
-  return withImageSkillInstruction(withStoryboardSkillInstruction(text));
-}
-
-function isStoryboardGenerationMessage(text: string) {
-  return /分镜|镜头|镜号|storyboard|shot/i.test(text);
-}
-
-function withStoryboardSkillInstruction(text: string) {
-  if (!selectedStoryboardSkillId.value || !isStoryboardGenerationMessage(text)) return text;
-  const skill = selectedStoryboardSkill.value;
-  const skillText = skill?.name ? `${skill.name}（${selectedStoryboardSkillId.value}）` : selectedStoryboardSkillId.value;
-  return `${text}\n\n使用分镜 Skill：${skillText}`;
-}
-
-function isAssetImageGenerationMessage(text: string) {
-  const isStoryboardOnly = /(分镜图|首帧|导演板|故事板|镜头图|storyboard|shot image)/i.test(text)
-    && !/(资产|角色|人物|场景资产|道具|素材|参考图|四视图|俯视图|多角度|全景参考|asset|character|scene asset|prop|reference)/i.test(text);
-  if (isStoryboardOnly) return false;
-  return /(资产|角色|人物|场景|道具|素材|参考图|生图|出图|生成.*图|图片|图像|四视图|俯视|多角度|全景|透视|image|asset|character|scene|prop|reference)/i.test(text);
-}
-
-function withImageSkillInstruction(text: string) {
-  if (!selectedImageSkillId.value || !isAssetImageGenerationMessage(text)) return text;
-  const skill = selectedImageSkill.value;
-  const skillText = skill?.name ? `${skill.name}（skillId: ${selectedImageSkillId.value}）` : `skillId: ${selectedImageSkillId.value}`;
-  return `${text}\n\n使用资产生图预设：${skillText}`;
-}
-
-async function fetchStoryboardSkills(force = false) {
-  if (storyboardSkillLoading.value || (storyboardSkillLoaded.value && !force)) return;
-  storyboardSkillLoading.value = true;
-  try {
-    const { data } = await axios.post("/setting/storyboardGenerationSkill/list");
-    storyboardSkills.value = Array.isArray(data) ? data : [];
-    storyboardSkillLoaded.value = true;
-  } catch {
-    storyboardSkills.value = [];
-  } finally {
-    storyboardSkillLoading.value = false;
-  }
-}
-
-function handleStoryboardSkillPopup(visible: boolean) {
-  if (visible) void fetchStoryboardSkills(true);
-}
-
-async function fetchImageGenerationSkills(force = false) {
-  if (imageSkillLoading.value || (imageSkillLoaded.value && !force)) return;
-  imageSkillLoading.value = true;
-  try {
-    const { data } = await axios.post("/setting/imageGenerationSkill/list");
-    imageGenerationSkills.value = Array.isArray(data) ? data : [];
-    imageSkillLoaded.value = true;
-  } catch {
-    imageGenerationSkills.value = [];
-  } finally {
-    imageSkillLoading.value = false;
-  }
-}
-
-function handleImageSkillPopup(visible: boolean) {
-  if (visible) void fetchImageGenerationSkills(true);
 }
 
 function onTextareaKeydown(_value: unknown, context?: { e: KeyboardEvent }) {
@@ -1153,7 +783,7 @@ function applySuggestion(prompt: string) {
 function insertCurrentSelection() {
   const parts: string[] = [];
   if (props.currentEpisode) {
-    parts.push(`当前章节工作区：${props.currentEpisode.name || `工作区${props.currentEpisode.id}`} (#${props.currentEpisode.id})`);
+    parts.push(`当前剧集：${props.currentEpisode.name || `第${props.currentEpisode.id}集`} (#${props.currentEpisode.id})`);
   }
   if (props.selectedStoryboardId) {
     const storyboard = props.flowData?.storyboard?.find(item => item.id === props.selectedStoryboardId);
@@ -1167,7 +797,7 @@ function insertCurrentSelection() {
     parts.push(`当前选中资产：${props.selectedAsset.name || props.selectedAssetId} (#${props.selectedAsset.id})${parent ? `，父资产：${parent.name} (#${parent.id})` : ''}`);
   }
   if (parts.length === 0) {
-    window.$message.info("请先选择分镜、资产或章节工作区");
+    window.$message.info("请先选择分镜、资产或剧集");
     return;
   }
   inputValue.value = inputValue.value + (inputValue.value ? "\n" : "") + parts.join("\n");
@@ -1186,37 +816,6 @@ function selectStoryboardElement(item: { id?: number; prompt?: string }) {
 function selectAssetElement(asset: { id: number; name?: string }) {
   emit("selectAsset", asset.id);
   appendToInput(`引用资产：#${asset.id} ${asset.name || ''}`.trim());
-}
-
-async function handleProjectImageModelChange(value: string) {
-  if (!value || value === currentProjectImageModel.value) return;
-  const currentProject = project.value;
-  if (!currentProject?.id) {
-    localProjectImageModel.value = currentProjectImageModel.value;
-    window.$message.warning("当前没有可更新的项目");
-    return;
-  }
-
-  imageModelSaving.value = true;
-  try {
-    await axios.post("/project/updateImageModel", {
-      id: Number(currentProject.id),
-      imageModel: value,
-    });
-    project.value = {
-      ...currentProject,
-      imageModel: value,
-    };
-    allProject.value = allProject.value.map((item) =>
-      String(item.id) === String(currentProject.id) ? { ...item, imageModel: value } : item,
-    );
-    window.$message.success("已切换本项目出图模型");
-  } catch (err: any) {
-    localProjectImageModel.value = currentProjectImageModel.value;
-    window.$message.error(err?.message || "出图模型切换失败");
-  } finally {
-    imageModelSaving.value = false;
-  }
 }
 
 function openSettings() {
@@ -1256,7 +855,6 @@ function openSettings() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   height: 48px;
   padding: 0 16px;
   border-bottom: 1px solid var(--td-border-level-1-color);
@@ -1266,33 +864,20 @@ function openSettings() {
   .header-title {
     display: flex;
     align-items: center;
-    flex: 1;
-    min-width: 0;
+    gap: 8px;
 
     .title-text {
       font-size: 14px;
       font-weight: 600;
       color: var(--td-text-color-primary);
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
   }
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
 }
 
 .connection-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  flex: 0 0 8px;
 
   &.online {
     background-color: var(--td-success-color);
@@ -1470,6 +1055,7 @@ function openSettings() {
   overflow-y: auto;
   padding: 14px 18px 18px;
   min-height: 0;
+  scroll-behavior: smooth;
 
   :deep(.t-chat__list) {
     padding: 0;
@@ -1509,7 +1095,6 @@ function openSettings() {
 
 .input-toolbar {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   margin-bottom: 4px;
@@ -1529,74 +1114,6 @@ function openSettings() {
     &:hover {
       color: var(--td-text-color-primary);
     }
-  }
-}
-
-.storyboard-skill-select {
-  width: 152px;
-  flex: 0 0 152px;
-
-  :deep(.t-input) {
-    font-size: 12px;
-  }
-}
-
-.image-skill-select {
-  width: 146px;
-  flex: 0 0 146px;
-
-  :deep(.t-input) {
-    font-size: 12px;
-  }
-}
-
-:global(.storyboard-skill-popup),
-:global(.image-skill-popup) {
-  max-width: min(380px, calc(100vw - 24px));
-}
-
-:global(.storyboard-skill-popup .t-select-option),
-:global(.image-skill-popup .t-select-option) {
-  height: auto !important;
-  min-height: 48px;
-  align-items: flex-start;
-  padding: 6px 12px;
-  line-height: 1.35;
-}
-
-:global(.storyboard-skill-popup .t-select-option__content),
-:global(.image-skill-popup .t-select-option__content) {
-  width: 100%;
-  overflow: hidden;
-}
-
-.storyboard-skill-option,
-.image-skill-option,
-:global(.storyboard-skill-option),
-:global(.image-skill-option) {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
-  max-width: 340px;
-  padding: 2px 0;
-
-  .skill-name {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--td-text-color-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .skill-desc {
-    font-size: 11px;
-    line-height: 1.35;
-    color: var(--td-text-color-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 
@@ -1680,8 +1197,7 @@ function openSettings() {
 }
 
 .model-menu {
-  min-width: 320px;
-  max-width: 360px;
+  min-width: 200px;
 
   .model-info {
     padding: 8px 12px;
@@ -1689,8 +1205,15 @@ function openSettings() {
     .info-row {
       display: flex;
       justify-content: space-between;
+      align-items: center;
       font-size: 12px;
       padding: 4px 0;
+
+      &.full-width {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+      }
 
       .info-label {
         color: var(--td-text-color-secondary);
@@ -1699,17 +1222,13 @@ function openSettings() {
       .info-value {
         color: var(--td-text-color-primary);
         font-weight: 500;
-        max-width: 190px;
-        overflow: hidden;
-        text-align: right;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+      }
+
+      .model-select {
+        width: 100%;
+        font-size: 12px;
       }
     }
-  }
-
-  .model-select-row {
-    padding: 4px 12px 10px;
   }
 }
 
@@ -1795,94 +1314,12 @@ function openSettings() {
     border-color: var(--td-brand-color);
   }
 
-  &.asset-drop-active {
-    border-color: var(--td-brand-color);
-    background-color: var(--td-brand-color-light);
-  }
-
   :deep(.t-textarea__inner) {
     border: none;
     box-shadow: none;
     background: transparent;
     padding: 0;
     resize: none;
-  }
-}
-
-.attached-assets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.attached-asset {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(210px, 100%);
-  min-width: 0;
-  padding: 5px 26px 5px 5px;
-  border: 1px solid var(--td-border-level-2-color);
-  border-radius: 8px;
-  background: var(--td-bg-color-component);
-
-  img {
-    width: 42px;
-    height: 42px;
-    flex: 0 0 auto;
-    border-radius: 6px;
-    object-fit: cover;
-    background: var(--td-bg-color-container);
-  }
-}
-
-.attached-asset-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.attached-asset-name,
-.attached-asset-meta {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.attached-asset-name {
-  color: var(--td-text-color-primary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.attached-asset-meta {
-  color: var(--td-text-color-secondary);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.attached-asset-remove {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  color: var(--td-text-color-secondary);
-  background: transparent;
-  cursor: pointer;
-
-  &:hover {
-    color: var(--td-text-color-primary);
-    background: var(--td-bg-color-container-hover);
   }
 }
 
@@ -1994,101 +1431,6 @@ function openSettings() {
       font-size: 13px;
       color: var(--td-text-color-primary);
     }
-  }
-}
-
-@media (max-width: 720px) {
-  .agent-panel {
-    width: 100% !important;
-    min-width: 0;
-  }
-
-  .resize-handle {
-    display: none;
-  }
-
-  .panel-header {
-    height: 44px;
-    padding: 0 10px 0 42px;
-  }
-
-  .mode-switch {
-    padding: 6px 8px;
-  }
-
-  .mode-btn {
-    min-width: 0;
-    padding: 6px 4px;
-
-    span {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-  }
-
-  .context-bar,
-  .status-strip {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .status-strip {
-    gap: 6px;
-
-    .strip-meta {
-      display: none;
-    }
-  }
-
-  .progress-strip {
-    padding: 8px 10px;
-  }
-
-  .messages-section {
-    padding: 10px 10px 12px;
-
-    :deep(.t-chat__text) {
-      font-size: 13px;
-      line-height: 1.55;
-      word-break: break-word;
-    }
-  }
-
-  .panel-footer {
-    padding: 6px 8px 8px;
-  }
-
-  .input-toolbar {
-    gap: 4px;
-
-    :deep(.t-divider--vertical) {
-      display: none;
-    }
-  }
-
-  .storyboard-skill-select,
-  .image-skill-select {
-    flex: 1 1 128px;
-    width: auto;
-    min-width: 0;
-  }
-
-  .attached-asset {
-    max-width: 100%;
-  }
-
-  .input-actions {
-    gap: 6px;
-  }
-
-  .action-left,
-  .action-right {
-    min-width: 0;
-  }
-
-  .think-btn {
-    max-width: 92px;
   }
 }
 </style>

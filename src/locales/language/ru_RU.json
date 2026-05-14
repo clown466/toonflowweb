@@ -872,6 +872,7 @@
       "prop": "Предмет",
       "scene": "Сцена",
       "clip": "Клип",
+      "uploadImage": "Загрузить изображение",
       "uploadSuccess": "Успешно загружено",
       "selectAtLeastOne": "Выберите хотя бы один ассет",
       "noDescription": "Нет описания",
@@ -903,8 +904,8 @@
         "describePh": "Введите описание",
         "remark": "Примечание",
         "remarkPh": "Введите примечание",
-        "prompt": "Промпт",
-        "promptPh": "Введите промпт",
+        "prompt": "Описание ассета",
+        "promptPh": "Введите только описание этого ассета. Не вставляйте ограничения проекта, карточки фактов или финальный промпт генерации.",
         "nameRequired": "Пожалуйста, введите название",
         "describeRequired": "Пожалуйста, введите детали",
         "remarkRequired": "Пожалуйста, введите примечание",
@@ -1389,7 +1390,8 @@
       "start": "Extract characters, scenes, and props from the current novel and prepare the asset library",
       "msg": {
         "memoryCleared": "Memory cleared",
-        "error": "Operation failed"
+        "error": "Operation failed",
+        "imageModelUpdated": "Модель изображения обновлена"
       }
     }
   },

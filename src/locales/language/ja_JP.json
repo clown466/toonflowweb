@@ -872,6 +872,7 @@
       "prop": "小道具",
       "scene": "シーン",
       "clip": "素材",
+      "uploadImage": "画像をアップロード",
       "uploadSuccess": "アップロードに成功しました",
       "selectAtLeastOne": "アセットを少なくとも1つ選択してください",
       "noDescription": "説明なし",
@@ -903,8 +904,8 @@
         "describePh": "説明を入力してください",
         "remark": "備考",
         "remarkPh": "備考を入力してください",
-        "prompt": "プロンプト",
-        "promptPh": "プロンプトを入力してください",
+        "prompt": "アセット説明",
+        "promptPh": "このアセット固有の説明だけを入力してください。プロジェクト制約、ファクトカード、最終生成プロンプトは貼り付けないでください。",
         "nameRequired": "名前を入力してください",
         "describeRequired": "詳細を入力してください",
         "remarkRequired": "備考を入力してください",
@@ -1389,7 +1390,8 @@
       "start": "Extract characters, scenes, and props from the current novel and prepare the asset library",
       "msg": {
         "memoryCleared": "Memory cleared",
-        "error": "Operation failed"
+        "error": "Operation failed",
+        "imageModelUpdated": "画像モデルが更新されました"
       }
     }
   },

@@ -70,8 +70,8 @@
             </div>
           </template>
           <template #prompt="{ row }">
-            <t-tooltip :content="row.prompt" placement="top">
-              <t-textarea :placeholder="$t('workbench.assets.batch.inputPh')" v-model="row.prompt" />
+            <t-tooltip :content="row.sourcePrompt ?? row.prompt" placement="top">
+              <t-textarea :placeholder="$t('workbench.assets.batch.inputPh')" :model-value="row.sourcePrompt ?? row.prompt" readonly />
             </t-tooltip>
           </template>
         </t-table>
@@ -119,7 +119,7 @@ const columns: TableProps["columns"] = [
   },
   {
     colKey: "prompt",
-    title: $t('workbench.assets.colPrompt'),
+    title: $t('workbench.assets.add.prompt'),
     minWidth: 200,
     align: "left",
     ellipsis: true,
@@ -133,6 +133,7 @@ interface AssetItem {
   name: string;
   image?: string;
   prompt: string;
+  sourcePrompt?: string;
   type?: string;
   describe?: string;
   filePath?: string;
@@ -265,19 +266,9 @@ async function onConfirm() {
         id: item.id,
         name: item.name,
         describe: item.describe ?? "",
-        type: item.type,
         remark: item.remark ?? "",
-        prompt: item.prompt,
+        prompt: item.sourcePrompt ?? item.prompt,
       });
-      if (item.filePath) {
-        await axios.post("/assets/saveAssets", {
-          id: item.id,
-          base64: "",
-          filePath: item.filePath,
-          prompt: item.prompt,
-          projectId: project.value!.id,
-        });
-      }
     });
 
     window.$message.success($t('workbench.assets.batch.saveSuccess'));
@@ -290,7 +281,7 @@ async function onConfirm() {
 }
 const textLoading = ref(false);
 const promptGenerateCancel = ref(false);
-// 生成提示词
+// 生成描述词，并请求后端返回最终生图提示词用于直发
 async function handleBatchGeneratePrompt() {
   const selectedAssets = tableData.value.filter((item) => selectedRowKeys.value.includes(item.id));
   if (selectedAssets.length === 0) {
@@ -319,20 +310,23 @@ async function handleBatchGeneratePrompt() {
 async function generatePrompt(data: AssetItem) {
   rowPromptLoading.value[data.id] = true;
   try {
-    const res = await axios.post("/assets/polishAssetsPrompt", {
+    const res = await axios.post("/assetsGenerate/polishAssetsPrompt", {
       projectId: project.value?.id,
       assetsId: data.id,
       type: props.type ?? "props",
       name: data.name,
       describe: data.describe ?? "",
+      responsePromptMode: "source",
     });
     const index = tableData.value.findIndex((item: AssetItem) => item.id === res.data.assetsId);
     if (index !== -1 && !promptGenerateCancel.value) {
-      tableData.value[index].prompt = res.data.prompt;
+      tableData.value[index].prompt = res.data.sourcePrompt ?? res.data.prompt;
+      tableData.value[index].sourcePrompt = res.data.sourcePrompt ?? res.data.prompt;
       // 同步更新 localData
       const localIndex = localData.value.findIndex((item: AssetItem) => item.id === res.data.assetsId);
       if (localIndex !== -1) {
-        localData.value[localIndex].prompt = res.data.prompt;
+        localData.value[localIndex].prompt = res.data.sourcePrompt ?? res.data.prompt;
+        localData.value[localIndex].sourcePrompt = res.data.sourcePrompt ?? res.data.prompt;
       }
     }
   } catch (e: any) {
@@ -350,8 +344,8 @@ async function handleBatchGenerateImage() {
     window.$message.warning($t('workbench.assets.selectAtLeastOne'));
     return;
   }
-  // 检查是否所有选中的资产都有提示词
-  const assetsWithoutPrompt = selectedAssets.filter((item) => !item.prompt || item.prompt.trim() === "");
+  // 检查是否所有选中的资产都有资产描述词
+  const assetsWithoutPrompt = selectedAssets.filter((item) => !(item.sourcePrompt ?? item.prompt)?.trim());
   if (assetsWithoutPrompt.length > 0) {
     window.$message.warning($t('workbench.assets.batch.missingPrompts', { count: assetsWithoutPrompt.length }));
     return;
@@ -368,7 +362,8 @@ async function handleBatchGenerateImage() {
           startGenerate({
             id: item.id,
             name: item.name,
-            prompt: item.prompt,
+            prompt: item.sourcePrompt ?? item.prompt,
+            describe: item.describe,
             type: props.type ?? "props",
           }),
         ),
@@ -384,17 +379,27 @@ async function handleBatchGenerateImage() {
     imageGenerateCancel.value = false;
   }
 }
-async function startGenerate(data: { id: number; prompt: string; name: string; type: string }) {
+function normalizeAssetType(type?: string): "role" | "scene" | "tool" {
+  if (type === "role" || type === "scene" || type === "tool") return type;
+  if (props.type === "role" || props.type === "scene" || props.type === "tool") return props.type;
+  return "tool";
+}
+
+async function startGenerate(data: { id: number; prompt: string; name: string; type: string; describe?: string }) {
   if (imageGenerateCancel.value) return;
   rowImageLoading.value[data.id] = true;
   try {
-    const res = await axios.post("/assets/generateAssets", {
-      type: data.type,
+    const res = await axios.post("/assetsGenerate/generateAssets", {
+      type: normalizeAssetType(data.type),
       projectId: project.value?.id,
       name: data.name,
       base64: undefined,
       prompt: data.prompt ?? "",
+      describe: data.describe ?? "",
       id: data.id,
+      model: project.value?.imageModel ?? "",
+      resolution: project.value?.imageQuality || "1K",
+      promptMode: "source",
     });
     if (!imageGenerateCancel.value) {
       const index = tableData.value.findIndex((item: AssetItem) => item.id === res.data.assetsId);
