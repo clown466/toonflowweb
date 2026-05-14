@@ -19,14 +19,14 @@
     </b>
   </p>
   <p align="center">
-    <a href="https://github.com/HBAI-Ltd/Toonflow-web/stargazers">
-      <img src="https://img.shields.io/github/stars/HBAI-Ltd/Toonflow-web?style=for-the-badge&logo=github" alt="Stars Badge" />
+    <a href="https://github.com/clown466/toonflowweb/stargazers">
+      <img src="https://img.shields.io/github/stars/clown466/toonflowweb?style=for-the-badge&logo=github" alt="Stars Badge" />
     </a>
     <a href="https://www.gnu.org/licenses/agpl-3.0" target="_blank">
       <img src="https://img.shields.io/badge/License-AGPL-blue.svg?style=for-the-badge" alt="AGPL License Badge" />
     </a>
-    <a href="https://github.com/HBAI-Ltd/Toonflow-web/releases">
-      <img alt="release" src="https://img.shields.io/github/v/release/HBAI-Ltd/Toonflow-web?style=for-the-badge" />
+    <a href="https://github.com/clown466/toonflowweb/releases">
+      <img alt="release" src="https://img.shields.io/github/v/release/clown466/toonflowweb?style=for-the-badge" />
     </a>
   </p>
   
@@ -43,8 +43,8 @@
 >
 > | Platform                                                                                                     | Link                                                                            |
 > | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-> | <img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white" alt="GitHub" /> | 👉 [github.com/HBAI-Ltd/Toonflow-app](https://github.com/HBAI-Ltd/Toonflow-app) |
-> | <img src="https://img.shields.io/badge/Gitee-C71D23?style=flat&logo=gitee&logoColor=white" alt="Gitee" />    | 👉 [gitee.com/HBAI-Ltd/Toonflow-app](https://gitee.com/HBAI-Ltd/Toonflow-app)   |
+> | <img src="https://img.shields.io/badge/GitHub-181717?style=flat&logo=github&logoColor=white" alt="GitHub" /> | 👉 [github.com/clown466/toonflowback](https://github.com/clown466/toonflowback) |
+> | <img src="https://img.shields.io/badge/Gitee-C71D23?style=flat&logo=gitee&logoColor=white" alt="Gitee" />    | 👉 [gitee.com/clown466/toonflowback](https://github.com/clown466/toonflowback)   |
 >
 > The main repository includes:
 >
@@ -122,7 +122,7 @@ Toonflow Web provides a complete frontend for short drama creation, including th
 
 | User Type                                   | Recommended Solution | GitHub                                                   | Gitee                                                   |
 | ------------------------------------------- | -------------------- | -------------------------------------------------------- | ------------------------------------------------------- |
-| 🎬 **Regular User** - Want to use Toonflow  | Download full client | [Toonflow-app](https://github.com/HBAI-Ltd/Toonflow-app) | [Toonflow-app](https://gitee.com/HBAI-Ltd/Toonflow-app) |
+| 🎬 **Regular User** - Want to use Toonflow  | Download full client | [Toonflow-app](https://github.com/clown466/toonflowback) | [Toonflow-app](https://github.com/clown466/toonflowback) |
 | 👨‍💻 **Developer** - Want to modify or extend | Continue reading     | This repository                                          | This repository                                         |
 
 ---
@@ -133,7 +133,7 @@ Before developing and running this project, please ensure you have installed:
 
 - ✅ **Node.js**: version 23.11.1 or above
 - ✅ **Yarn**: version 1.22.0 or above (recommended package manager)
-- ✅ **Backend service**: Make sure the Toonflow backend service is running and accessible (available from [GitHub](https://github.com/HBAI-Ltd/Toonflow-app) or [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-app))
+- ✅ **Backend service**: Make sure the Toonflow backend service is running and accessible (available from [GitHub](https://github.com/clown466/toonflowback) or [Gitee](https://github.com/clown466/toonflowback))
 
 ## Local Development
 
@@ -142,14 +142,14 @@ Before developing and running this project, please ensure you have installed:
 **GitHub:**
 
 ```bash
-git clone https://github.com/HBAI-Ltd/Toonflow-web.git
+git clone https://github.com/clown466/toonflowweb.git
 cd Toonflow-web
 ```
 
 **Gitee (recommended for China):**
 
 ```bash
-git clone https://gitee.com/HBAI-Ltd/Toonflow-web.git
+git clone https://github.com/clown466/toonflowweb.git
 cd Toonflow-web
 ```
 
@@ -227,7 +227,7 @@ server {
 
 Copy the contents of the built `dist` directory into the backend's static resources directory `scripts/web`.
 
-> 💡 **Note**: The backend service can be obtained from [GitHub](https://github.com/HBAI-Ltd/Toonflow-app) or [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-app).
+> 💡 **Note**: The backend service can be obtained from [GitHub](https://github.com/clown466/toonflowback) or [Gitee](https://github.com/clown466/toonflowback).
 
 ---
 
@@ -388,8 +388,8 @@ VITE_WS_URL=ws://127.0.0.1:10588
 
 **A:** Please go to the main repository to download the complete client:
 
-- **GitHub**: 👉 [Toonflow-app](https://github.com/HBAI-Ltd/Toonflow-app)
-- **Gitee**: 👉 [Toonflow-app](https://gitee.com/HBAI-Ltd/Toonflow-app)
+- **GitHub**: 👉 [Toonflow-app](https://github.com/clown466/toonflowback)
+- **Gitee**: 👉 [Toonflow-app](https://github.com/clown466/toonflowback)
 
 ---
 
@@ -397,8 +397,8 @@ VITE_WS_URL=ws://127.0.0.1:10588
 
 | Repository       | Description                        | GitHub                                             | Gitee                                            |
 | ---------------- | ---------------------------------- | -------------------------------------------------- | ------------------------------------------------ |
-| **Toonflow-app** | Complete client (recommended user) | [GitHub](https://github.com/HBAI-Ltd/Toonflow-app) | [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-app) |
-| **Toonflow-web** | Frontend source code (this repo)   | [GitHub](https://github.com/HBAI-Ltd/Toonflow-web) | [Gitee](https://gitee.com/HBAI-Ltd/Toonflow-web) |
+| **Toonflow-app** | Complete client (recommended user) | [GitHub](https://github.com/clown466/toonflowback) | [Gitee](https://github.com/clown466/toonflowback) |
+| **Toonflow-web** | Frontend source code (this repo)   | [GitHub](https://github.com/clown466/toonflowweb) | [Gitee](https://github.com/clown466/toonflowweb) |
 
 ---
 
@@ -439,7 +439,7 @@ If you wish to obtain a proprietary commercial license free from AGPL-3.0 restri
 
 # ⭐️ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=HBAI-Ltd/Toonflow-web&type=date&legend=top-left)](https://www.star-history.com/#HBAI-Ltd/Toonflow-web&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=clown466/toonflowweb&type=date&legend=top-left)](https://www.star-history.com/#clown466/toonflowweb&type=date&legend=top-left)
 
 ---
 
